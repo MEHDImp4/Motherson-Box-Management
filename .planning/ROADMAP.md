@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### Phase 2: Box Lifecycle & Home Lookup
 
-**Goal**: Allow creation of boxes with dimensions and expected count, display open boxes on the dashboard, and search/redirect via barcode on the homepage.
+**Goal**: As a Operator, I want to manage the box lifecycle by creating new packaging boxes and looking them up on the home dashboard, so that I can prepare them for scanning cable packages.
 **Mode**: mvp
 **Depends on**: Phase 1
 **Requirements**: BOX-01, BOX-02, BOX-03, BOX-04, BOX-05, BOX-07, BOX-08, HOME-01, HOME-02, HOME-03, HOME-04
