@@ -42,9 +42,10 @@ L'architecture suit le modèle standard ASP.NET Core MVC. Les responsabilités s
 
 ## 6. Règles métier critiques
 * **Distinctivité des codes-barres :** Les codes-barres des boxes et des packages doivent être différenciables par leur format.
-  * *Exemple de format :* `BOX-YYYYMMDD-XXXXXX` pour les boxes et `PKG-YYYYMMDD-XXXXXX` pour les packages de câbles.
+  * *Format :* `BOX-YYYYMMDD-XXXXXX` (où `XXXXXX` est un suffixe hexadécimal majuscule de 6 caractères) pour le numéro de box et son code-barres (qui sont identiques). Les packages de câbles commencent généralement par `PKG-` ou un format distinct sans le préfixe `BOX-`.
   * Tout scan d'un code box sur l'écran d'association de package doit être rejeté avec une erreur explicite.
   * Tout scan de package sur l'écran d'accueil ou de recherche de box doit être rejeté avec une erreur explicite.
+* **Dimensions en centimètres entiers :** Les dimensions des boxes (`Height`, `Width`, `Depth`) sont stockées sous forme d'entiers strictement positifs (`int`) représentant les centimètres. Les valeurs décimales, nulles ou négatives sont rejetées lors de la saisie et de la validation.
 * **Concurrence optimiste :** Les boxes doivent implémenter un mécanisme de concurrence optimiste (`RowVersion` / `byte[]` sous SQL Server) pour empêcher que deux opérateurs n'écrasent leurs modifications simultanément.
 * **Immutabilité de l'audit :** Aucun enregistrement dans `BoxAuditLogs` ne peut être modifié, mis à jour ou supprimé. L'accès en écriture se fait uniquement par ajout (Append-Only) via le contexte sécurisé.
 
@@ -61,7 +62,7 @@ Toutes les entités clés sont stockées dans des tables uniques.
 | Nom de l'entité | Table SQL | Propriétés clés | Relations & Contraintes |
 | :--- | :--- | :--- | :--- |
 | `User` | `Users` | `Id` (PK), `Matricule` (Unique), `PasswordHash`, `Role` (Enum/String), `IsActive` | - |
-| `Box` | `Boxes` | `Id` (PK), `BoxNumber` (Unique), `BarcodeValue` (Unique), `Type` (Enum: Carton, Bois, Plastique), `Height`, `Width`, `Depth`, `ExpectedQuantity`, `CurrentQuantity`, `Status` (Enum), `CreatedByUserId` (FK), `LastModifiedByUserId` (FK), `ClosedByUserId` (FK), `CreatedAt`, `UpdatedAt`, `ClosedAt`, `RowVersion` (ConcurrencyToken) | Relations avec `Users` (Créateur, Modificateur, Clôture) ; Relation One-to-Many avec `BoxPackages`. |
+| `Box` | `Boxes` | `Id` (PK), `BoxNumber` (Unique), `BarcodeValue` (Unique), `Type` (Enum: Carton, Bois, Plastique), `Height` (int), `Width` (int), `Depth` (int), `ExpectedQuantity`, `CurrentQuantity`, `Status` (Enum), `CreatedByUserId` (FK), `LastModifiedByUserId` (FK), `ClosedByUserId` (FK), `CreatedAt`, `UpdatedAt`, `ClosedAt`, `RowVersion` (ConcurrencyToken) | Relations avec `Users` (Créateur, Modificateur, Clôture) ; Relation One-to-Many avec `BoxPackages`. |
 | `BoxPackage` | `BoxPackages` | `Id` (PK), `BoxId` (FK), `PackageBarcode` (Unique SQL Global), `ScannedByUserId` (FK), `ScannedAt` | FK vers `Boxes`. **Contrainte d'unicité SQL stricte sur `PackageBarcode`** au niveau de la base pour interdire le double scan sur deux boxes différentes. |
 | `BoxAuditLog` | `BoxAuditLogs` | `Id` (PK), `BoxId` (FK, Nullable), `ActionType` (String), `UserId` (FK), `Timestamp`, `WorkstationName`, `DetailsJson` (Contient motif, valeurs avant/après, écarts, etc.) | Table append-only sans droits d'édition/suppression applicatifs. |
 
@@ -70,7 +71,8 @@ Cette section récapitule l'historique des migrations EF Core appliquées.
 
 | Nom de la migration | Objectif principal | Statut (Appliquée/En attente) | Impact sur les données | Rollback / Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `[À initialiser]` | Création des tables `Users`, `Boxes`, `BoxPackages`, `BoxAuditLogs` | En attente | Initialisation du schéma | - |
+| `20260702125840_InitialSchema` | Création des tables `Users`, `Boxes`, `BoxPackages`, `BoxAuditLogs` | Appliquée | Initialisation du schéma | - |
+| `20260702143042_UseIntegerBoxDimensions` | Conversion des dimensions `Height`, `Width` et `Depth` de la table `Boxes` de double (float) vers entier (int) | Appliquée | Conversion de colonnes | - |
 
 *Note réglementaire :* Aucun changement direct de schéma en base de données n'est toléré sans passer par une migration EF Core explicite.
 
