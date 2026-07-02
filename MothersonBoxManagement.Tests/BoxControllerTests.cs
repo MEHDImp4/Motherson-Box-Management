@@ -1,4 +1,6 @@
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
+using MothersonBoxManagement.Services;
 using Xunit;
 
 namespace MothersonBoxManagement.Tests;
@@ -235,5 +237,101 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Contains($"/Box/Details/{boxId}", response.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task Homepage_Autofocus_Exists()
+    {
+        var client = await LoginAsync();
+        var response = await client.GetAsync("/");
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("autofocus", content);
+    }
+
+    [Fact]
+    public async Task Homepage_Lookup_OpenBox_RedirectsToPrepare()
+    {
+        var client = await LoginAsync();
+        
+        var createForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("Type", "Carton"),
+            new KeyValuePair<string, string>("Height", "30"),
+            new KeyValuePair<string, string>("Width", "20"),
+            new KeyValuePair<string, string>("Depth", "15"),
+            new KeyValuePair<string, string>("ExpectedQuantity", "10")
+        });
+        var createResponse = await client.PostAsync("/Box/Create", createForm);
+        var location = createResponse.Headers.Location?.OriginalString!;
+        var boxId = location.Split('/').Last();
+        
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByIdAsync(int.Parse(boxId));
+        var barcode = box!.BarcodeValue;
+
+        var lookupForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("Barcode", barcode)
+        });
+        var response = await client.PostAsync("/", lookupForm);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains($"/Box/Prepare/{boxId}", response.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task Homepage_Lookup_NonOpenBox_RedirectsToDetails()
+    {
+        var client = await LoginAsync();
+        
+        var createForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("Type", "Carton"),
+            new KeyValuePair<string, string>("Height", "30"),
+            new KeyValuePair<string, string>("Width", "20"),
+            new KeyValuePair<string, string>("Depth", "15"),
+            new KeyValuePair<string, string>("ExpectedQuantity", "1")
+        });
+        var createResponse = await client.PostAsync("/Box/Create", createForm);
+        var location = createResponse.Headers.Location?.OriginalString!;
+        var boxId = location.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByIdAsync(int.Parse(boxId));
+        var barcode = box!.BarcodeValue;
+
+        var scanForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("boxId", boxId),
+            new KeyValuePair<string, string>("barcode", "PKG-LKP-001")
+        });
+        await client.PostAsync("/Box/Scan", scanForm);
+
+        var lookupForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("Barcode", barcode)
+        });
+        var response = await client.PostAsync("/", lookupForm);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains($"/Box/Details/{boxId}", response.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task Homepage_Lookup_PackageBarcode_Warning()
+    {
+        var client = await LoginAsync();
+
+        var lookupForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("Barcode", "PKG-123456")
+        });
+        var response = await client.PostAsync("/", lookupForm);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("This is a package barcode, not a box barcode", content);
     }
 }

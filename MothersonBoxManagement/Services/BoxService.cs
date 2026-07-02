@@ -73,7 +73,9 @@ public class BoxService : IBoxService
                 Status = b.Status,
                 CreatedAt = b.CreatedAt,
                 UpdatedAt = b.UpdatedAt,
-                CreatedByMatricule = b.CreatedBy.Matricule
+                CreatedByMatricule = b.CreatedBy.Matricule,
+                LastUpdatedAt = b.UpdatedAt ?? b.CreatedAt,
+                LastUserMatricule = b.LastModifiedBy != null ? b.LastModifiedBy.Matricule : b.CreatedBy.Matricule
             })
             .ToListAsync(cancellationToken);
     }

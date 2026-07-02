@@ -1,33 +1,35 @@
-@using MothersonBoxManagement.Data.Dtos
+@model MothersonBoxManagement.ViewModels.HomeViewModel
 @{
     ViewData["Title"] = "Accueil";
-    var openBoxes = ViewBag.OpenBoxes as List<BoxListItemDto> ?? new List<BoxListItemDto>();
-    var error = ViewBag.Error as string;
 }
 
 <div class="container mt-4">
     <div class="row justify-content-center mb-4">
         <div class="col-md-8 text-center">
-            <h1 style="font-weight: 600; font-size: 32px;">Bienvenue, @ViewBag.Matricule (@ViewBag.Role)</h1>
+            <h1 style="font-weight: 600; font-size: 32px;">Bienvenue, @Model.Matricule (@Model.Role)</h1>
         </div>
     </div>
 
     <div class="row justify-content-center mb-4">
         <div class="col-md-6">
             <form asp-action="Index" method="post" class="input-group">
-                <input type="text" name="barcode" class="form-control" placeholder="Scanner ou taper un code-barres box..." autofocus />
+                <input asp-for="Barcode" type="text" class="form-control" placeholder="Scanner ou taper un code-barres box..." autofocus />
                 <button type="submit" class="btn" style="background-color: #0f52ba; color: #fff;">Rechercher</button>
             </form>
-            @if (!string.IsNullOrEmpty(error))
+            @if (!string.IsNullOrEmpty(Model.Error))
             {
-                <div class="text-danger mt-2" style="color: #df2c3f !important;">@error</div>
+                <div class="text-danger mt-2" style="color: #df2c3f !important;">@Model.Error</div>
+            }
+            @if (!string.IsNullOrEmpty(Model.Warning))
+            {
+                <div class="text-warning mt-2" style="color: #ff9800 !important;">@Model.Warning</div>
             }
         </div>
     </div>
 
     <h2 class="mb-3" style="font-weight: 600; font-size: 24px;">Boxes ouvertes</h2>
 
-    @if (openBoxes.Count == 0)
+    @if (Model.OpenBoxes.Count == 0)
     {
         <div class="text-center text-muted py-5">
             <p>Aucune box ouverte. <a asp-controller="Box" asp-action="Create">Créer une box</a></p>
@@ -35,29 +37,57 @@
     }
     else
     {
-        <div class="row g-3">
-            @foreach (var box in openBoxes)
-            {
-                var progress = box.ExpectedQuantity > 0 ? (int)((double)box.CurrentQuantity / box.ExpectedQuantity * 100) : 0;
-                var progressColor = progress >= 100 ? "bg-success" : progress > 50 ? "bg-warning" : "bg-primary";
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Numéro de Box</th>
+                        <th>Type</th>
+                        <th>Progression</th>
+                        <th>Dernière mise à jour</th>
+                        <th>Dernier opérateur</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var box in Model.OpenBoxes)
+                    {
+                        var progress = box.ExpectedQuantity > 0 ? (int)((double)box.CurrentQuantity / box.ExpectedQuantity * 100) : 0;
+                        var progressColor = progress >= 100 ? "bg-success" : progress > 50 ? "bg-warning" : "bg-primary";
 
-                <div class="col-md-6 col-lg-4">
-                    <a asp-controller="Box" asp-action="Details" asp-route-id="@box.Id" class="text-decoration-none">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
-                                <h5 class="card-title" style="font-weight: 600;">@box.BoxNumber</h5>
-                                <p class="card-text text-muted small mb-2">@box.Type - Créé par @box.CreatedByMatricule</p>
-                                <div class="progress mb-2" style="height: 8px;">
-                                    <div class="progress-bar @progressColor" style="width: @progress%;"></div>
+                        <tr>
+                            <td><strong>@box.BoxNumber</strong></td>
+                            <td>@box.Type</td>
+                            <td style="min-width: 150px;">
+                                <div class="progress" style="height: 18px;">
+                                    <div class="progress-bar @progressColor" style="width: @progress%;">
+                                        @box.CurrentQuantity / @box.ExpectedQuantity
+                                    </div>
                                 </div>
-                                <small class="text-muted">@box.CurrentQuantity / @box.ExpectedQuantity paquets</small>
-                                <br />
-                                <small class="text-muted">@box.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-            }
+                            </td>
+                            <td>@box.LastUpdatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@box.LastUserMatricule</td>
+                            <td>
+                                <a asp-controller="Box" asp-action="Prepare" asp-route-id="@box.Id" class="btn btn-sm btn-primary" style="background-color: #0f52ba; border-color: #0f52ba;">Préparer</a>
+                                <a asp-controller="Box" asp-action="Details" asp-route-id="@box.Id" class="btn btn-sm btn-outline-secondary">Détails</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     }
 </div>
+
+@section Scripts {
+    <script>
+        // Auto-refresh the dashboard every 30 seconds (D-05)
+        setInterval(function () {
+            var activeElement = document.activeElement;
+            var barcodeInput = document.getElementById("Barcode");
+            if (activeElement !== barcodeInput || (barcodeInput && barcodeInput.value === "")) {
+                location.reload();
+            }
+        }, 30000);
+    </script>
+}

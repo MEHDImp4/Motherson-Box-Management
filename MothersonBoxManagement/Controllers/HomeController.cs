@@ -1,9 +1,13 @@
 using System.Diagnostics;
 using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MothersonBoxManagement.Entities;
 using MothersonBoxManagement.Models;
 using MothersonBoxManagement.Services;
+using MothersonBoxManagement.ViewModels;
 
 namespace MothersonBoxManagement.Controllers;
 
@@ -19,36 +23,63 @@ public class HomeController : Controller
         _boxService = boxService;
     }
 
-    public async Task<IActionResult> Index()
+    [HttpGet]
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        ViewBag.Matricule = User.FindFirst("Matricule")?.Value;
-        ViewBag.Role = User.FindFirst(ClaimTypes.Role)?.Value;
-        ViewBag.OpenBoxes = await _boxService.GetOpenBoxesAsync();
-        ViewBag.Error = TempData["Error"] as string;
-        return View();
+        var model = new HomeViewModel
+        {
+            Matricule = User.FindFirst("Matricule")?.Value,
+            Role = User.FindFirst(ClaimTypes.Role)?.Value,
+            OpenBoxes = await _boxService.GetOpenBoxesAsync(cancellationToken),
+            Error = TempData["Error"] as string
+        };
+        return View(model);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Index(string barcode)
+    public async Task<IActionResult> Index(HomeViewModel postModel, CancellationToken cancellationToken)
     {
+        var matricule = User.FindFirst("Matricule")?.Value;
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        var openBoxes = await _boxService.GetOpenBoxesAsync(cancellationToken);
+
+        var model = new HomeViewModel
+        {
+            Matricule = matricule,
+            Role = role,
+            OpenBoxes = openBoxes,
+            Barcode = postModel.Barcode
+        };
+
+        var barcode = postModel.Barcode?.Trim();
+
         if (string.IsNullOrWhiteSpace(barcode))
         {
-            ViewBag.Error = "Veuillez entrer un code-barres.";
-            ViewBag.OpenBoxes = await _boxService.GetOpenBoxesAsync();
-            return View();
+            model.Error = "Veuillez entrer un code-barres.";
+            return View(model);
         }
 
-        var box = await _boxService.GetBoxByBarcodeAsync(barcode);
+        if (!barcode.StartsWith("BOX-", StringComparison.OrdinalIgnoreCase))
+        {
+            model.Warning = "This is a package barcode, not a box barcode. Use the preparation screen to scan packages.";
+            return View(model);
+        }
+
+        var box = await _boxService.GetBoxByBarcodeAsync(barcode, cancellationToken);
         if (box is null)
         {
-            ViewBag.Error = "Aucune box trouvée avec ce code-barres.";
-            ViewBag.OpenBoxes = await _boxService.GetOpenBoxesAsync();
-            ViewBag.Matricule = User.FindFirst("Matricule")?.Value;
-            ViewBag.Role = User.FindFirst(ClaimTypes.Role)?.Value;
-            return View();
+            model.Error = "No box found with this barcode.";
+            return View(model);
         }
 
-        return RedirectToAction("Details", "Box", new { id = box.Id });
+        if (box.Status == BoxStatus.Open)
+        {
+            return RedirectToAction("Prepare", "Box", new { id = box.Id });
+        }
+        else
+        {
+            return RedirectToAction("Details", "Box", new { id = box.Id });
+        }
     }
 
     public IActionResult Privacy()

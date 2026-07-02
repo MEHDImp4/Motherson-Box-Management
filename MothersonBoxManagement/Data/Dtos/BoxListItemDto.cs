@@ -14,4 +14,6 @@ public class BoxListItemDto
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public string CreatedByMatricule { get; set; } = string.Empty;
+    public DateTime LastUpdatedAt { get; set; }
+    public string LastUserMatricule { get; set; } = string.Empty;
 }
