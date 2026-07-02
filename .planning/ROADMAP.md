@@ -51,11 +51,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. User can scan/type a box barcode on the homepage and be immediately redirected to its details view (or preparation page if open).
   5. Scans of non-open boxes display them in read-only mode.
 
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 Plans:
 
 - [x] 02-01-PLAN.md — Workflow status gate and integer box creation schema.
-- [ ] 02-02-PLAN.md — Box identity, creator metadata, details, and prepare route.
+- [x] 02-02-PLAN.md — Box identity, creator metadata, details, and prepare route.
 - [ ] 02-03-PLAN.md — Home dashboard table and barcode lookup redirects.
 - [ ] 02-04-PLAN.md — Regression coverage, documentation, and TODO completion.
 
@@ -115,7 +115,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Database & Auth Setup | 1/1 | Planned | 2026-07-02 |
-| 2. Box Lifecycle & Home Lookup | 1/4 | In Progress|  |
+| 2. Box Lifecycle & Home Lookup | 2/4 | In Progress|  |
 | 3. Barcode Scan Integration | 0/1 | Not started | - |
 | 4. Supervisor Exceptions | 0/1 | Not started | - |
 | 5. Verification & Hardening | 0/1 | Not started | - |

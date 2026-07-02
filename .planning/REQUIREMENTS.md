@@ -18,10 +18,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **BOX-01**: User can create a new box by selecting Carton, Bois, or Plastique type.
 - [x] **BOX-02**: User must enter box dimensions (Height, Width, Depth) as positive values in cm.
 - [x] **BOX-03**: User must define the expected packages quantity as an integer strictly greater than zero.
-- [ ] **BOX-04**: System must generate a unique box number (e.g., BOX-YYYYMMDD-XXXXXX) and unique barcode value.
-- [ ] **BOX-05**: Box creation registers the creator's matricule and timestamp.
+- [x] **BOX-04**: System must generate a unique box number (e.g., BOX-YYYYMMDD-XXXXXX) and unique barcode value.
+- [x] **BOX-05**: Box creation registers the creator's matricule and timestamp.
 - [ ] **BOX-06**: Box status automatically transitions to Completed when the scanned quantity equals the expected quantity.
-- [ ] **BOX-07**: Box detail screen displays properties, associated packages, progress statistics, and historical logs.
+- [x] **BOX-07**: Box detail screen displays properties, associated packages, progress statistics, and historical logs.
 - [ ] **BOX-08**: Dashboard displays all open boxes with progress bars, quantities, last update timestamp, and last user.
 
 ### Barcode Scan
@@ -86,10 +86,10 @@ Explicitly excluded. Documented to prevent scope creep.
 | BOX-01 | Phase 2 | Complete |
 | BOX-02 | Phase 2 | Complete |
 | BOX-03 | Phase 2 | Complete |
-| BOX-04 | Phase 2 | Pending |
-| BOX-05 | Phase 2 | Pending |
+| BOX-04 | Phase 2 | Complete |
+| BOX-05 | Phase 2 | Complete |
 | BOX-06 | Phase 3 | Pending |
-| BOX-07 | Phase 2 | Pending |
+| BOX-07 | Phase 2 | Complete |
 | BOX-08 | Phase 2 | Pending |
 | SCAN-01 | Phase 3 | Pending |
 | SCAN-02 | Phase 3 | Pending |
