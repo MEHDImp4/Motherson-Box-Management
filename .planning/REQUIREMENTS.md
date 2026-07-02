@@ -22,7 +22,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **BOX-05**: Box creation registers the creator's matricule and timestamp.
 - [ ] **BOX-06**: Box status automatically transitions to Completed when the scanned quantity equals the expected quantity.
 - [x] **BOX-07**: Box detail screen displays properties, associated packages, progress statistics, and historical logs.
-- [ ] **BOX-08**: Dashboard displays all open boxes with progress bars, quantities, last update timestamp, and last user.
+- [x] **BOX-08**: Dashboard displays all open boxes with progress bars, quantities, last update timestamp, and last user.
 
 ### Barcode Scan
 
@@ -35,10 +35,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Homepage Direct Scan
 
-- [ ] **HOME-01**: Homepage features a dedicated box barcode input field.
-- [ ] **HOME-02**: Scan of a valid open box barcode from homepage directly opens the package scanning screen.
-- [ ] **HOME-03**: Scan of a closed, cancelled, or archived box barcode opens its detail screen in read-only mode.
-- [ ] **HOME-04**: Input of package barcodes in box search displays an explicit warning.
+- [x] **HOME-01**: Homepage features a dedicated box barcode input field.
+- [x] **HOME-02**: Scan of a valid open box barcode from homepage directly opens the package scanning screen.
+- [x] **HOME-03**: Scan of a closed, cancelled, or archived box barcode opens its detail screen in read-only mode.
+- [x] **HOME-04**: Input of package barcodes in box search displays an explicit warning.
 
 ### Audit Trail & Logs
 
@@ -90,7 +90,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | BOX-05 | Phase 2 | Complete |
 | BOX-06 | Phase 3 | Pending |
 | BOX-07 | Phase 2 | Complete |
-| BOX-08 | Phase 2 | Pending |
+| BOX-08 | Phase 2 | Complete |
 | SCAN-01 | Phase 3 | Pending |
 | SCAN-02 | Phase 3 | Pending |
 | SCAN-03 | Phase 3 | Pending |
@@ -98,10 +98,10 @@ Explicitly excluded. Documented to prevent scope creep.
 | SCAN-05 | Phase 3 | Pending |
 | SCAN-06 | Phase 3 | Pending |
 | SIM-01 | Phase 3 | Pending |
-| HOME-01 | Phase 2 | Pending |
-| HOME-02 | Phase 2 | Pending |
-| HOME-03 | Phase 2 | Pending |
-| HOME-04 | Phase 2 | Pending |
+| HOME-01 | Phase 2 | Complete |
+| HOME-02 | Phase 2 | Complete |
+| HOME-03 | Phase 2 | Complete |
+| HOME-04 | Phase 2 | Complete |
 | AUDIT-01 | Phase 4 | Pending |
 | AUDIT-02 | Phase 4 | Pending |
 | AUDIT-03 | Phase 4 | Pending |
