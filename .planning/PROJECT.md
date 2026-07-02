@@ -12,18 +12,17 @@ Ensure absolute traceability of packaging boxes and guarantee that no cable pack
 
 ### Validated
 
-(None yet — ship to validate)
+- [Phase 1] Connect with a unique ID (matricule) and password for roles: Operator, Supervisor, and Administrator.
+- [Phase 2] Create boxes specifying their type (Carton, Bois, Plastique), dimensions (Height, Width, Depth), and expected quantity of packages.
+- [Phase 2] Generate unique box numbers and barcode values distinguishable from package formats.
+- [Phase 2] Direct access to a box's details and preparation screen by scanning its barcode from the homepage.
 
 ### Active
 
-- [ ] Connect with a unique ID (matricule) and password for roles: Operator, Supervisor, and Administrator.
-- [ ] Create boxes specifying their type (Carton, Bois, Plastique), dimensions (Height, Width, Depth), and expected quantity of packages.
-- [ ] Generate unique box numbers and barcode values distinguishable from package formats.
 - [ ] Scan cable package barcodes via a USB scanner (simulating keyboard input) to associate them with the open box, performing real-time uniqueness and quantity limits checks.
 - [ ] Automatically close a box (set status to Completed) when the expected package count is reached.
 - [ ] Allow supervisors and administrators to perform exceptional operations: cancel a box, close with an exception (Completed with deviation), block/unblock a box or package, and transfer packages between boxes.
 - [ ] Retain an immutable audit trail of all sensitive operations (creation, scan, exception, transfer, blocking, etc.) tracking previous/new values, reasons, and workstation names.
-- [ ] Direct access to a box's details and preparation screen by scanning its barcode from the homepage.
 - [ ] Provide a dedicated virtual barcode scanner simulator in the UI to facilitate testing without physical hardware.
 
 ### Out of Scope

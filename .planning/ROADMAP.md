@@ -13,7 +13,7 @@ Phase Numbering:
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Database & Authentication** - Project setup, EF Core migrations, and role-based Cookie Authentication.
+- [x] **Phase 1: Database & Authentication** - Project setup, EF Core migrations, and role-based Cookie Authentication. (completed 2026-07-02)
 - [x] **Phase 2: Box Lifecycle & Home Lookup** - Box creation, dashboard, status tracking, and homepage search lookup. (completed 2026-07-02)
 - [ ] **Phase 3: Barcode Scan Integration & Simulator** - Keyboard wedge scanning listeners, uniqueness constraints, and a mock test panel.
 - [ ] **Phase 4: Supervisor Exceptions & Audit Trail** - SaveChangesInterceptor audit trail logging and supervisor quarantine, block, cancellation, and transfer workflows.
@@ -114,8 +114,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Database & Auth Setup | 1/1 | Planned | 2026-07-02 |
+| 1. Database & Auth Setup | 1/1 | Complete | 2026-07-02 |
 | 2. Box Lifecycle & Home Lookup | 4/4 | Complete   | 2026-07-02 |
-| 3. Barcode Scan Integration | 0/1 | Not started | - |
+| 3. Barcode Scan Integration | 0/1 | Planned | - |
 | 4. Supervisor Exceptions | 0/1 | Not started | - |
 | 5. Verification & Hardening | 0/1 | Not started | - |
