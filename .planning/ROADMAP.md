@@ -14,7 +14,7 @@ Phase Numbering:
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Database & Authentication** - Project setup, EF Core migrations, and role-based Cookie Authentication.
-- [ ] **Phase 2: Box Lifecycle & Home Lookup** - Box creation, dashboard, status tracking, and homepage search lookup.
+- [x] **Phase 2: Box Lifecycle & Home Lookup** - Box creation, dashboard, status tracking, and homepage search lookup. (completed 2026-07-02)
 - [ ] **Phase 3: Barcode Scan Integration & Simulator** - Keyboard wedge scanning listeners, uniqueness constraints, and a mock test panel.
 - [ ] **Phase 4: Supervisor Exceptions & Audit Trail** - SaveChangesInterceptor audit trail logging and supervisor quarantine, block, cancellation, and transfer workflows.
 - [ ] **Phase 5: Verification & Hardening** - Integration verification, double-scan concurrency testing, and security hardening.
@@ -51,13 +51,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. User can scan/type a box barcode on the homepage and be immediately redirected to its details view (or preparation page if open).
   5. Scans of non-open boxes display them in read-only mode.
 
-**Plans**: 3/4 plans executed
+**Plans**: 4/4 plans complete
 Plans:
 
 - [x] 02-01-PLAN.md — Workflow status gate and integer box creation schema.
 - [x] 02-02-PLAN.md — Box identity, creator metadata, details, and prepare route.
 - [x] 02-03-PLAN.md — Home dashboard table and barcode lookup redirects.
-- [ ] 02-04-PLAN.md — Regression coverage, documentation, and TODO completion.
+- [x] 02-04-PLAN.md — Regression coverage, documentation, and TODO completion.
 
 **UI hint**: yes
 
@@ -115,7 +115,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Database & Auth Setup | 1/1 | Planned | 2026-07-02 |
-| 2. Box Lifecycle & Home Lookup | 3/4 | In Progress|  |
+| 2. Box Lifecycle & Home Lookup | 4/4 | Complete   | 2026-07-02 |
 | 3. Barcode Scan Integration | 0/1 | Not started | - |
 | 4. Supervisor Exceptions | 0/1 | Not started | - |
 | 5. Verification & Hardening | 0/1 | Not started | - |
