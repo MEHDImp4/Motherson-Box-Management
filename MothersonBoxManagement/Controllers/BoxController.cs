@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MothersonBoxManagement.Data.Dtos;
@@ -25,7 +27,7 @@ public class BoxController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(CreateBoxViewModel model)
+    public async Task<IActionResult> Create(CreateBoxViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return View(model);
@@ -41,14 +43,14 @@ public class BoxController : Controller
             ExpectedQuantity = model.ExpectedQuantity
         };
 
-        var box = await _boxService.CreateBoxAsync(dto, userId);
+        var box = await _boxService.CreateBoxAsync(dto, userId, cancellationToken);
         return RedirectToAction("Details", new { id = box.Id });
     }
 
     [HttpGet]
-    public async Task<IActionResult> Details(int id)
+    public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
     {
-        var box = await _boxService.GetBoxByIdAsync(id);
+        var box = await _boxService.GetBoxByIdAsync(id, cancellationToken);
         if (box is null)
             return NotFound();
 
@@ -56,12 +58,27 @@ public class BoxController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> ByBarcode(string barcode)
+    public async Task<IActionResult> Prepare(int id, CancellationToken cancellationToken)
+    {
+        var box = await _boxService.GetBoxByIdAsync(id, cancellationToken);
+        if (box is null)
+            return NotFound();
+
+        if (box.Status != BoxStatus.Open)
+        {
+            return RedirectToAction("Details", new { id = box.Id });
+        }
+
+        return View(box);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ByBarcode(string barcode, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(barcode))
             return RedirectToAction("Index", "Home");
 
-        var box = await _boxService.GetBoxByBarcodeAsync(barcode);
+        var box = await _boxService.GetBoxByBarcodeAsync(barcode, cancellationToken);
         if (box is null)
         {
             TempData["Error"] = "Aucune box trouvée avec ce code-barres.";
@@ -72,22 +89,22 @@ public class BoxController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> Scan(int boxId, string barcode)
+    public async Task<IActionResult> Scan(int boxId, string barcode, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(barcode))
         {
             TempData["ScanError"] = "Aucun code-barres fourni.";
-            return RedirectToAction("Details", new { id = boxId });
+            return RedirectToAction("Prepare", new { id = boxId });
         }
 
         var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var result = await _boxService.ScanPackageAsync(boxId, barcode, userId);
+        var result = await _boxService.ScanPackageAsync(boxId, barcode, userId, cancellationToken);
 
         if (result.Success)
             TempData["ScanSuccess"] = result.Message;
         else
             TempData["ScanError"] = result.Message;
 
-        return RedirectToAction("Details", new { id = boxId });
+        return RedirectToAction("Prepare", new { id = boxId });
     }
 }

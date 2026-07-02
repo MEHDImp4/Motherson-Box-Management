@@ -168,6 +168,72 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
         var content = await detailsResponse.Content.ReadAsStringAsync();
 
         Assert.Contains("BOX-", content);
-        Assert.Contains("BX-", content);
+    }
+
+    [Fact]
+    public async Task BoxPrepare_OpenBox_ReturnsOk()
+    {
+        var client = await LoginAsync();
+
+        var createForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("Type", "Carton"),
+            new KeyValuePair<string, string>("Height", "30"),
+            new KeyValuePair<string, string>("Width", "20"),
+            new KeyValuePair<string, string>("Depth", "15"),
+            new KeyValuePair<string, string>("ExpectedQuantity", "10")
+        });
+        var createResponse = await client.PostAsync("/Box/Create", createForm);
+        var location = createResponse.Headers.Location?.OriginalString!;
+        var boxId = location.Split('/').Last();
+
+        var response = await client.GetAsync($"/Box/Prepare/{boxId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Préparation", content);
+    }
+
+    [Fact]
+    public async Task BoxPrepare_NonexistentBox_ReturnsNotFound()
+    {
+        var client = await LoginAsync();
+
+        var response = await client.GetAsync("/Box/Prepare/99999");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task BoxPrepare_NonOpenBox_RedirectsToDetails()
+    {
+        var client = await LoginAsync();
+
+        // Create box
+        var createForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("Type", "Carton"),
+            new KeyValuePair<string, string>("Height", "30"),
+            new KeyValuePair<string, string>("Width", "20"),
+            new KeyValuePair<string, string>("Depth", "15"),
+            new KeyValuePair<string, string>("ExpectedQuantity", "1") // quantity 1 so 1 scan completes it
+        });
+        var createResponse = await client.PostAsync("/Box/Create", createForm);
+        var location = createResponse.Headers.Location?.OriginalString!;
+        var boxId = location.Split('/').Last();
+
+        // Scan 1 item to complete the box
+        var scanForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("boxId", boxId),
+            new KeyValuePair<string, string>("barcode", "PKG-TEST-COMPLETION")
+        });
+        await client.PostAsync("/Box/Scan", scanForm);
+
+        // Prepare should redirect to Details now since box is completed (not open)
+        var response = await client.GetAsync($"/Box/Prepare/{boxId}");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains($"/Box/Details/{boxId}", response.Headers.Location?.OriginalString);
     }
 }

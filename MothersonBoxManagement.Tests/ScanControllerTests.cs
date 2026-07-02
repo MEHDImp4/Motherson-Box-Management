@@ -106,7 +106,7 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
         var scanForm = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string, string>("boxId", boxId),
-            new KeyValuePair<string, string>("barcode", "BX-SOMETHING")
+            new KeyValuePair<string, string>("barcode", "BOX-SOMETHING")
         });
 
         var response = await client.PostAsync("/Box/Scan", scanForm);

@@ -2,6 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Data.Dtos;
 using MothersonBoxManagement.Entities;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MothersonBoxManagement.Services;
 
@@ -14,15 +19,26 @@ public class BoxService : IBoxService
         _context = context;
     }
 
-    public async Task<BoxDetailsDto> CreateBoxAsync(CreateBoxDto dto, int userId)
+    public async Task<BoxDetailsDto> CreateBoxAsync(CreateBoxDto dto, int userId, CancellationToken cancellationToken = default)
     {
-        var boxNumber = $"BOX-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(100000, 999999)}";
-        var barcode = $"BX-{boxNumber}";
+        string boxIdentifier = "";
+        bool exists = true;
+        int retries = 0;
+        while (exists && retries < 10)
+        {
+            boxIdentifier = $"BOX-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(0, 16777216):X6}";
+            exists = await _context.Boxes.AnyAsync(b => b.BoxNumber == boxIdentifier || b.BarcodeValue == boxIdentifier, cancellationToken);
+            retries++;
+        }
+        if (exists)
+        {
+            throw new InvalidOperationException("Failed to generate a unique box identifier after 10 attempts.");
+        }
 
         var box = new Box
         {
-            BoxNumber = boxNumber,
-            BarcodeValue = barcode,
+            BoxNumber = boxIdentifier,
+            BarcodeValue = boxIdentifier,
             Type = dto.Type,
             Height = dto.Height,
             Width = dto.Width,
@@ -35,13 +51,13 @@ public class BoxService : IBoxService
         };
 
         _context.Boxes.Add(box);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
 
-        return await GetBoxByIdAsync(box.Id)
+        return await GetBoxByIdAsync(box.Id, cancellationToken)
             ?? throw new InvalidOperationException("Box was not persisted.");
     }
 
-    public async Task<List<BoxListItemDto>> GetOpenBoxesAsync()
+    public async Task<List<BoxListItemDto>> GetOpenBoxesAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Boxes
             .Where(b => b.Status == BoxStatus.Open)
@@ -59,10 +75,10 @@ public class BoxService : IBoxService
                 UpdatedAt = b.UpdatedAt,
                 CreatedByMatricule = b.CreatedBy.Matricule
             })
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
-    public async Task<BoxDetailsDto?> GetBoxByBarcodeAsync(string barcode)
+    public async Task<BoxDetailsDto?> GetBoxByBarcodeAsync(string barcode, CancellationToken cancellationToken = default)
     {
         return await _context.Boxes
             .Include(b => b.CreatedBy)
@@ -70,10 +86,10 @@ public class BoxService : IBoxService
                 .ThenInclude(p => p.ScannedBy)
             .Where(b => b.BarcodeValue == barcode)
             .Select(MapToDetailsDto())
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<BoxDetailsDto?> GetBoxByIdAsync(int id)
+    public async Task<BoxDetailsDto?> GetBoxByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _context.Boxes
             .Include(b => b.CreatedBy)
@@ -81,21 +97,21 @@ public class BoxService : IBoxService
                 .ThenInclude(p => p.ScannedBy)
             .Where(b => b.Id == id)
             .Select(MapToDetailsDto())
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<ScanResult> ScanPackageAsync(int boxId, string barcode, int userId)
+    public async Task<ScanResult> ScanPackageAsync(int boxId, string barcode, int userId, CancellationToken cancellationToken = default)
     {
-        if (barcode.StartsWith("BX-", StringComparison.OrdinalIgnoreCase))
+        if (barcode.StartsWith("BOX-", StringComparison.OrdinalIgnoreCase))
             return new ScanResult { Success = false, Message = "Les codes-barres de box ne peuvent pas être scannés comme paquets." };
 
         var isDuplicate = await _context.BoxPackages
-            .AnyAsync(bp => bp.PackageBarcode == barcode);
+            .AnyAsync(bp => bp.PackageBarcode == barcode, cancellationToken);
 
         if (isDuplicate)
             return new ScanResult { Success = false, Message = "Ce code-barres paquet a déjà été scanné." };
 
-        var box = await _context.Boxes.FindAsync(boxId);
+        var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, cancellationToken);
 
         if (box is null)
             return new ScanResult { Success = false, Message = "Box introuvable." };
@@ -126,9 +142,9 @@ public class BoxService : IBoxService
             box.ClosedByUserId = userId;
         }
 
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
 
-        var updatedBox = await GetBoxByIdAsync(boxId);
+        var updatedBox = await GetBoxByIdAsync(boxId, cancellationToken);
         var msg = box.Status == BoxStatus.Completed
             ? "Scan réussi ! Box complétée automatiquement."
             : $"Scan réussi ! {box.CurrentQuantity}/{box.ExpectedQuantity} paquets.";
