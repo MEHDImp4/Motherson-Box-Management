@@ -1,6 +1,6 @@
-# GEMINI.md — Instructions pour l'Agent IA Gemini
+# CLAUDE.md — Instructions pour l'Agent IA Claude
 
-Ce fichier définit les directives et les règles de développement strictes que l'agent Gemini doit suivre lors de ses interventions sur le projet **Motherson Box Management**.
+Ce fichier définit les directives et les règles de développement strictes que l'agent Claude doit suivre lors de ses interventions sur le projet **Motherson Box Management**.
 
 ## 1. Conventions de code C# et ASP.NET Core MVC
 * **Style de nommage :**
