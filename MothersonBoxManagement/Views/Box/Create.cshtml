@@ -1,0 +1,58 @@
+@model MothersonBoxManagement.ViewModels.CreateBoxViewModel
+@{
+    ViewData["Title"] = "Créer une box";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h2 style="font-weight: 600; font-size: 24px;" class="mb-4">Créer une box</h2>
+
+                    <form asp-action="Create" method="post">
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="color: #df2c3f !important;"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Type" class="form-label" style="font-size: 14px;">Type de box</label>
+                            <select asp-for="Type" class="form-select" asp-items="Html.GetEnumSelectList<MothersonBoxManagement.Entities.BoxType>()">
+                                <option value="">-- Sélectionner --</option>
+                            </select>
+                            <span asp-validation-for="Type" class="text-danger" style="color: #df2c3f !important; font-size: 14px;"></span>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label asp-for="Height" class="form-label" style="font-size: 14px;">Hauteur (cm)</label>
+                                <input asp-for="Height" type="number" step="1" min="1" class="form-control" placeholder="0" />
+                                <span asp-validation-for="Height" class="text-danger" style="color: #df2c3f !important; font-size: 14px;"></span>
+                            </div>
+                            <div class="col">
+                                <label asp-for="Width" class="form-label" style="font-size: 14px;">Largeur (cm)</label>
+                                <input asp-for="Width" type="number" step="1" min="1" class="form-control" placeholder="0" />
+                                <span asp-validation-for="Width" class="text-danger" style="color: #df2c3f !important; font-size: 14px;"></span>
+                            </div>
+                            <div class="col">
+                                <label asp-for="Depth" class="form-label" style="font-size: 14px;">Profondeur (cm)</label>
+                                <input asp-for="Depth" type="number" step="1" min="1" class="form-control" placeholder="0" />
+                                <span asp-validation-for="Depth" class="text-danger" style="color: #df2c3f !important; font-size: 14px;"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="ExpectedQuantity" class="form-label" style="font-size: 14px;">Quantité attendue</label>
+                            <input asp-for="ExpectedQuantity" type="number" min="1" class="form-control" placeholder="0" />
+                            <span asp-validation-for="ExpectedQuantity" class="text-danger" style="color: #df2c3f !important; font-size: 14px;"></span>
+                        </div>
+
+                        <button type="submit" class="btn w-100" style="background-color: #0f52ba; color: #fff; font-weight: 600;">Créer la box</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
