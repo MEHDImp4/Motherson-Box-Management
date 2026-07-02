@@ -16,10 +16,10 @@
 | **TSK-004** | Phase 1 | Migrations EF Core initiales et script de Seed (Utilisateurs et Rôles) | DECISION-03 | P0 | `Backlog` | Agent | 2026-07-02 | Doit pré-seed les rôles et users de test | `/Migrations` |
 | **TSK-005** | Phase 1 | Authentification par matricule / mot de passe (Cookie Auth) | AUTH-01, AUTH-02 | P0 | `Backlog` | Agent | 2026-07-02 | Session persistante requise | `AccountController.cs` |
 | **TSK-006** | Phase 1 | Gestion et contrôle d'accès par rôles (Opérateur, Superviseur, Admin) | AUTH-03 | P0 | `Backlog` | Agent | 2026-07-02 | Filtres d'autorisation MVC | `[Authorize(Roles = "...")]` |
-| **TSK-007** | Phase 2 | Création de box (Type, Dimensions, Qté attendue) | BOX-01 | P1 | `Backlog` | Agent | 2026-07-02 | Statut initial "Open" obligatoire | `BoxController.cs` |
-| **TSK-008** | Phase 2 | Génération des numéros et codes-barres uniques de boxes | BOX-02, BOX-03 | P1 | `Backlog` | Agent | 2026-07-02 | Doit être distinct des codes packages | `IBoxService` |
-| **TSK-009** | Phase 2 | Tableau de bord des boxes ouvertes et progression | BOX-07, BOX-08 | P1 | `Backlog` | Agent | 2026-07-02 | Vue récapitulative | `HomeController.cs` |
-| **TSK-010** | Phase 2 | Accès direct par scan de box sur la page d'accueil | HOME-01, HOME-02 | P1 | `Backlog` | Agent | 2026-07-02 | Recherche dans `Boxes.BarcodeValue` | Champ de scan distinct |
+| **TSK-007** | Phase 2 / Plan 02-01 | Création de box (Type, Dimensions, Qté attendue) | BOX-01 | P1 | `En cours` | Agent | 2026-07-02 | Statut initial "Open" obligatoire | `BoxController.cs` |
+| **TSK-008** | Phase 2 / Plan 02-02 | Génération des numéros et codes-barres uniques de boxes | BOX-02, BOX-03 | P1 | `En cours` | Agent | 2026-07-02 | Doit être distinct des codes packages | `IBoxService` |
+| **TSK-009** | Phase 2 / Plan 02-03 | Tableau de bord des boxes ouvertes et progression | BOX-07, BOX-08 | P1 | `En cours` | Agent | 2026-07-02 | Vue récapitulative | `HomeController.cs` |
+| **TSK-010** | Phase 2 / Plan 02-03 | Accès direct par scan de box sur la page d'accueil | HOME-01, HOME-02 | P1 | `En cours` | Agent | 2026-07-02 | Recherche dans `Boxes.BarcodeValue` | Champ de scan distinct |
 | **TSK-011** | Phase 3 | Écran de préparation de box et simulateur de scan virtuel | SIM-01 | P1 | `Backlog` | Agent | 2026-07-02 | Panel de simulation dans l'UI | `Views/Box/Prepare.cshtml` |
 | **TSK-012** | Phase 3 | Scan et affectation des packages de câbles (USB Wedge / JS listener) | SCAN-01, SCAN-02 | P1 | `Backlog` | Agent | 2026-07-02 | Doit intercepter la saisie | Script JS scanner |
 | **TSK-013** | Phase 3 | Validation d'unicité et distinction des formats de codes-barres | SCAN-04, SCAN-05 | P0 | `Backlog` | Agent | 2026-07-02 | Rejeter codes boxes sur scan package et vice versa | `IScanService` |
