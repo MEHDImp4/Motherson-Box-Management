@@ -1,0 +1,32 @@
+@model int
+
+<div class="card mt-3 bg-light">
+    <div class="card-body">
+        <h6 style="font-weight: 600;">Simulateur de scan</h6>
+        <p class="small text-muted">Generez des codes-barres de test et scannez-les directement.</p>
+        <form asp-action="Scan" method="post" id="simForm" class="row g-2">
+            <input type="hidden" name="boxId" value="@Model" />
+            <input type="hidden" name="barcode" id="simBarcode" value="" />
+            <div class="col-md-4">
+                <label class="form-label small">Prefixe</label>
+                <input type="text" id="simPrefix" class="form-control form-control-sm" value="PKG-TEST-" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Nombre</label>
+                <input type="number" id="simCount" class="form-control form-control-sm" value="1" min="1" max="10" />
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="doSimScan()">Generer et scanner</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function doSimScan() {
+        var prefix = document.getElementById('simPrefix').value;
+        var barcode = prefix + Date.now();
+        document.getElementById('simBarcode').value = barcode;
+        document.getElementById('simForm').submit();
+    }
+</script>

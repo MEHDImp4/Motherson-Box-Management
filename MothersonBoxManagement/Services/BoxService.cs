@@ -1,0 +1,166 @@
+using Microsoft.EntityFrameworkCore;
+using MothersonBoxManagement.Data;
+using MothersonBoxManagement.Data.Dtos;
+using MothersonBoxManagement.Entities;
+
+namespace MothersonBoxManagement.Services;
+
+public class BoxService : IBoxService
+{
+    private readonly ApplicationDbContext _context;
+
+    public BoxService(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<BoxDetailsDto> CreateBoxAsync(CreateBoxDto dto, int userId)
+    {
+        var boxNumber = $"BOX-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(100000, 999999)}";
+        var barcode = $"BX-{boxNumber}";
+
+        var box = new Box
+        {
+            BoxNumber = boxNumber,
+            BarcodeValue = barcode,
+            Type = dto.Type,
+            Height = dto.Height,
+            Width = dto.Width,
+            Depth = dto.Depth,
+            ExpectedQuantity = dto.ExpectedQuantity,
+            CurrentQuantity = 0,
+            Status = BoxStatus.Open,
+            CreatedByUserId = userId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Boxes.Add(box);
+        await _context.SaveChangesAsync();
+
+        return await GetBoxByIdAsync(box.Id)
+            ?? throw new InvalidOperationException("Box was not persisted.");
+    }
+
+    public async Task<List<BoxListItemDto>> GetOpenBoxesAsync()
+    {
+        return await _context.Boxes
+            .Where(b => b.Status == BoxStatus.Open)
+            .OrderByDescending(b => b.CreatedAt)
+            .Select(b => new BoxListItemDto
+            {
+                Id = b.Id,
+                BoxNumber = b.BoxNumber,
+                BarcodeValue = b.BarcodeValue,
+                Type = b.Type,
+                ExpectedQuantity = b.ExpectedQuantity,
+                CurrentQuantity = b.CurrentQuantity,
+                Status = b.Status,
+                CreatedAt = b.CreatedAt,
+                UpdatedAt = b.UpdatedAt,
+                CreatedByMatricule = b.CreatedBy.Matricule
+            })
+            .ToListAsync();
+    }
+
+    public async Task<BoxDetailsDto?> GetBoxByBarcodeAsync(string barcode)
+    {
+        return await _context.Boxes
+            .Include(b => b.CreatedBy)
+            .Include(b => b.Packages)
+                .ThenInclude(p => p.ScannedBy)
+            .Where(b => b.BarcodeValue == barcode)
+            .Select(MapToDetailsDto())
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<BoxDetailsDto?> GetBoxByIdAsync(int id)
+    {
+        return await _context.Boxes
+            .Include(b => b.CreatedBy)
+            .Include(b => b.Packages)
+                .ThenInclude(p => p.ScannedBy)
+            .Where(b => b.Id == id)
+            .Select(MapToDetailsDto())
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<ScanResult> ScanPackageAsync(int boxId, string barcode, int userId)
+    {
+        if (barcode.StartsWith("BX-", StringComparison.OrdinalIgnoreCase))
+            return new ScanResult { Success = false, Message = "Les codes-barres de box ne peuvent pas être scannés comme paquets." };
+
+        var isDuplicate = await _context.BoxPackages
+            .AnyAsync(bp => bp.PackageBarcode == barcode);
+
+        if (isDuplicate)
+            return new ScanResult { Success = false, Message = "Ce code-barres paquet a déjà été scanné." };
+
+        var box = await _context.Boxes.FindAsync(boxId);
+
+        if (box is null)
+            return new ScanResult { Success = false, Message = "Box introuvable." };
+
+        if (box.Status != BoxStatus.Open)
+            return new ScanResult { Success = false, Message = "Cette box n'est pas ouverte aux scans." };
+
+        if (box.CurrentQuantity >= box.ExpectedQuantity)
+            return new ScanResult { Success = false, Message = "La quantité attendue est déjà atteinte." };
+
+        var package = new BoxPackage
+        {
+            BoxId = boxId,
+            PackageBarcode = barcode,
+            ScannedByUserId = userId,
+            ScannedAt = DateTime.UtcNow
+        };
+
+        _context.BoxPackages.Add(package);
+        box.CurrentQuantity++;
+        box.UpdatedAt = DateTime.UtcNow;
+        box.LastModifiedByUserId = userId;
+
+        if (box.CurrentQuantity >= box.ExpectedQuantity)
+        {
+            box.Status = BoxStatus.Completed;
+            box.ClosedAt = DateTime.UtcNow;
+            box.ClosedByUserId = userId;
+        }
+
+        await _context.SaveChangesAsync();
+
+        var updatedBox = await GetBoxByIdAsync(boxId);
+        var msg = box.Status == BoxStatus.Completed
+            ? "Scan réussi ! Box complétée automatiquement."
+            : $"Scan réussi ! {box.CurrentQuantity}/{box.ExpectedQuantity} paquets.";
+
+        return new ScanResult { Success = true, Message = msg, Box = updatedBox };
+    }
+
+    private static System.Linq.Expressions.Expression<System.Func<Box, BoxDetailsDto>> MapToDetailsDto()
+    {
+        return b => new BoxDetailsDto
+        {
+            Id = b.Id,
+            BoxNumber = b.BoxNumber,
+            BarcodeValue = b.BarcodeValue,
+            Type = b.Type,
+            Height = b.Height,
+            Width = b.Width,
+            Depth = b.Depth,
+            ExpectedQuantity = b.ExpectedQuantity,
+            CurrentQuantity = b.CurrentQuantity,
+            Status = b.Status,
+            CreatedByMatricule = b.CreatedBy.Matricule,
+            CreatedAt = b.CreatedAt,
+            UpdatedAt = b.UpdatedAt,
+            ClosedAt = b.ClosedAt,
+            Packages = b.Packages.Select(p => new PackageItemDto
+            {
+                Id = p.Id,
+                PackageBarcode = p.PackageBarcode,
+                ScannedAt = p.ScannedAt,
+                ScannedByMatricule = p.ScannedBy.Matricule
+            }).ToList()
+        };
+    }
+}

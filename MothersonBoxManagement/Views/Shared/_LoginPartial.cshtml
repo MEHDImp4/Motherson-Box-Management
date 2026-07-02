@@ -1,0 +1,9 @@
+@using System.Security.Claims
+
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <span class="navbar-text me-2">
+        @User.FindFirst("Matricule")?.Value
+    </span>
+    <a class="btn btn-outline-secondary btn-sm" asp-controller="Account" asp-action="Logout">Se déconnecter</a>
+}
