@@ -4,7 +4,6 @@
     var progress = Model.ExpectedQuantity > 0 ? (int)((double)Model.CurrentQuantity / Model.ExpectedQuantity * 100) : 0;
     var successMsg = TempData["ScanSuccess"] as string;
     var errorMsg = TempData["ScanError"] as string;
-    var showSimulator = Context.Request.Query.ContainsKey("simulator");
 }
 
 <div class="container mt-4">
@@ -52,7 +51,7 @@
                     </div>
 
                     <h5 class="mt-4" style="font-weight: 600;">Progression</h5>
-                    <div class="progress mt-2" style="height: 24px;">
+                    <div class="progress mt-2 @(TempData["ScanSuccess"] != null ? "pulse-success" : "")" style="height: 24px;">
                         <div class="progress-bar @(progress >= 100 ? "bg-success" : "bg-primary")" style="width: @progress%; font-size:14px;">
                             @Model.CurrentQuantity / @Model.ExpectedQuantity
                         </div>
@@ -67,19 +66,18 @@
                         <input type="hidden" name="boxId" value="@Model.Id" />
                         <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
                         <div class="input-group">
-                            <input type="text" name="barcode" class="form-control" placeholder="Scanner ou taper un code-barres paquet..." autofocus />
-                            <button type="submit" class="btn" style="background-color: #0f52ba; color: #fff;">Scanner</button>
+                            <input type="text" name="barcode" class="form-control" placeholder="@(Model.Status == MothersonBoxManagement.Entities.BoxStatus.Completed ? "Box complétée" : "Scanner ou taper un code-barres paquet...")" @(Model.Status != MothersonBoxManagement.Entities.BoxStatus.Open || Model.CurrentQuantity >= Model.ExpectedQuantity ? "disabled" : "") minlength="3" autofocus />
+                            <button type="submit" class="btn" style="background-color: #0f52ba; color: #fff;" @(Model.Status != MothersonBoxManagement.Entities.BoxStatus.Open || Model.CurrentQuantity >= Model.ExpectedQuantity ? "disabled" : "")>Scanner</button>
                         </div>
                     </form>
 
                     <div class="mt-3">
-                        <a href="?simulator=1" class="btn btn-sm btn-outline-secondary">Ouvrir le simulateur</a>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleSimulator(event)">Ouvrir le simulateur</button>
                     </div>
 
-                    @if (showSimulator)
-                    {
+                    <div id="simulatorContainer" style="display: none;">
                         <partial name="_SimulatorPanel" model="Model" />
-                    }
+                    </div>
                 </div>
             </div>
 
@@ -113,3 +111,19 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        function toggleSimulator(event) {
+            var container = document.getElementById('simulatorContainer');
+            var btn = event.currentTarget || event.target;
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                btn.textContent = 'Fermer le simulateur';
+            } else {
+                container.style.display = 'none';
+                btn.textContent = 'Ouvrir le simulateur';
+            }
+        }
+    </script>
+}

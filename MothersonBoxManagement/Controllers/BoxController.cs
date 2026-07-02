@@ -99,6 +99,12 @@ public class BoxController : Controller
             return RedirectToAction("Prepare", new { barcode = boxBarcode });
         }
 
+        if (barcode.Trim().Length < 3)
+        {
+            TempData["ScanError"] = "Le code-barres doit contenir au moins 3 caractères.";
+            return RedirectToAction("Prepare", new { barcode = boxBarcode });
+        }
+
         var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var result = await _boxService.ScanPackageAsync(boxId, barcode, userId, cancellationToken);
 

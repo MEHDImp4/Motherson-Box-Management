@@ -185,4 +185,33 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
     }
+
+    [Fact]
+    public async Task ScanPackage_TooShortBarcode_ReturnsError()
+    {
+        var client = await LoginAsync();
+        var (_, detailsUrl) = await CreateAndOpenBox(client);
+        var boxBarcode = detailsUrl.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
+
+        var scanForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
+            new KeyValuePair<string, string>("barcode", "12")
+        });
+
+        var response = await client.PostAsync("/Box/Scan", scanForm);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        
+        var redirectUrl = response.Headers.Location?.OriginalString;
+        var detailsResponse = await client.GetAsync(redirectUrl!);
+        var content = await detailsResponse.Content.ReadAsStringAsync();
+        var decodedContent = System.Net.WebUtility.HtmlDecode(content);
+        Assert.Contains("Le code-barres doit contenir au moins 3 caractères.", decodedContent);
+    }
 }

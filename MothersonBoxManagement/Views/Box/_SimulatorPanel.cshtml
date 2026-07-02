@@ -17,17 +17,49 @@
                 <input type="number" id="simCount" class="form-control form-control-sm" value="1" min="1" max="10" />
             </div>
             <div class="col-md-4 d-flex align-items-end">
-                <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="doSimScan()">Generer et scanner</button>
+                <button type="button" id="simSubmitBtn" class="btn btn-sm btn-outline-primary w-100" onclick="doSimScan()">Générer et scanner</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-    function doSimScan() {
+    async function doSimScan() {
         var prefix = document.getElementById('simPrefix').value;
-        var barcode = prefix + Date.now();
-        document.getElementById('simBarcode').value = barcode;
-        document.getElementById('simForm').submit();
+        var count = parseInt(document.getElementById('simCount').value) || 1;
+        if (count < 1) count = 1;
+        if (count > 10) count = 10;
+
+        var form = document.getElementById('simForm');
+        var boxId = form.querySelector('input[name="boxId"]').value;
+        var boxBarcode = form.querySelector('input[name="boxBarcode"]').value;
+        var button = document.getElementById('simSubmitBtn');
+
+        button.disabled = true;
+
+        for (var i = 0; i < count; i++) {
+            var barcode = prefix + Date.now() + "-" + (i + 1);
+            button.textContent = "Scan " + (i + 1) + "/" + count + "...";
+
+            var formData = new FormData();
+            formData.append('boxId', boxId);
+            formData.append('boxBarcode', boxBarcode);
+            formData.append('barcode', barcode);
+
+            try {
+                await fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                });
+            } catch (e) {
+                console.error(e);
+            }
+
+            if (i < count - 1) {
+                await new Promise(r => setTimeout(r, 200));
+            }
+        }
+
+        window.location.reload();
     }
 </script>
