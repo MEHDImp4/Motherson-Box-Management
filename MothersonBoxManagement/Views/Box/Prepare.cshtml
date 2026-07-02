@@ -65,6 +65,7 @@
                     <h5 style="font-weight: 600;">Scanner un paquet</h5>
                     <form asp-action="Scan" method="post">
                         <input type="hidden" name="boxId" value="@Model.Id" />
+                        <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
                         <div class="input-group">
                             <input type="text" name="barcode" class="form-control" placeholder="Scanner ou taper un code-barres paquet..." autofocus />
                             <button type="submit" class="btn" style="background-color: #0f52ba; color: #fff;">Scanner</button>
@@ -77,7 +78,7 @@
 
                     @if (showSimulator)
                     {
-                        <partial name="_SimulatorPanel" model="Model.Id" />
+                        <partial name="_SimulatorPanel" model="Model" />
                     }
                 </div>
             </div>

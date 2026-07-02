@@ -68,8 +68,8 @@
                             <td>@box.LastUpdatedAt.ToString("dd/MM/yyyy HH:mm")</td>
                             <td>@box.LastUserMatricule</td>
                             <td>
-                                <a asp-controller="Box" asp-action="Prepare" asp-route-id="@box.Id" class="btn btn-sm btn-primary" style="background-color: #0f52ba; border-color: #0f52ba;">Préparer</a>
-                                <a asp-controller="Box" asp-action="Details" asp-route-id="@box.Id" class="btn btn-sm btn-outline-secondary">Détails</a>
+                                <a asp-controller="Box" asp-action="Prepare" asp-route-barcode="@box.BarcodeValue" class="btn btn-sm btn-primary" style="background-color: #0f52ba; border-color: #0f52ba;">Préparer</a>
+                                <a asp-controller="Box" asp-action="Details" asp-route-barcode="@box.BarcodeValue" class="btn btn-sm btn-outline-secondary">Détails</a>
                             </td>
                         </tr>
                     }

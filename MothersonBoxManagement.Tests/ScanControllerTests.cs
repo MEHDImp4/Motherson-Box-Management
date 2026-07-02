@@ -1,4 +1,6 @@
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
+using MothersonBoxManagement.Services;
 using Xunit;
 
 namespace MothersonBoxManagement.Tests;
@@ -52,10 +54,16 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var client = await LoginAsync();
         var (_, detailsUrl) = await CreateAndOpenBox(client);
+        var boxBarcode = detailsUrl.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
 
         var scanForm = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("boxId", detailsUrl.Split('/').Last()),
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
             new KeyValuePair<string, string>("barcode", "PKG-001")
         });
 
@@ -73,18 +81,24 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var client = await LoginAsync();
         var (_, detailsUrl) = await CreateAndOpenBox(client);
-        var boxId = detailsUrl.Split('/').Last();
+        var boxBarcode = detailsUrl.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
 
         var scan = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("boxId", boxId),
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
             new KeyValuePair<string, string>("barcode", "PKG-DUP-001")
         });
         await client.PostAsync("/Box/Scan", scan);
 
         var scan2 = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("boxId", boxId),
+            new KeyValuePair<string, string>("boxId", box.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
             new KeyValuePair<string, string>("barcode", "PKG-DUP-001")
         });
         var response2 = await client.PostAsync("/Box/Scan", scan2);
@@ -101,11 +115,16 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var client = await LoginAsync();
         var (_, detailsUrl) = await CreateAndOpenBox(client);
-        var boxId = detailsUrl.Split('/').Last();
+        var boxBarcode = detailsUrl.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
 
         var scanForm = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("boxId", boxId),
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
             new KeyValuePair<string, string>("barcode", "BOX-SOMETHING")
         });
 
@@ -122,13 +141,18 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var client = await LoginAsync();
         var (_, detailsUrl) = await CreateAndOpenBox(client);
-        var boxId = detailsUrl.Split('/').Last();
+        var boxBarcode = detailsUrl.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
 
         for (int i = 1; i <= 3; i++)
         {
             var scanForm = new FormUrlEncodedContent(new[]
             {
-                new KeyValuePair<string, string>("boxId", boxId),
+                new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+                new KeyValuePair<string, string>("boxBarcode", boxBarcode),
                 new KeyValuePair<string, string>("barcode", $"PKG-AUTO-{i}")
             });
             await client.PostAsync("/Box/Scan", scanForm);
@@ -144,11 +168,16 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var client = await LoginAsync();
         var (_, detailsUrl) = await CreateAndOpenBox(client);
-        var boxId = detailsUrl.Split('/').Last();
+        var boxBarcode = detailsUrl.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
 
         var scanForm = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("boxId", boxId),
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
             new KeyValuePair<string, string>("barcode", "")
         });
 

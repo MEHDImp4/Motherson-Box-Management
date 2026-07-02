@@ -44,13 +44,14 @@ public class BoxController : Controller
         };
 
         var box = await _boxService.CreateBoxAsync(dto, userId, cancellationToken);
-        return RedirectToAction("Details", new { id = box.Id });
+        return RedirectToAction("Details", new { barcode = box.BarcodeValue });
     }
 
     [HttpGet]
-    public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
+    [Route("Box/Details/{barcode}")]
+    public async Task<IActionResult> Details(string barcode, CancellationToken cancellationToken)
     {
-        var box = await _boxService.GetBoxByIdAsync(id, cancellationToken);
+        var box = await _boxService.GetBoxByBarcodeAsync(barcode, cancellationToken);
         if (box is null)
             return NotFound();
 
@@ -58,15 +59,16 @@ public class BoxController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Prepare(int id, CancellationToken cancellationToken)
+    [Route("Box/Prepare/{barcode}")]
+    public async Task<IActionResult> Prepare(string barcode, CancellationToken cancellationToken)
     {
-        var box = await _boxService.GetBoxByIdAsync(id, cancellationToken);
+        var box = await _boxService.GetBoxByBarcodeAsync(barcode, cancellationToken);
         if (box is null)
             return NotFound();
 
         if (box.Status != BoxStatus.Open)
         {
-            return RedirectToAction("Details", new { id = box.Id });
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
 
         return View(box);
@@ -85,16 +87,16 @@ public class BoxController : Controller
             return RedirectToAction("Index", "Home");
         }
 
-        return RedirectToAction("Details", new { id = box.Id });
+        return RedirectToAction("Details", new { barcode = box.BarcodeValue });
     }
 
     [HttpPost]
-    public async Task<IActionResult> Scan(int boxId, string barcode, CancellationToken cancellationToken)
+    public async Task<IActionResult> Scan(int boxId, string boxBarcode, string barcode, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(barcode))
         {
             TempData["ScanError"] = "Aucun code-barres fourni.";
-            return RedirectToAction("Prepare", new { id = boxId });
+            return RedirectToAction("Prepare", new { barcode = boxBarcode });
         }
 
         var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -105,6 +107,6 @@ public class BoxController : Controller
         else
             TempData["ScanError"] = result.Message;
 
-        return RedirectToAction("Prepare", new { id = boxId });
+        return RedirectToAction("Prepare", new { barcode = boxBarcode });
     }
 }

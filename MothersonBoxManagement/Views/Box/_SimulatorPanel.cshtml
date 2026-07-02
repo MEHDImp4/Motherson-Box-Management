@@ -1,11 +1,12 @@
-@model int
+@model MothersonBoxManagement.Data.Dtos.BoxDetailsDto
 
 <div class="card mt-3 bg-light">
     <div class="card-body">
         <h6 style="font-weight: 600;">Simulateur de scan</h6>
-        <p class="small text-muted">Generez des codes-barres de test et scannez-les directement.</p>
+        <p class="small text-muted">Générez des codes-barres de test et scannez-les directement.</p>
         <form asp-action="Scan" method="post" id="simForm" class="row g-2">
-            <input type="hidden" name="boxId" value="@Model" />
+            <input type="hidden" name="boxId" value="@Model.Id" />
+            <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
             <input type="hidden" name="barcode" id="simBarcode" value="" />
             <div class="col-md-4">
                 <label class="form-label small">Prefixe</label>

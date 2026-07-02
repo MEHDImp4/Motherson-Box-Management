@@ -222,21 +222,26 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
         });
         var createResponse = await client.PostAsync("/Box/Create", createForm);
         var location = createResponse.Headers.Location?.OriginalString!;
-        var boxId = location.Split('/').Last();
+        var boxBarcode = location.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
 
         // Scan 1 item to complete the box
         var scanForm = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("boxId", boxId),
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
             new KeyValuePair<string, string>("barcode", "PKG-TEST-COMPLETION")
         });
         await client.PostAsync("/Box/Scan", scanForm);
 
         // Prepare should redirect to Details now since box is completed (not open)
-        var response = await client.GetAsync($"/Box/Prepare/{boxId}");
+        var response = await client.GetAsync($"/Box/Prepare/{boxBarcode}");
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains($"/Box/Details/{boxId}", response.Headers.Location?.OriginalString);
+        Assert.Contains($"/Box/Details/{boxBarcode}", response.Headers.Location?.OriginalString);
     }
 
     [Fact]
@@ -263,21 +268,16 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
         });
         var createResponse = await client.PostAsync("/Box/Create", createForm);
         var location = createResponse.Headers.Location?.OriginalString!;
-        var boxId = location.Split('/').Last();
+        var boxBarcode = location.Split('/').Last();
         
-        using var scope = _factory.Services.CreateScope();
-        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
-        var box = await boxService.GetBoxByIdAsync(int.Parse(boxId));
-        var barcode = box!.BarcodeValue;
-
         var lookupForm = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("Barcode", barcode)
+            new KeyValuePair<string, string>("Barcode", boxBarcode)
         });
         var response = await client.PostAsync("/", lookupForm);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains($"/Box/Prepare/{boxId}", response.Headers.Location?.OriginalString);
+        Assert.Contains($"/Box/Prepare/{boxBarcode}", response.Headers.Location?.OriginalString);
     }
 
     [Fact]
@@ -295,28 +295,28 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
         });
         var createResponse = await client.PostAsync("/Box/Create", createForm);
         var location = createResponse.Headers.Location?.OriginalString!;
-        var boxId = location.Split('/').Last();
+        var boxBarcode = location.Split('/').Last();
 
         using var scope = _factory.Services.CreateScope();
         var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
-        var box = await boxService.GetBoxByIdAsync(int.Parse(boxId));
-        var barcode = box!.BarcodeValue;
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
 
         var scanForm = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("boxId", boxId),
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
             new KeyValuePair<string, string>("barcode", "PKG-LKP-001")
         });
         await client.PostAsync("/Box/Scan", scanForm);
 
         var lookupForm = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("Barcode", barcode)
+            new KeyValuePair<string, string>("Barcode", boxBarcode)
         });
         var response = await client.PostAsync("/", lookupForm);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains($"/Box/Details/{boxId}", response.Headers.Location?.OriginalString);
+        Assert.Contains($"/Box/Details/{boxBarcode}", response.Headers.Location?.OriginalString);
     }
 
     [Fact]

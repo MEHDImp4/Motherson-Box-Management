@@ -74,11 +74,11 @@ public class HomeController : Controller
 
         if (box.Status == BoxStatus.Open)
         {
-            return RedirectToAction("Prepare", "Box", new { id = box.Id });
+            return RedirectToAction("Prepare", "Box", new { barcode = box.BarcodeValue });
         }
         else
         {
-            return RedirectToAction("Details", "Box", new { id = box.Id });
+            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
         }
     }
 
