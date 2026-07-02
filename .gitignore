@@ -1,0 +1,25 @@
+# Build folders
+[Bb]in/
+[Oo]bj/
+
+# IDE files
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userfiles
+
+# Front-end folders
+node_modules/
