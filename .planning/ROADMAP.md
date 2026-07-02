@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User session persists across browser refresh.
   4. Invalid credentials display a generic login error message.
 
-**Plans**: 01-PLAN.md (verified)
+**Plans**: 1/1 plans complete
 **UI hint**: yes
 
 ### Phase 2: Box Lifecycle & Home Lookup
@@ -53,6 +53,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Plans**: 4/4 plans complete
 Plans:
+
+- [ ] 01-PLAN.md
 
 - [x] 02-01-PLAN.md — Workflow status gate and integer box creation schema.
 - [x] 02-02-PLAN.md — Box identity, creator metadata, details, and prepare route.
@@ -114,7 +116,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Database & Auth Setup | 1/1 | Complete | 2026-07-02 |
+| 1. Database & Auth Setup | 1/1 | Complete   | 2026-07-02 |
 | 2. Box Lifecycle & Home Lookup | 4/4 | Complete   | 2026-07-02 |
 | 3. Barcode Scan Integration | 0/1 | Planned | - |
 | 4. Supervisor Exceptions | 0/1 | Not started | - |
