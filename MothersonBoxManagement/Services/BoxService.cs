@@ -26,7 +26,7 @@ public class BoxService : IBoxService
         int retries = 0;
         while (exists && retries < 10)
         {
-            boxIdentifier = $"BOX-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(0, 16777216):X6}";
+            boxIdentifier = $"BOX-{DateTime.Now:yyyyMMdd}-{Random.Shared.Next(0, 16777216):X6}";
             exists = await _context.Boxes.AnyAsync(b => b.BoxNumber == boxIdentifier || b.BarcodeValue == boxIdentifier, cancellationToken);
             retries++;
         }
@@ -47,7 +47,7 @@ public class BoxService : IBoxService
             CurrentQuantity = 0,
             Status = BoxStatus.Open,
             CreatedByUserId = userId,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now
         };
 
         _context.Boxes.Add(box);
@@ -129,18 +129,18 @@ public class BoxService : IBoxService
             BoxId = boxId,
             PackageBarcode = barcode,
             ScannedByUserId = userId,
-            ScannedAt = DateTime.UtcNow
+            ScannedAt = DateTime.Now
         };
 
         _context.BoxPackages.Add(package);
         box.CurrentQuantity++;
-        box.UpdatedAt = DateTime.UtcNow;
+        box.UpdatedAt = DateTime.Now;
         box.LastModifiedByUserId = userId;
 
         if (box.CurrentQuantity >= box.ExpectedQuantity)
         {
             box.Status = BoxStatus.Completed;
-            box.ClosedAt = DateTime.UtcNow;
+            box.ClosedAt = DateTime.Now;
             box.ClosedByUserId = userId;
         }
 
