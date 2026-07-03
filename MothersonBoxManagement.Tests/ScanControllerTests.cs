@@ -1,5 +1,9 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using MothersonBoxManagement.Data;
+using MothersonBoxManagement.Entities;
 using MothersonBoxManagement.Services;
 using Xunit;
 
@@ -213,5 +217,210 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
         var content = await detailsResponse.Content.ReadAsStringAsync();
         var decodedContent = System.Net.WebUtility.HtmlDecode(content);
         Assert.Contains("Le code-barres doit contenir au moins 3 caractères.", decodedContent);
+    }
+
+    [Fact]
+    public async Task ScanOnCompletedBox_Rejected()
+    {
+        var client = await LoginAsync();
+        var (_, detailsUrl) = await CreateAndOpenBox(client);
+        var boxBarcode = detailsUrl.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
+
+        var testRunId = Guid.NewGuid().ToString("N")[..6];
+
+        // Scan 3 packages to auto-complete the box (ExpectedQuantity is 3)
+        for (int i = 1; i <= 3; i++)
+        {
+            var scanForm = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+                new KeyValuePair<string, string>("boxBarcode", boxBarcode),
+                new KeyValuePair<string, string>("barcode", $"PKG-AUTO-{testRunId}-{i}")
+            });
+            await client.PostAsync("/Box/Scan", scanForm);
+        }
+
+        // Try to scan a 4th package
+        var scan4 = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
+            new KeyValuePair<string, string>("barcode", $"PKG-EXTRA-{testRunId}")
+        });
+        var response = await client.PostAsync("/Box/Scan", scan4);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+
+        // Follow the first redirect: from Scan to Prepare (which redirects again to Details)
+        var redirectUrl1 = response.Headers.Location?.OriginalString;
+        var responsePrepare = await client.GetAsync(redirectUrl1!);
+        Assert.Equal(HttpStatusCode.Redirect, responsePrepare.StatusCode);
+
+        // Follow the second redirect: from Prepare to Details
+        var redirectUrl2 = responsePrepare.Headers.Location?.OriginalString;
+        var detailsResponse = await client.GetAsync(redirectUrl2!);
+        Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+
+        var content = await detailsResponse.Content.ReadAsStringAsync();
+        var decodedContent = System.Net.WebUtility.HtmlDecode(content);
+        Assert.Contains("n'est pas ouverte aux scans", decodedContent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ScanOnNonExistentBox_ReturnsError()
+    {
+        var client = await LoginAsync();
+
+        var scanForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("boxId", "99999"),
+            new KeyValuePair<string, string>("boxBarcode", "BOX-FAKE"),
+            new KeyValuePair<string, string>("barcode", "PKG-TEST-123")
+        });
+
+        var response = await client.PostAsync("/Box/Scan", scanForm);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+
+        var redirectUrl = response.Headers.Location?.OriginalString;
+        var detailsResponse = await client.GetAsync(redirectUrl!);
+        Assert.Equal(HttpStatusCode.NotFound, detailsResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ScanAjax_ReturnsJsonOnSuccess()
+    {
+        var client = await LoginAsync();
+        var (_, detailsUrl) = await CreateAndOpenBox(client);
+        var boxBarcode = detailsUrl.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
+
+        var barcode = $"PKG-AJAX-{Guid.NewGuid():N}";
+        var scanForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
+            new KeyValuePair<string, string>("barcode", barcode)
+        });
+
+        var response = await client.PostAsync("/Box/ScanAjax", scanForm);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("application/json", response.Content.Headers.ContentType?.ToString());
+
+        var content = await response.Content.ReadAsStringAsync();
+        using var jsonDoc = JsonDocument.Parse(content);
+        var successVal = jsonDoc.RootElement.GetProperty("success").GetBoolean();
+        var messageVal = jsonDoc.RootElement.GetProperty("message").GetString();
+
+        Assert.True(successVal);
+        Assert.Contains("Scan réussi", messageVal);
+    }
+
+    [Fact]
+    public async Task ScanAjax_AuditLogCreated()
+    {
+        var client = await LoginAsync();
+        var (_, detailsUrl) = await CreateAndOpenBox(client);
+        var boxBarcode = detailsUrl.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
+
+        var barcode = $"PKG-AJAX-AUDIT-{Guid.NewGuid():N}";
+        var scanForm = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
+            new KeyValuePair<string, string>("barcode", barcode)
+        });
+
+        var response = await client.PostAsync("/Box/ScanAjax", scanForm);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var log = await db.BoxAuditLogs
+            .FirstOrDefaultAsync(al => al.BoxId == box.Id && al.ActionType == "PackageScan");
+
+        Assert.NotNull(log);
+        Assert.Contains(barcode, log.DetailsJson);
+    }
+
+    [Fact]
+    public async Task ScanOnCapacityReachedBox_Rejected()
+    {
+        var client = await LoginAsync();
+        
+        var formData = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("Type", "Carton"),
+            new KeyValuePair<string, string>("Height", "30"),
+            new KeyValuePair<string, string>("Width", "20"),
+            new KeyValuePair<string, string>("Depth", "10"),
+            new KeyValuePair<string, string>("ExpectedQuantity", "2")
+        });
+
+        var responseCreate = await client.PostAsync("/Box/Create", formData);
+        var detailsUrl = responseCreate.Headers.Location?.OriginalString;
+        var boxBarcode = detailsUrl!.Split('/').Last();
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
+
+        var testRunId = Guid.NewGuid().ToString("N")[..6];
+
+        for (int i = 1; i <= 2; i++)
+        {
+            var scanForm = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+                new KeyValuePair<string, string>("boxBarcode", boxBarcode),
+                new KeyValuePair<string, string>("barcode", $"PKG-CAP-{testRunId}-{i}")
+            });
+            await client.PostAsync("/Box/Scan", scanForm);
+        }
+
+        var scan3 = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
+            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
+            new KeyValuePair<string, string>("barcode", $"PKG-CAP-EXTRA-{testRunId}")
+        });
+        var response3 = await client.PostAsync("/Box/Scan", scan3);
+
+        Assert.Equal(HttpStatusCode.Redirect, response3.StatusCode);
+
+        // Follow the first redirect: from Scan to Prepare (which redirects again to Details)
+        var redirectUrl1 = response3.Headers.Location?.OriginalString;
+        var responsePrepare = await client.GetAsync(redirectUrl1!);
+        Assert.Equal(HttpStatusCode.Redirect, responsePrepare.StatusCode);
+
+        // Follow the second redirect: from Prepare to Details
+        var redirectUrl2 = responsePrepare.Headers.Location?.OriginalString;
+        var detailsResponse = await client.GetAsync(redirectUrl2!);
+        Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+
+        var content = await detailsResponse.Content.ReadAsStringAsync();
+        var decodedContent = System.Net.WebUtility.HtmlDecode(content);
+        Assert.Contains("n'est pas ouverte aux scans", decodedContent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ScanConcurrentSamePackage_ModelHasUniqueIndex()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var model = db.Model.FindEntityType(typeof(BoxPackage));
+        var index = model?.GetIndexes().FirstOrDefault(i => i.Properties.Any(p => p.Name == nameof(BoxPackage.PackageBarcode)));
+        Assert.NotNull(index);
+        Assert.True(index.IsUnique);
     }
 }

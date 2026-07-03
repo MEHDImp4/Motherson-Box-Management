@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Entities;
+using System.Threading.Tasks;
 
 namespace MothersonBoxManagement.Tests;
 
@@ -21,6 +24,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseInMemoryDatabase("TestDb"));
+
+            services.AddSingleton<IAntiforgery, FakeAntiforgery>();
 
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
@@ -45,5 +50,32 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             db.Users.AddRange(users);
             db.SaveChanges();
         });
+    }
+}
+
+public class FakeAntiforgery : IAntiforgery
+{
+    public AntiforgeryTokenSet GetAndStoreTokens(HttpContext httpContext)
+    {
+        return new AntiforgeryTokenSet("test_token", "test_cookie", "RequestVerificationToken", "X-CSRF-TOKEN");
+    }
+
+    public AntiforgeryTokenSet GetTokens(HttpContext httpContext)
+    {
+        return new AntiforgeryTokenSet("test_token", "test_cookie", "RequestVerificationToken", "X-CSRF-TOKEN");
+    }
+
+    public Task<bool> IsRequestValidAsync(HttpContext httpContext)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task ValidateRequestAsync(HttpContext httpContext)
+    {
+        return Task.CompletedTask;
+    }
+
+    public void SetCookieTokenAndHeader(HttpContext httpContext)
+    {
     }
 }
