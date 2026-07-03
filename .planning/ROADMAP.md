@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Database & Authentication** - Project setup, EF Core migrations, and role-based Cookie Authentication. (completed 2026-07-02)
 - [x] **Phase 2: Box Lifecycle & Home Lookup** - Box creation, dashboard, status tracking, and homepage search lookup. (completed 2026-07-02)
-- [ ] **Phase 3: Barcode Scan Integration & Simulator** - Keyboard wedge scanning listeners, uniqueness constraints, and a mock test panel.
+- [x] **Phase 3: Barcode Scan Integration & Simulator** - Keyboard wedge scanning listeners, uniqueness constraints, and a mock test panel. (completed 2026-07-03)
 - [ ] **Phase 4: Supervisor Exceptions & Audit Trail** - SaveChangesInterceptor audit trail logging and supervisor quarantine, block, cancellation, and transfer workflows.
 - [ ] **Phase 5: Verification & Hardening** - Integration verification, double-scan concurrency testing, and security hardening.
 
@@ -77,7 +77,11 @@ Plans:
   4. Scans of a box barcode in the package screen are blocked.
   5. Box status automatically transitions to "Completed" when expected quantity is met.
 
-**Plans**: TBD
+**Plans**: 3/3 plans complete
+Plans:
+- [x] 03-01-PLAN.md — Keyboard wedge barcode listener and scan screen
+- [x] 03-02-PLAN.md — Uniqueness constraints, format checks, and status auto-complete
+- [x] 03-03-PLAN.md — Simulator panel upgrade with AJAX/CSRF and integration tests
 **UI hint**: yes
 
 ### Phase 4: Supervisor Exceptions & Audit Trail
@@ -118,6 +122,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Database & Auth Setup | 1/1 | Complete   | 2026-07-02 |
 | 2. Box Lifecycle & Home Lookup | 4/4 | Complete   | 2026-07-02 |
-| 3. Barcode Scan Integration | 0/1 | Planned | - |
+| 3. Barcode Scan Integration | 3/3 | Complete   | 2026-07-03 |
 | 4. Supervisor Exceptions | 0/1 | Not started | - |
 | 5. Verification & Hardening | 0/1 | Not started | - |

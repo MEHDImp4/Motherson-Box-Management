@@ -1,9 +1,9 @@
 ---
 phase: 3
 slug: barcode-scan
-status: draft
+status: approved
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-07-03
 ---
 
@@ -38,15 +38,15 @@ created: 2026-07-03
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 03-01-01 | 01 | 1 | SCAN-01, SCAN-03 | — | Concurrency retry, uniqueness constraints | integration | `dotnet test` | ✅ | ⬜ pending |
-| 03-01-02 | 01 | 1 | G-08 | — | Use PrepareViewModel in GET | unit | `dotnet test` | ✅ | ⬜ pending |
-| 03-01-03 | 01 | 1 | G-03, G-04 | — | CSRF token checked on POST | integration | `dotnet test` | ✅ | ⬜ pending |
-| 03-01-04 | 01 | 1 | SCAN-02 | — | ScanAjax returns JSON | integration | `dotnet test` | ✅ | ⬜ pending |
-| 03-02-01 | 02 | 2 | SCAN-01, SCAN-02 | — | Keystroke listener and AJAX scan | manual | — | ✅ | ⬜ pending |
-| 03-02-02 | 02 | 2 | SCAN-02 | — | Prepare view updated with IDs | manual | — | ✅ | ⬜ pending |
-| 03-02-03 | 02 | 2 | G-06 | — | Pulse success and input focus CSS | manual | — | ✅ | ⬜ pending |
-| 03-03-01 | 03 | 3 | SIM-01 | — | Simulator AJAX + CSRF batch | manual | — | ✅ | ⬜ pending |
-| 03-03-02 | 03 | 3 | SCAN-03, SCAN-04 | — | Completed box rejection + JSON response tests | integration | `dotnet test` | ✅ | ⬜ pending |
+| 03-01-01 | 01 | 1 | SCAN-01, SCAN-03 | — | Concurrency retry, uniqueness constraints | integration | `dotnet test` | ✅ | ✅ green |
+| 03-01-02 | 01 | 1 | G-08 | — | Use PrepareViewModel in GET | unit | `dotnet test` | ✅ | ✅ green |
+| 03-01-03 | 01 | 1 | G-03, G-04 | — | CSRF token checked on POST | integration | `dotnet test` | ✅ | ✅ green |
+| 03-01-04 | 01 | 1 | SCAN-02 | — | ScanAjax returns JSON | integration | `dotnet test` | ✅ | ✅ green |
+| 03-02-01 | 02 | 2 | SCAN-01, SCAN-02 | — | Keystroke listener and AJAX scan | manual | — | ✅ | ✅ green |
+| 03-02-02 | 02 | 2 | SCAN-02 | — | Prepare view updated with IDs | manual | — | ✅ | ✅ green |
+| 03-02-03 | 02 | 2 | G-06 | — | Pulse success and input focus CSS | manual | — | ✅ | ✅ green |
+| 03-03-01 | 03 | 3 | SIM-01 | — | Simulator AJAX + CSRF batch | manual | — | ✅ | ✅ green |
+| 03-03-02 | 03 | 3 | SCAN-03, SCAN-04 | — | Completed box rejection + JSON response tests | integration | `dotnet test` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -78,4 +78,4 @@ created: 2026-07-03
 - [x] Feedback latency < 5s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** signed off by Antigravity
