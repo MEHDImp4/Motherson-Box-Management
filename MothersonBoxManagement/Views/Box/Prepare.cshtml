@@ -1,7 +1,7 @@
-@model MothersonBoxManagement.Data.Dtos.BoxDetailsDto
+@model MothersonBoxManagement.ViewModels.PrepareViewModel
 @{
-    ViewData["Title"] = $"Préparation Box {Model.BoxNumber}";
-    var progress = Model.ExpectedQuantity > 0 ? (int)((double)Model.CurrentQuantity / Model.ExpectedQuantity * 100) : 0;
+    ViewData["Title"] = $"Préparation Box {Model.Box.BoxNumber}";
+    var progress = Model.ProgressPercent;
     var successMsg = TempData["ScanSuccess"] as string;
     var errorMsg = TempData["ScanError"] as string;
 }
@@ -29,31 +29,31 @@
             <div class="card shadow-sm mb-4">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h2 style="font-weight: 600; font-size: 24px;">@Model.BoxNumber (Préparation)</h2>
-                        <span class="badge bg-success">@Model.Status</span>
+                        <h2 style="font-weight: 600; font-size: 24px;">@Model.Box.BoxNumber (Préparation)</h2>
+                        <span class="badge bg-success">@Model.Box.Status</span>
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-sm-4"><strong>Code-barres:</strong></div>
-                        <div class="col-sm-8">@Model.BarcodeValue</div>
+                        <div class="col-sm-8">@Model.Box.BarcodeValue</div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-sm-4"><strong>Type:</strong></div>
-                        <div class="col-sm-8">@Model.Type</div>
+                        <div class="col-sm-8">@Model.Box.Type</div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-sm-4"><strong>Dimensions:</strong></div>
-                        <div class="col-sm-8">@Model.Height × @Model.Width × @Model.Depth cm</div>
+                        <div class="col-sm-8">@Model.Box.Height × @Model.Box.Width × @Model.Box.Depth cm</div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-sm-4"><strong>Créé par:</strong></div>
-                        <div class="col-sm-8">@Model.CreatedByMatricule le @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                        <div class="col-sm-8">@Model.Box.CreatedByMatricule le @Model.Box.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
                     </div>
 
                     <h5 class="mt-4" style="font-weight: 600;">Progression</h5>
                     <div class="progress mt-2 @(TempData["ScanSuccess"] != null ? "pulse-success" : "")" style="height: 24px;">
-                        <div class="progress-bar @(progress >= 100 ? "bg-success" : "bg-primary")" style="width: @progress%; font-size:14px;">
-                            @Model.CurrentQuantity / @Model.ExpectedQuantity
+                        <div id="progressBarFill" class="progress-bar @(progress >= 100 ? "bg-success" : "bg-primary")" style="width: @progress%; font-size:14px;">
+                            @Model.Box.CurrentQuantity / @Model.Box.ExpectedQuantity
                         </div>
                     </div>
                 </div>
@@ -62,12 +62,13 @@
             <div class="card shadow-sm mb-4">
                 <div class="card-body">
                     <h5 style="font-weight: 600;">Scanner un paquet</h5>
-                    <form asp-action="Scan" method="post">
-                        <input type="hidden" name="boxId" value="@Model.Id" />
-                        <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                    <div id="scanFeedback"></div>
+                    <form asp-action="Scan" method="post" id="scanForm">
+                        <input type="hidden" name="boxId" id="scanBoxId" value="@Model.Box.Id" />
+                        <input type="hidden" name="boxBarcode" id="scanBoxBarcode" value="@Model.Box.BarcodeValue" />
                         <div class="input-group">
-                            <input type="text" name="barcode" class="form-control" placeholder="@(Model.Status == MothersonBoxManagement.Entities.BoxStatus.Completed ? "Box complétée" : "Scanner ou taper un code-barres paquet...")" @(Model.Status != MothersonBoxManagement.Entities.BoxStatus.Open || Model.CurrentQuantity >= Model.ExpectedQuantity ? "disabled" : "") minlength="3" autofocus />
-                            <button type="submit" class="btn" style="background-color: #0f52ba; color: #fff;" @(Model.Status != MothersonBoxManagement.Entities.BoxStatus.Open || Model.CurrentQuantity >= Model.ExpectedQuantity ? "disabled" : "")>Scanner</button>
+                            <input type="text" name="barcode" id="scanInput" class="form-control" placeholder="@(Model.Box.Status == MothersonBoxManagement.Entities.BoxStatus.Completed ? "Box complétée" : "Scanner ou taper un code-barres paquet...")" @(!Model.IsBoxOpen || Model.IsCapacityReached ? "disabled" : "") minlength="3" autofocus />
+                            <button type="submit" id="scanBtn" class="btn" style="background-color: #0f52ba; color: #fff;" @(!Model.IsBoxOpen || Model.IsCapacityReached ? "disabled" : "")>Scanner</button>
                         </div>
                     </form>
 
@@ -83,19 +84,27 @@
 
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <h5 style="font-weight: 600;">Paquets (@Model.Packages.Count)</h5>
-                    @if (Model.Packages.Count == 0)
+                    <h5 id="packageCountHeader" style="font-weight: 600;">Paquets (<span id="packageCount">@Model.Box.Packages.Count</span>)</h5>
+                    @if (Model.Box.Packages.Count == 0)
                     {
-                        <p class="text-muted">Aucun paquet scanné.</p>
-                    }
-                    else
-                    {
-                        <table class="table table-sm">
+                        <p id="noPackagesPlaceholder" class="text-muted">Aucun paquet scanné.</p>
+                        <table class="table table-sm" id="packageTable" style="display: none;">
                             <thead>
                                 <tr><th>Code-barres</th><th>Scanné par</th><th>Date</th></tr>
                             </thead>
-                            <tbody>
-                                @foreach (var pkg in Model.Packages.OrderByDescending(p => p.ScannedAt))
+                            <tbody id="packageTableBody">
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <p id="noPackagesPlaceholder" class="text-muted" style="display: none;">Aucun paquet scanné.</p>
+                        <table class="table table-sm" id="packageTable">
+                            <thead>
+                                <tr><th>Code-barres</th><th>Scanné par</th><th>Date</th></tr>
+                            </thead>
+                            <tbody id="packageTableBody">
+                                @foreach (var pkg in Model.Box.Packages.OrderByDescending(p => p.ScannedAt))
                                 {
                                     <tr>
                                         <td><code>@pkg.PackageBarcode</code></td>
@@ -113,6 +122,7 @@
 </div>
 
 @section Scripts {
+    <script src="~/js/scanner.js" asp-append-version="true"></script>
     <script>
         function toggleSimulator(event) {
             var container = document.getElementById('simulatorContainer');
