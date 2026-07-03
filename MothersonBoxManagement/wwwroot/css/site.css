@@ -30,3 +30,52 @@ body {
     animation: pulse-success-glow 1.5s ease-out;
     border-radius: 4px;
 }
+
+.scan-flash-success {
+    animation: flash-success-key 0.5s ease-out forwards;
+}
+
+@keyframes flash-success-key {
+    0% { background-color: rgba(25, 135, 84, 0.15); }
+    100% { background-color: transparent; }
+}
+
+.scan-flash-error {
+    animation: flash-error-key 0.5s ease-out forwards;
+}
+
+@keyframes flash-error-key {
+    0% { background-color: rgba(223, 44, 63, 0.15); }
+    100% { background-color: transparent; }
+}
+
+#scanInput:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 0.2rem rgba(15, 82, 186, 0.25);
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+.scan-result-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+}
+
+.scan-result-badge.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.scan-result-badge.error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+@keyframes scan-flash-in {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
