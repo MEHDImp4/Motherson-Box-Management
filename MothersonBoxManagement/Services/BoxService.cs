@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Data.Dtos;
 using MothersonBoxManagement.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -104,54 +106,107 @@ public class BoxService : IBoxService
 
     public async Task<ScanResult> ScanPackageAsync(int boxId, string barcode, int userId, CancellationToken cancellationToken = default)
     {
+        barcode = barcode.Trim();
+
         if (barcode.StartsWith("BOX-", StringComparison.OrdinalIgnoreCase))
             return new ScanResult { Success = false, Message = "Les codes-barres de box ne peuvent pas être scannés comme paquets." };
 
-        var isDuplicate = await _context.BoxPackages
-            .AnyAsync(bp => bp.PackageBarcode == barcode, cancellationToken);
-
-        if (isDuplicate)
-            return new ScanResult { Success = false, Message = "Ce code-barres paquet a déjà été scanné." };
-
-        var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, cancellationToken);
-
-        if (box is null)
-            return new ScanResult { Success = false, Message = "Box introuvable." };
-
-        if (box.Status != BoxStatus.Open)
-            return new ScanResult { Success = false, Message = "Cette box n'est pas ouverte aux scans." };
-
-        if (box.CurrentQuantity >= box.ExpectedQuantity)
-            return new ScanResult { Success = false, Message = "La quantité attendue est déjà atteinte." };
-
-        var package = new BoxPackage
+        for (int attempt = 0; attempt < 3; attempt++)
         {
-            BoxId = boxId,
-            PackageBarcode = barcode,
-            ScannedByUserId = userId,
-            ScannedAt = DateTime.Now
-        };
+            var transaction = _context.Database.IsRelational()
+                ? await _context.Database.BeginTransactionAsync(cancellationToken)
+                : null;
+            try
+            {
+                var isDuplicate = await _context.BoxPackages
+                    .AnyAsync(bp => bp.PackageBarcode == barcode, cancellationToken);
 
-        _context.BoxPackages.Add(package);
-        box.CurrentQuantity++;
-        box.UpdatedAt = DateTime.Now;
-        box.LastModifiedByUserId = userId;
+                if (isDuplicate)
+                    return new ScanResult { Success = false, Message = "Ce code-barres paquet a déjà été scanné." };
 
-        if (box.CurrentQuantity >= box.ExpectedQuantity)
-        {
-            box.Status = BoxStatus.Completed;
-            box.ClosedAt = DateTime.Now;
-            box.ClosedByUserId = userId;
+                var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, cancellationToken);
+
+                if (box is null)
+                    return new ScanResult { Success = false, Message = "Box introuvable." };
+
+                if (box.Status != BoxStatus.Open)
+                    return new ScanResult { Success = false, Message = "Cette box n'est pas ouverte aux scans." };
+
+                if (box.CurrentQuantity >= box.ExpectedQuantity)
+                    return new ScanResult { Success = false, Message = "La quantité attendue est déjà atteinte." };
+
+                var package = new BoxPackage
+                {
+                    BoxId = boxId,
+                    PackageBarcode = barcode,
+                    ScannedByUserId = userId,
+                    ScannedAt = DateTime.Now
+                };
+
+                _context.BoxPackages.Add(package);
+                box.CurrentQuantity++;
+                box.UpdatedAt = DateTime.Now;
+                box.LastModifiedByUserId = userId;
+
+                if (box.CurrentQuantity >= box.ExpectedQuantity)
+                {
+                    box.Status = BoxStatus.Completed;
+                    box.ClosedAt = DateTime.Now;
+                    box.ClosedByUserId = userId;
+                }
+
+                await _context.SaveChangesAsync(cancellationToken);
+
+                _context.BoxAuditLogs.Add(new BoxAuditLog
+                {
+                    BoxId = boxId,
+                    ActionType = "PackageScan",
+                    UserId = userId,
+                    Timestamp = DateTime.Now,
+                    DetailsJson = JsonSerializer.Serialize(new
+                    {
+                        barcode,
+                        box.CurrentQuantity,
+                        box.ExpectedQuantity,
+                        autoCompleted = box.Status == BoxStatus.Completed
+                    })
+                });
+                await _context.SaveChangesAsync(cancellationToken);
+
+                if (transaction is not null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
+
+                var updatedBox = await GetBoxByIdAsync(boxId, cancellationToken);
+                var msg = box.Status == BoxStatus.Completed
+                    ? "Scan réussi ! Box complétée automatiquement."
+                    : $"Scan réussi ! {box.CurrentQuantity}/{box.ExpectedQuantity} paquets.";
+
+                return new ScanResult { Success = true, Message = msg, Box = updatedBox };
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                _context.ChangeTracker.Entries().ToList().ForEach(e => e.Reload());
+            }
+            catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_BoxPackages_PackageBarcode") == true)
+            {
+                if (transaction is not null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                }
+                return new ScanResult { Success = false, Message = "Ce code-barres paquet a déjà été scanné." };
+            }
+            finally
+            {
+                if (transaction is not null)
+                {
+                    await transaction.DisposeAsync();
+                }
+            }
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
-
-        var updatedBox = await GetBoxByIdAsync(boxId, cancellationToken);
-        var msg = box.Status == BoxStatus.Completed
-            ? "Scan réussi ! Box complétée automatiquement."
-            : $"Scan réussi ! {box.CurrentQuantity}/{box.ExpectedQuantity} paquets.";
-
-        return new ScanResult { Success = true, Message = msg, Box = updatedBox };
+        return new ScanResult { Success = false, Message = "Conflit de concurrence. Veuillez réessayer." };
     }
 
     private static System.Linq.Expressions.Expression<System.Func<Box, BoxDetailsDto>> MapToDetailsDto()
