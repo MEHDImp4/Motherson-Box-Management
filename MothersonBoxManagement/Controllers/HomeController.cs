@@ -37,6 +37,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Index(HomeViewModel postModel, CancellationToken cancellationToken)
     {
         var matricule = User.FindFirst("Matricule")?.Value;
