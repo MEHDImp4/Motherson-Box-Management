@@ -51,7 +51,7 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task CreateBox_Post_ValidData_RedirectsToDetails()
+    public async Task CreateBox_Post_ValidData_RedirectsToPrepare()
     {
         var client = await LoginAsync();
 
@@ -67,7 +67,7 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.PostAsync("/Box/Create", formData);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains("/Box/Details/", response.Headers.Location?.OriginalString);
+        Assert.Contains("/Box/Prepare/", response.Headers.Location?.OriginalString);
     }
 
     [Fact]
@@ -107,8 +107,9 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createResponse = await client.PostAsync("/Box/Create", createForm);
 
         var location = createResponse.Headers.Location?.OriginalString!;
+        var boxBarcode = location.Split('/').Last();
 
-        var response = await client.GetAsync(location);
+        var response = await client.GetAsync($"/Box/Details/{boxBarcode}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
@@ -166,8 +167,8 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createResponse = await client.PostAsync("/Box/Create", formData);
         var location = createResponse.Headers.Location?.OriginalString!;
 
-        var detailsResponse = await client.GetAsync(location);
-        var content = await detailsResponse.Content.ReadAsStringAsync();
+        var response = await client.GetAsync(location);
+        var content = await response.Content.ReadAsStringAsync();
 
         Assert.Contains("BOX-", content);
     }

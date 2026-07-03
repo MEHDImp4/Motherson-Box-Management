@@ -27,6 +27,7 @@ public class BoxController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreateBoxViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
@@ -44,7 +45,7 @@ public class BoxController : Controller
         };
 
         var box = await _boxService.CreateBoxAsync(dto, userId, cancellationToken);
-        return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        return RedirectToAction("Prepare", new { barcode = box.BarcodeValue });
     }
 
     [HttpGet]
@@ -71,7 +72,8 @@ public class BoxController : Controller
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
 
-        return View(box);
+        var vm = new PrepareViewModel { Box = box };
+        return View(vm);
     }
 
     [HttpGet]
@@ -91,6 +93,7 @@ public class BoxController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Scan(int boxId, string boxBarcode, string barcode, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(barcode))
@@ -114,5 +117,40 @@ public class BoxController : Controller
             TempData["ScanError"] = result.Message;
 
         return RedirectToAction("Prepare", new { barcode = boxBarcode });
+    }
+
+    [HttpPost]
+    [Route("Box/ScanAjax")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ScanAjax([FromForm] int boxId, [FromForm] string boxBarcode, [FromForm] string barcode, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(barcode))
+        {
+            return Json(new { success = false, message = "Aucun code-barres fourni." });
+        }
+
+        barcode = barcode.Trim();
+        if (barcode.Length < 3)
+        {
+            return Json(new { success = false, message = "Le code-barres doit contenir au moins 3 caractères." });
+        }
+
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var result = await _boxService.ScanPackageAsync(boxId, barcode, userId, cancellationToken);
+
+        return Json(new
+        {
+            success = result.Success,
+            message = result.Message,
+            currentQuantity = result.Box?.CurrentQuantity,
+            expectedQuantity = result.Box?.ExpectedQuantity,
+            status = result.Box?.Status.ToString(),
+            package = result.Success ? new
+            {
+                barcode = barcode,
+                scannedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"),
+                scannedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+            } : null
+        });
     }
 }
