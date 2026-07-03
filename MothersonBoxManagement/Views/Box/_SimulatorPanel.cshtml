@@ -1,12 +1,12 @@
-@model MothersonBoxManagement.Data.Dtos.BoxDetailsDto
+@model MothersonBoxManagement.ViewModels.PrepareViewModel
 
 <div class="card mt-3 bg-light">
     <div class="card-body">
         <h6 style="font-weight: 600;">Simulateur de scan</h6>
         <p class="small text-muted">Générez des codes-barres de test et scannez-les directement.</p>
-        <form asp-action="Scan" method="post" id="simForm" class="row g-2">
-            <input type="hidden" name="boxId" value="@Model.Id" />
-            <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+        <form method="post" id="simForm" class="row g-2" onsubmit="return false;">
+            <input type="hidden" name="boxId" value="@Model.Box.Id" />
+            <input type="hidden" name="boxBarcode" value="@Model.Box.BarcodeValue" />
             <input type="hidden" name="barcode" id="simBarcode" value="" />
             <div class="col-md-4">
                 <label class="form-label small">Prefixe</label>
@@ -20,6 +20,7 @@
                 <button type="button" id="simSubmitBtn" class="btn btn-sm btn-outline-primary w-100" onclick="doSimScan()">Générer et scanner</button>
             </div>
         </form>
+        <div id="simResults" class="mt-2"></div>
     </div>
 </div>
 
@@ -34,8 +35,15 @@
         var boxId = form.querySelector('input[name="boxId"]').value;
         var boxBarcode = form.querySelector('input[name="boxBarcode"]').value;
         var button = document.getElementById('simSubmitBtn');
+        var resultsContainer = document.getElementById('simResults');
+
+        // Clear previous results
+        resultsContainer.innerHTML = '';
 
         button.disabled = true;
+
+        var csrfTokenMeta = document.querySelector('meta[name="RequestVerificationToken"]');
+        var csrfToken = csrfTokenMeta ? csrfTokenMeta.content : "";
 
         for (var i = 0; i < count; i++) {
             var barcode = prefix + Date.now() + "-" + (i + 1);
@@ -47,12 +55,47 @@
             formData.append('barcode', barcode);
 
             try {
-                await fetch(form.action, {
+                var response = await fetch('/Box/ScanAjax', {
                     method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken
+                    },
                     body: formData
                 });
+
+                if (!response.ok) {
+                    throw new Error("HTTP error " + response.status);
+                }
+
+                var data = await response.json();
+
+                // Append badge to resultsContainer
+                var badge = document.createElement('span');
+                badge.className = "scan-result-badge " + (data.success ? 'success' : 'error') + " me-1 mb-1 d-inline-block";
+                badge.textContent = barcode + ": " + data.message;
+                resultsContainer.appendChild(badge);
+
+                if (data.success) {
+                    if (typeof addPackageRow === 'function') {
+                        addPackageRow(data.package);
+                    }
+                    if (typeof updateProgressBar === 'function') {
+                        updateProgressBar(data.currentQuantity, data.expectedQuantity);
+                    }
+                }
+
+                if (data.status === "Completed") {
+                    if (typeof disableScanInput === 'function') {
+                        disableScanInput();
+                    }
+                    break;
+                }
             } catch (e) {
                 console.error(e);
+                var badge = document.createElement('span');
+                badge.className = "scan-result-badge error me-1 mb-1 d-inline-block";
+                badge.textContent = barcode + ": Erreur de connexion";
+                resultsContainer.appendChild(badge);
             }
 
             if (i < count - 1) {
@@ -60,6 +103,7 @@
             }
         }
 
-        window.location.reload();
+        button.disabled = false;
+        button.textContent = "Générer et scanner";
     }
 </script>
