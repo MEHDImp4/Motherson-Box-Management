@@ -1,35 +1,37 @@
+<!-- generated-by: gsd-doc-writer -->
 # Motherson Box Management — Guide d'utilisation
 
 **Motherson Box Management** est une application web interne conçue pour la zone de packaging P3 de l'usine Motherson. Elle permet de suivre, préparer et auditer de manière autonome des boxes de packaging contenant des packages de câbles identifiés par codes-barres.
 
 ---
 
-## 📋 Table des matières
-1. [Fonctionnalités principales](#-fonctionnalités-principales)
-2. [Prérequis et installation](#-prérequis-et-installation)
-3. [Comptes d'accès (Seeded Accounts)](#-comptes-daccès-seeded-accounts)
-4. [Guide d'utilisation de l'application](#-guide-dutilisation-de-lapplication)
+## Table des matières
+1. [Fonctionnalités principales](#fonctionnalités-principales)
+2. [Prérequis et installation](#prérequis-et-installation)
+3. [Comptes d'accès (Seeded Accounts)](#comptes-daccès-seeded-accounts)
+4. [Guide d'utilisation de l'application](#guide-dutilisation-de-lapplication)
    - [1. Authentification](#1-authentification)
    - [2. Tableau de bord & Recherche](#2-tableau-de-bord--recherche)
    - [3. Création d'une Box](#3-création-dune-box)
    - [4. Scan de packages & Simulateur virtuel](#4-scan-de-packages--simulateur-virtuel)
    - [5. Gestion des exceptions (Superviseur)](#5-gestion-des-exceptions-superviseur)
    - [6. Journal d'audit](#6-journal-daudit)
-5. [Commandes de développement et tests](#-commandes-de-développement-et-tests)
+5. [Commandes de développement et tests](#commandes-de-développement-et-tests)
+6. [Technologies utilisées](#technologies-utilisées)
 
 ---
 
-## ✨ Fonctionnalités principales
+## Fonctionnalités principales
 
 - **Gestion autonome** : Fonctionne de manière isolée sans dépendances directes avec l'ERP ou le MES.
 - **Règle d'unicité stricte** : Un code-barres de package ne peut être scanné et associé qu'à **une seule box active** dans le système SQL Server.
-- **Différenciation des formats** : Les formats de codes-barres boxes (ex. `BOX-...`) et packages (ex. `PKG-...`) sont validés pour éviter toute erreur opérationnelle.
+- **Différenciation des formats** : Les formats de codes-barres boxes (`BOX-YYYYMMDD-XXXXXX`) et packages (`PKG-...`) sont validés pour éviter toute erreur opérationnelle.
 - **Journal d'audit immuable** : Historique complet en mode *append-only* (impossible à modifier ou supprimer).
 - **Simulateur de scan** : Panel virtuel intégré pour tester les flux et comportements du scanner de codes-barres sans matériel physique.
 
 ---
 
-## 🛠️ Prérequis et installation
+## Prérequis et installation
 
 ### Prérequis
 - [SDK .NET 8.0](https://dotnet.microsoft.com/download/dotnet/8.0)
@@ -37,20 +39,28 @@
 
 ### Installation et configuration de la base de données
 1. **Cloner le dépôt** et ouvrir un terminal dans le répertoire racine du projet.
-2. **Configurer la chaîne de connexion** dans le fichier `MothersonBoxManagement/appsettings.Development.json` (ou `appsettings.json`) :
+2. **Restaurer les dépendances** :
+   ```powershell
+   dotnet restore
+   ```
+3. **Configurer la chaîne de connexion** dans le fichier `MothersonBoxManagement/appsettings.Development.json` (ou via `dotnet user-secrets`) :
    ```json
    "ConnectionStrings": {
-     "DefaultConnection": "Server=localhost,1433;Database=MothersonBoxDb;User Id=sa;Password=Motherson2026!;TrustServerCertificate=True;"
+     "DefaultConnection": "Server=localhost,1433;Database=MothersonBoxDb;User Id=sa;Password=VotreMotDePasse;TrustServerCertificate=True;"
    }
    ```
-3. **Appliquer les migrations EF Core** (la base de données et les tables seront automatiquement créées et alimentées au premier démarrage si les migrations sont appliquées) :
+4. **Appliquer les migrations EF Core** (la base de données et les tables seront automatiquement créées et alimentées au premier démarrage) :
    ```powershell
    dotnet ef database update --project MothersonBoxManagement
+   ```
+5. **Lancer l'application** :
+   ```powershell
+   dotnet run --project MothersonBoxManagement
    ```
 
 ---
 
-## 🔐 Comptes d'accès (Seeded Accounts)
+## Comptes d'accès (Seeded Accounts)
 
 Au premier démarrage, la base de données est automatiquement alimentée (seeded) avec les comptes de test suivants :
 
@@ -60,9 +70,12 @@ Au premier démarrage, la base de données est automatiquement alimentée (seede
 | **Superviseur** | `SP001` | `Motherson2026!` | *Tous les droits Opérateur* + actions exceptionnelles (annulation, forçage, retrait, transfert de package, blocage). |
 | **Administrateur** | `AD001` | `Motherson2026!` | *Tous les droits Superviseur* + gestion des utilisateurs et consultation du journal d'audit complet. |
 
+> [!CAUTION]
+> Ces comptes sont destinés au développement et aux tests uniquement. Ne jamais les utiliser en production.
+
 ---
 
-## 🚀 Guide d'utilisation de l'application
+## Guide d'utilisation de l'application
 
 ### 1. Authentification
 Rendez-vous sur `http://localhost:5000` (ou l'URL affichée par Kestrel).
@@ -77,7 +90,7 @@ Une fois connecté, vous arrivez sur le **Tableau de Bord** :
 
 ### 3. Création d'une Box
 1. Cliquez sur **Créer une Box** dans le menu ou le tableau de bord.
-2. Sélectionnez le **Type de Box** (Carton, Bois, Plastique) et saisissez les dimensions.
+2. Sélectionnez le **Type de Box** (Carton, Bois, Plastique) et saisissez les dimensions (en centimètres, entiers strictement positifs).
 3. Renseignez la **Quantité attendue** (nombre de packages de câbles que la box doit contenir).
 4. Validez. Le système génère automatiquement un identifiant unique (ex: `BOX-20260702-000001`) et un code-barres associé au format valide.
 
@@ -105,7 +118,7 @@ Toute action sensible (scan de package, modification de quantité attendue, annu
 
 ---
 
-## 💻 Commandes de développement et tests
+## Commandes de développement et tests
 
 Voici les commandes principales à exécuter depuis la racine de la solution :
 
@@ -116,10 +129,37 @@ dotnet build
 
 ### Exécuter les tests unitaires et d'intégration
 ```powershell
-dotnet test MothersonBoxManagement.Tests\MothersonBoxManagement.Tests.csproj
+dotnet test
 ```
 
 ### Exécuter l'application localement
 ```powershell
 dotnet run --project MothersonBoxManagement
 ```
+
+### Restaurer les dépendances
+```powershell
+dotnet restore
+```
+
+### Ajouter une migration EF Core
+```powershell
+dotnet ef migrations add <NomMigration> --project MothersonBoxManagement
+```
+
+### Appliquer les migrations
+```powershell
+dotnet ef database update --project MothersonBoxManagement
+```
+
+---
+
+## Technologies utilisées
+
+| Composant | Technologie | Version |
+| :--- | :--- | :--- |
+| Framework | ASP.NET Core MVC | 8.0 |
+| ORM | Entity Framework Core | 8.0 |
+| Base de données | SQL Server | 2022+ |
+| Framework CSS | Bootstrap | 5.3 |
+| Authentification | Cookie Authentication (ASP.NET Core natif) | - |
