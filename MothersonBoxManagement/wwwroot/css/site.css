@@ -121,7 +121,14 @@ body {
   color: var(--on-surface);
   margin: 0;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
+
+code {
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
 
 /* ── Layout Container ── */
 .container, .container-fluid {
@@ -883,6 +890,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   display: flex;
   min-height: 100vh;
   width: 100%;
+  overflow-x: hidden;
 }
 
 .sidebar {
@@ -1006,6 +1014,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   flex-direction: column;
   min-height: 100vh;
   background-color: var(--surface);
+  overflow-x: hidden;
 }
 
 .topbar {
@@ -1085,7 +1094,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* Responsive adjustments */
-@media (max-width: 991.98px) {
+@media (max-width: 1199.98px) {
   .sidebar {
     transform: translateX(-100%);
   }
