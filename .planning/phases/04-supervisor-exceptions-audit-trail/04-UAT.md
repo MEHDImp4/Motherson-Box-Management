@@ -1,9 +1,9 @@
 ---
-status: complete
+status: verified
 phase: 04-supervisor-exceptions-audit-trail
-source: 04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md
+source: 04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md
 started: 2026-07-04T00:00:00Z
-updated: 2026-07-04T00:03:00Z
+updated: 2026-07-04T02:32:00Z
 ---
 
 ## Current Test
@@ -42,9 +42,7 @@ result: pass
 
 ### 8. Supervisor Transfers a Package
 expected: In the package list, a Supervisor/Admin sees a "Transfer" button. Clicking it opens a modal with a dropdown of other open boxes. Selecting a destination and confirming moves the package to the target box atomically. Quantities update on both boxes.
-result: issue
-reported: "Le dropdown qui montre les autres box ne marche pas, il n'affiche pas les autres box, même s'il y a plusieurs autres box."
-severity: major
+result: pass
 
 ### 9. Supervisor Performs a Retrait
 expected: In the package list, a Supervisor/Admin sees a "Retrait" button. Clicking it opens a confirmation modal. After confirming, the package is removed from the database and the box current quantity decrements.
@@ -56,9 +54,7 @@ result: pass
 
 ### 11. Audit Log Displays All Actions
 expected: A Supervisor/Admin can navigate to "Journal d'Audit" from the navbar. The page shows a chronological list of all database write actions with user, action type, timestamp, and previous/new values in JSON format inside collapsible details sections.
-result: issue
-reported: "ya pas tout les detail afficher"
-severity: major
+result: pass
 
 ### 12. Audit Log Filtering
 expected: The Audit Log page has filter controls for BoxId, ActionType, and Date range. Applying filters narrows the results correctly.
@@ -71,24 +67,38 @@ result: pass
 ## Summary
 
 total: 13
-passed: 11
-issues: 2
+passed: 13
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
 - truth: "The transfer modal dropdown shows all other open boxes as destination options"
-  status: failed
+  status: resolved
   reason: "User reported: Le dropdown qui montre les autres box ne marche pas, il n'affiche pas les autres box, même s'il y a plusieurs autres box."
   severity: major
   test: 8
-  artifacts: []
-  missing: []
+  root_cause: "Role check mismatch in BoxController.Details action (line 59): only checks 'Superviseur' and 'Admin', but the view and [Authorize] attributes check all 4 role names ('Superviseur', 'Admin', 'Supervisor', 'Administrator'). When logged in as 'Supervisor' or 'Administrator', ViewBag.OpenBoxes is never populated."
+  artifacts:
+    - path: "MothersonBoxManagement/Controllers/BoxController.cs"
+      issue: "Line 59: condition only checks 2 roles instead of 4"
+  missing:
+    - "Add 'Supervisor' and 'Administrator' to the role check at BoxController.cs line 59"
+  debug_session: ""
 - truth: "Audit log displays all details for each action (user, action type, timestamp, previous/new values in JSON)"
-  status: failed
+  status: resolved
   reason: "User reported: ya pas tout les detail afficher"
   severity: major
   test: 11
-  artifacts: []
-  missing: []
+  root_cause: "AuditSaveChangesInterceptor dumps ALL 18 properties in both OriginalValues and CurrentValues (36 pairs) with no ChangedProperties diff. Enums serialized as integers (Status=0 instead of 'Open'). Display container max-height:200px only shows ~8 lines of verbose JSON."
+  artifacts:
+    - path: "MothersonBoxManagement/Data/Interceptors/AuditSaveChangesInterceptor.cs"
+      issue: "Lines 102-138: no ChangedProperties, enums as integers, verbose output"
+    - path: "MothersonBoxManagement/Views/Audit/Index.cshtml"
+      issue: "Line 120: max-height:200px too small for verbose JSON"
+  missing:
+    - "Add ChangedProperties field with only modified properties and their old/new values"
+    - "Add JsonStringEnumConverter to serialize enums as strings"
+    - "Increase display container height or add expand/collapse"
+  debug_session: ""
