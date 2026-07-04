@@ -904,7 +904,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   bottom: 0;
   left: 0;
   z-index: 100;
-  transition: transform 0.2s ease-in-out;
+  transition: width 0.2s ease-in-out, transform 0.2s ease-in-out;
 }
 
 .sidebar-header {
@@ -1015,6 +1015,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   min-height: 100vh;
   background-color: var(--surface);
   overflow-x: hidden;
+  transition: margin-left 0.2s ease-in-out;
 }
 
 .topbar {
@@ -1123,4 +1124,90 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
     padding: var(--space-md);
   }
 }
+
+/* Collapsible Desktop Sidebar styles (>= 1200px) */
+@media (min-width: 1200px) {
+  body.sidebar-collapsed .sidebar {
+    width: 70px;
+  }
+  
+  body.sidebar-collapsed .main-content {
+    margin-left: 70px;
+  }
+  
+  body.sidebar-collapsed .sidebar-brand-text,
+  body.sidebar-collapsed .sidebar-menu-title,
+  body.sidebar-collapsed .sidebar-link span,
+  body.sidebar-collapsed .sidebar-user,
+  body.sidebar-collapsed .logout-text {
+    display: none !important;
+  }
+  
+  body.sidebar-collapsed .sidebar-header {
+    justify-content: center !important;
+    padding: 0;
+  }
+  
+  body.sidebar-collapsed .sidebar-brand {
+    justify-content: center;
+    width: 100%;
+    gap: 0;
+  }
+  
+  body.sidebar-collapsed .sidebar-brand img {
+    margin: 0;
+  }
+  
+  body.sidebar-collapsed .sidebar-collapse-btn {
+    position: absolute;
+    right: -12px;
+    top: 20px;
+    background: var(--surface-container-lowest);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-card);
+    z-index: 110;
+  }
+  
+  body.sidebar-collapsed .sidebar-collapse-icon {
+    transform: rotate(180deg);
+  }
+  
+  body.sidebar-collapsed .sidebar-link {
+    justify-content: center;
+    padding: 10px 0;
+  }
+  
+  body.sidebar-collapsed .sidebar-footer {
+    padding: 10px;
+  }
+}
+
+/* Sidebar collapse button styles (expanded state default) */
+.sidebar-collapse-btn {
+  background: none;
+  border: none;
+  color: var(--secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease-in-out;
+}
+
+.sidebar-collapse-btn:hover {
+  background-color: var(--surface-container-low);
+  color: var(--on-surface);
+}
+
+.sidebar-link-icon {
+  flex-shrink: 0;
+}
+
 

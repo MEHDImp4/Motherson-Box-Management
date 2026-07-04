@@ -11,6 +11,11 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
+    <script>
+        if (localStorage.getItem('sidebar-collapsed') === 'true') {
+            document.body.classList.add('sidebar-collapsed');
+        }
+    </script>
     <a href="#main-content" class="skip-link">Skip to main content</a>
     
     @if (User.Identity?.IsAuthenticated == true)
@@ -24,29 +29,36 @@
             
             <!-- Sidebar Navigation -->
             <aside class="sidebar" role="navigation" aria-label="Sidebar navigation">
-                <div class="sidebar-header">
+                <div class="sidebar-header d-flex align-items-center justify-content-between">
                     <a class="sidebar-brand" asp-controller="Dashboard" asp-action="Index">
                         <img src="~/images/mothersson-logo.png" alt="Motherson" class="sidebar-logo" />
                         <span class="sidebar-brand-text">Box Management</span>
                     </a>
+                    <button class="sidebar-collapse-btn d-none d-xl-flex" aria-label="Collapse sidebar" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-collapse-icon"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
                 </div>
                 
                 <nav class="sidebar-menu">
                     <span class="sidebar-menu-title">Operations</span>
-                    <a class="sidebar-link @(activeController == "Dashboard" ? "active" : "")" asp-controller="Dashboard" asp-action="Index">
+                    <a class="sidebar-link @(activeController == "Dashboard" ? "active" : "")" asp-controller="Dashboard" asp-action="Index" title="Dashboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
                         <span>Dashboard</span>
                     </a>
-                    <a class="sidebar-link @(activeController == "Box" && activeAction == "Index" ? "active" : "")" asp-controller="Box" asp-action="Index">
+                    <a class="sidebar-link @(activeController == "Box" && activeAction == "Index" ? "active" : "")" asp-controller="Box" asp-action="Index" title="Search Boxes">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         <span>Search Boxes</span>
                     </a>
-                    <a class="sidebar-link @(activeController == "Box" && activeAction == "Create" ? "active" : "")" asp-controller="Box" asp-action="Create">
+                    <a class="sidebar-link @(activeController == "Box" && activeAction == "Create" ? "active" : "")" asp-controller="Box" asp-action="Create" title="Create Box">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="12" y1="12" x2="12" y2="21"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                         <span>Create Box</span>
                     </a>
                     
                     @if (User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
                     {
                         <span class="sidebar-menu-title">Supervision</span>
-                        <a class="sidebar-link @(activeController == "Audit" ? "active" : "")" asp-controller="Audit" asp-action="Index">
+                        <a class="sidebar-link @(activeController == "Audit" ? "active" : "")" asp-controller="Audit" asp-action="Index" title="Audit Log">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                             <span>Audit Log</span>
                         </a>
                     }
@@ -54,7 +66,8 @@
                     @if (User.IsInRole("Admin") || User.IsInRole("Administrator"))
                     {
                         <span class="sidebar-menu-title">Administration</span>
-                        <a class="sidebar-link @(activeController == "Users" ? "active" : "")" asp-controller="Users" asp-action="Index">
+                        <a class="sidebar-link @(activeController == "Users" ? "active" : "")" asp-controller="Users" asp-action="Index" title="User Accounts">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                             <span>User Accounts</span>
                         </a>
                     }
@@ -65,7 +78,10 @@
                         <span class="sidebar-user-matricule">@User.FindFirst("Matricule")?.Value</span>
                         <span class="sidebar-user-role">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
                     </div>
-                    <a class="btn btn-outline-custom btn-sm w-100" asp-controller="Account" asp-action="Logout" style="min-height: 38px;">Sign out</a>
+                    <a class="btn btn-outline-custom btn-sm w-100 d-flex align-items-center justify-content-center" asp-controller="Account" asp-action="Logout" style="min-height: 38px;" title="Sign out">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="logout-icon"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <span class="logout-text" style="margin-left: 8px;">Sign out</span>
+                    </a>
                 </div>
             </aside>
             
@@ -114,6 +130,15 @@
                 overlay.addEventListener('click', () => {
                     sidebar.classList.remove('show');
                     overlay.classList.remove('show');
+                });
+            }
+
+            // Desktop Sidebar Collapse Toggle
+            const collapseBtn = document.querySelector('.sidebar-collapse-btn');
+            if (collapseBtn) {
+                collapseBtn.addEventListener('click', () => {
+                    const collapsed = document.body.classList.toggle('sidebar-collapsed');
+                    localStorage.setItem('sidebar-collapsed', collapsed);
                 });
             }
         });
