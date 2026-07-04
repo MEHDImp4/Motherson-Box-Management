@@ -83,18 +83,6 @@
                     <div style="width: 44px;"></div> <!-- Spacer to center brand -->
                 </header>
                 
-                <!-- Topbar for Desktop -->
-                <div class="topbar">
-                    <div class="topbar-left">
-                        <h2 class="topbar-title">@ViewData["Title"]</h2>
-                    </div>
-                    <div class="topbar-right">
-                        <span class="label-md" style="font-weight:600; color: var(--on-surface);">
-                            @User.FindFirst("Matricule")?.Value (@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value)
-                        </span>
-                        <a class="btn btn-outline-custom btn-sm" asp-controller="Account" asp-action="Logout" style="min-height: 36px; padding: 6px 16px;">Sign out</a>
-                    </div>
-                </div>
                 
                 <!-- Main Body -->
                 <main id="main-content" class="content-body" role="main">
