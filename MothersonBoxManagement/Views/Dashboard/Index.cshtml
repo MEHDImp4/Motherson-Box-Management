@@ -91,18 +91,15 @@
     {
         <div class="card" style="border: 1px solid var(--border); overflow: hidden;">
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Box Number</th>
                             <th>Type</th>
                             <th>Status</th>
-                            <th>Scanned</th>
-                            <th>Expected</th>
-                            <th>Remaining</th>
-                            <th style="min-width: 150px;">Progress</th>
+                            <th>Fill Status</th>
+                            <th style="min-width: 130px;">Progress</th>
                             <th>Last Activity</th>
-                            <th>Last Operator</th>
                             <th class="text-end" style="padding-right: var(--space-lg);">Actions</th>
                         </tr>
                     </thead>
@@ -124,34 +121,31 @@
                                     <span class="badge-status open" style="font-size: 11px;">Open</span>
                                 </td>
                                 <td>
-                                    <strong style="color: var(--primary);">@box.CurrentQuantity</strong>
-                                </td>
-                                <td>
-                                    <span>@box.ExpectedQuantity</span>
-                                </td>
-                                <td>
-                                    @if (remaining > 0)
-                                    {
-                                        <span class="badge-status blocked" style="font-size: 11px; font-weight: 600;">@remaining left</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge-status open" style="font-size: 11px;">Filled</span>
-                                    }
+                                    <div class="d-flex flex-column">
+                                        <span style="font-weight: 700; color: var(--on-surface);">@box.CurrentQuantity / @box.ExpectedQuantity</span>
+                                        @if (remaining > 0)
+                                        {
+                                            <span style="font-size: 11px; color: var(--secondary);">@remaining left</span>
+                                        }
+                                        else
+                                        {
+                                            <span style="font-size: 11px; color: var(--status-open); font-weight: 600;">Filled</span>
+                                        }
+                                    </div>
                                 </td>
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
-                                        <div class="progress" style="width: 100px; height: 12px; border-radius: var(--radius-full);">
+                                        <div class="progress" style="width: 70px; height: 8px; border-radius: var(--radius-full);">
                                             <div class="progress-bar @progressClass" style="width: @progress%;"></div>
                                         </div>
                                         <span class="label-md" style="font-weight: 600;">@progress%</span>
                                     </div>
                                 </td>
                                 <td>
-                                    <span style="font-size: 13px;">@box.LastModifiedAt.ToString("dd/MM/yyyy HH:mm")</span>
-                                </td>
-                                <td>
-                                    <code style="font-size: 12px;">@box.LastUserMatricule</code>
+                                    <div class="d-flex flex-column">
+                                        <span style="font-size: 13px; color: var(--on-surface);">@box.LastModifiedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                        <code style="font-size: 11px; color: var(--secondary);">@box.LastUserMatricule</code>
+                                    </div>
                                 </td>
                                 <td class="text-end" style="padding-right: var(--space-lg);">
                                     <div class="d-flex gap-2 justify-content-end">

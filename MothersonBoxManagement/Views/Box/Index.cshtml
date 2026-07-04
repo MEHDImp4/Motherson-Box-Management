@@ -86,17 +86,15 @@
         else
         {
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Box Number / Barcode</th>
                             <th>Type</th>
                             <th>Status</th>
-                            <th>Scanned</th>
-                            <th>Expected</th>
-                            <th style="min-width: 140px;">Progress</th>
-                            <th>Created By</th>
-                            <th>Created On</th>
+                            <th>Fill Status</th>
+                            <th style="min-width: 130px;">Progress</th>
+                            <th>Created</th>
                             <th>Last Activity</th>
                             <th class="text-end" style="padding-right: var(--space-lg);">Actions</th>
                         </tr>
@@ -127,31 +125,29 @@
                                     <span class="badge-status @statusClass" style="font-size: 11px;">@box.Status</span>
                                 </td>
                                 <td>
-                                    <strong style="color: var(--primary);">@box.CurrentQuantity</strong>
-                                </td>
-                                <td>
-                                    <span>@box.ExpectedQuantity</span>
+                                    <strong style="color: var(--on-surface);">@box.CurrentQuantity / @box.ExpectedQuantity</strong>
                                 </td>
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
-                                        <div class="progress" style="width: 80px; height: 10px; border-radius: var(--radius-full);">
+                                        <div class="progress" style="width: 70px; height: 8px; border-radius: var(--radius-full);">
                                             <div class="progress-bar @(progress >= 100 ? "bg-success" : "bg-primary")" style="width: @progress%;"></div>
                                         </div>
                                         <span class="label-md" style="font-weight: 600;">@progress%</span>
                                     </div>
                                 </td>
                                 <td>
-                                    <code style="font-size: 12px;">@box.CreatedByMatricule</code>
-                                </td>
-                                <td>
-                                    <span style="font-size: 13px; color: var(--secondary);">@box.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                    <div class="d-flex flex-column">
+                                        <span style="font-size: 13px; color: var(--on-surface);">@box.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                        <code style="font-size: 11px; color: var(--secondary);">@box.CreatedByMatricule</code>
+                                    </div>
                                 </td>
                                 <td>
                                     @if (box.ModifiedAt.HasValue)
                                     {
-                                        <span style="font-size: 13px; color: var(--on-surface);">@box.ModifiedAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
-                                        <br />
-                                        <code style="font-size: 11px; color: var(--secondary);">@box.LastUserMatricule</code>
+                                        <div class="d-flex flex-column">
+                                            <span style="font-size: 13px; color: var(--on-surface);">@box.ModifiedAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                                            <code style="font-size: 11px; color: var(--secondary);">@box.LastUserMatricule</code>
+                                        </div>
                                     }
                                     else
                                     {
