@@ -14,10 +14,50 @@ namespace MothersonBoxManagement.Controllers;
 public class BoxController : Controller
 {
     private readonly IBoxService _boxService;
+    private readonly IPackageScanService _packageScanService;
+    private readonly IBarcodeService _barcodeService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IConfiguration _configuration;
 
-    public BoxController(IBoxService boxService)
+    public BoxController(
+        IBoxService boxService,
+        IPackageScanService packageScanService,
+        IBarcodeService barcodeService,
+        IHttpContextAccessor httpContextAccessor,
+        IConfiguration configuration)
     {
         _boxService = boxService;
+        _packageScanService = packageScanService;
+        _barcodeService = barcodeService;
+        _httpContextAccessor = httpContextAccessor;
+        _configuration = configuration;
+    }
+
+    private string GetWorkstationName()
+    {
+        string? configured = _configuration["WorkstationName"];
+        if (string.IsNullOrWhiteSpace(configured) || configured == "DEV-STATION-01" || configured == "DEFAULT-STATION")
+        {
+            return Environment.MachineName;
+        }
+        return configured;
+    }
+
+    private int GetUserId()
+    {
+        return int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Index(BoxSearchFilterDto filter, CancellationToken cancellationToken)
+    {
+        var boxes = await _boxService.SearchBoxesAsync(filter, cancellationToken);
+        var users = await _boxService.GetUsersAsync(cancellationToken);
+
+        ViewBag.Users = users;
+        ViewBag.Filter = filter;
+
+        return View(boxes);
     }
 
     [HttpGet]
@@ -30,10 +70,17 @@ public class BoxController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreateBoxViewModel model, CancellationToken cancellationToken)
     {
+        if (model.Height % 1 != 0)
+            ModelState.AddModelError(nameof(model.Height), "Height must be a positive whole number.");
+        if (model.Width % 1 != 0)
+            ModelState.AddModelError(nameof(model.Width), "Width must be a positive whole number.");
+        if (model.Depth % 1 != 0)
+            ModelState.AddModelError(nameof(model.Depth), "Depth must be a positive whole number.");
+
         if (!ModelState.IsValid)
             return View(model);
 
-        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var userId = GetUserId();
 
         var dto = new CreateBoxDto
         {
@@ -78,6 +125,10 @@ public class BoxController : Controller
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
 
+        var userId = GetUserId();
+        var workstationName = GetWorkstationName();
+        await _boxService.LogBoxResumedIfNeededAsync(box.Id, userId, workstationName, cancellationToken);
+
         var vm = new PrepareViewModel { Box = box };
         return View(vm);
     }
@@ -86,13 +137,13 @@ public class BoxController : Controller
     public async Task<IActionResult> ByBarcode(string barcode, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(barcode))
-            return RedirectToAction("Index", "Home");
+            return RedirectToAction("Index", "Dashboard");
 
         var box = await _boxService.GetBoxByBarcodeAsync(barcode, cancellationToken);
         if (box is null)
         {
-            TempData["Error"] = "Aucune box trouvée avec ce code-barres.";
-            return RedirectToAction("Index", "Home");
+            TempData["Error"] = "No box was found with this barcode.";
+            return RedirectToAction("Index", "Dashboard");
         }
 
         return RedirectToAction("Details", new { barcode = box.BarcodeValue });
@@ -104,18 +155,19 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(barcode))
         {
-            TempData["ScanError"] = "Aucun code-barres fourni.";
+            TempData["ScanError"] = "No barcode was provided.";
             return RedirectToAction("Prepare", new { barcode = boxBarcode });
         }
 
         if (barcode.Trim().Length < 3)
         {
-            TempData["ScanError"] = "Le code-barres doit contenir au moins 3 caractères.";
+            TempData["ScanError"] = "The barcode must contain at least 3 characters.";
             return RedirectToAction("Prepare", new { barcode = boxBarcode });
         }
 
-        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var result = await _boxService.ScanPackageAsync(boxId, barcode, userId, cancellationToken);
+        var userId = GetUserId();
+        var workstationName = GetWorkstationName();
+        var result = await _packageScanService.ScanPackageAsync(boxId, barcode, userId, workstationName, cancellationToken);
 
         if (result.Success)
             TempData["ScanSuccess"] = result.Message;
@@ -132,17 +184,18 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(barcode))
         {
-            return Json(new { success = false, message = "Aucun code-barres fourni." });
+            return Json(new { success = false, message = "No barcode was provided." });
         }
 
         barcode = barcode.Trim();
         if (barcode.Length < 3)
         {
-            return Json(new { success = false, message = "Le code-barres doit contenir au moins 3 caractères." });
+            return Json(new { success = false, message = "The barcode must contain at least 3 characters." });
         }
 
-        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var result = await _boxService.ScanPackageAsync(boxId, barcode, userId, cancellationToken);
+        var userId = GetUserId();
+        var workstationName = GetWorkstationName();
+        var result = await _packageScanService.ScanPackageAsync(boxId, barcode, userId, workstationName, cancellationToken);
 
         return Json(new
         {
@@ -155,7 +208,7 @@ public class BoxController : Controller
             {
                 barcode = barcode,
                 scannedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"),
-                scannedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+                scannedBy = User.FindFirst(ClaimTypes.Name)?.Value
             } : null
         });
     }
@@ -167,20 +220,21 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
-            TempData["Error"] = "La raison est obligatoire.";
+            TempData["Error"] = "A reason is required.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         try
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var box = await _boxService.CancelBoxAsync(boxId, reason, userId, cancellationToken);
-            TempData["ScanSuccess"] = "Box annulée avec succès.";
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.CancelBoxAsync(boxId, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Box cancelled successfully.";
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
         catch (System.Exception ex)
         {
-            TempData["Error"] = $"Erreur lors de l'annulation: {ex.Message}";
+            TempData["Error"] = $"Error while cancelling: {ex.Message}";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
     }
@@ -192,20 +246,21 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
-            TempData["Error"] = "La raison est obligatoire.";
+            TempData["Error"] = "A reason is required.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         try
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var box = await _boxService.ForceCloseBoxAsync(boxId, reason, userId, cancellationToken);
-            TempData["ScanSuccess"] = "Box fermée avec succès.";
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.ForceCloseBoxAsync(boxId, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Box closed successfully.";
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
         catch (System.Exception ex)
         {
-            TempData["Error"] = $"Erreur lors de la fermeture forcée: {ex.Message}";
+            TempData["Error"] = $"Error while force closing: {ex.Message}";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
     }
@@ -217,26 +272,27 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
-            TempData["Error"] = "La raison est obligatoire.";
+            TempData["Error"] = "A reason is required.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         if (expectedQuantity <= 0)
         {
-            TempData["Error"] = "La quantité attendue doit être supérieure à 0.";
+            TempData["Error"] = "Expected quantity must be greater than 0.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         try
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var box = await _boxService.UpdateExpectedQuantityAsync(boxId, expectedQuantity, reason, userId, cancellationToken);
-            TempData["ScanSuccess"] = "Quantité attendue modifiée avec succès.";
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.UpdateExpectedQuantityAsync(boxId, expectedQuantity, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Expected quantity updated successfully.";
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
         catch (System.Exception ex)
         {
-            TempData["Error"] = $"Erreur lors de la modification de la quantité: {ex.Message}";
+            TempData["Error"] = $"Error while updating the quantity: {ex.Message}";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
     }
@@ -248,20 +304,21 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
-            TempData["Error"] = "La raison est obligatoire.";
+            TempData["Error"] = "A reason is required.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         try
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var box = await _boxService.BlockBoxAsync(boxId, reason, userId, cancellationToken);
-            TempData["ScanSuccess"] = "Box bloquée avec succès.";
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.BlockBoxAsync(boxId, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Box blocked successfully.";
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
         catch (System.Exception ex)
         {
-            TempData["Error"] = $"Erreur lors du blocage: {ex.Message}";
+            TempData["Error"] = $"Error while blocking: {ex.Message}";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
     }
@@ -273,20 +330,47 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
-            TempData["Error"] = "La raison est obligatoire.";
+            TempData["Error"] = "A reason is required.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         try
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var box = await _boxService.UnblockBoxAsync(boxId, reason, userId, cancellationToken);
-            TempData["ScanSuccess"] = "Box débloquée avec succès.";
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.UnblockBoxAsync(boxId, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Box unblocked successfully.";
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
         catch (System.Exception ex)
         {
-            TempData["Error"] = $"Erreur lors du déblocage: {ex.Message}";
+            TempData["Error"] = $"Error while unblocking: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
+    public async Task<IActionResult> ArchiveBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "A reason is required.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.ArchiveBoxAsync(boxId, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Box archived successfully.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Error while archiving: {ex.Message}";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
     }
@@ -298,20 +382,21 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
-            TempData["Error"] = "La raison est obligatoire.";
+            TempData["Error"] = "A reason is required.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         try
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var box = await _boxService.BlockPackageAsync(packageId, reason, userId, cancellationToken);
-            TempData["ScanSuccess"] = "Paquet bloqué avec succès.";
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.BlockPackageAsync(packageId, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Package blocked successfully.";
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
         catch (System.Exception ex)
         {
-            TempData["Error"] = $"Erreur lors du blocage du paquet: {ex.Message}";
+            TempData["Error"] = $"Error while blocking the package: {ex.Message}";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
     }
@@ -323,20 +408,21 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
-            TempData["Error"] = "La raison est obligatoire.";
+            TempData["Error"] = "A reason is required.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         try
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var box = await _boxService.UnblockPackageAsync(packageId, reason, userId, cancellationToken);
-            TempData["ScanSuccess"] = "Paquet débloqué avec succès.";
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.UnblockPackageAsync(packageId, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Package unblocked successfully.";
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
         catch (System.Exception ex)
         {
-            TempData["Error"] = $"Erreur lors du déblocage du paquet: {ex.Message}";
+            TempData["Error"] = $"Error while unblocking the package: {ex.Message}";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
     }
@@ -348,26 +434,27 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
-            TempData["Error"] = "La raison est obligatoire.";
+            TempData["Error"] = "A reason is required.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         if (destinationBoxId <= 0)
         {
-            TempData["Error"] = "La box de destination est invalide.";
+            TempData["Error"] = "The destination box is invalid.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         try
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var box = await _boxService.TransferPackageAsync(packageId, destinationBoxId, reason, userId, cancellationToken);
-            TempData["ScanSuccess"] = "Paquet transféré avec succès.";
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.TransferPackageAsync(packageId, destinationBoxId, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Package transferred successfully.";
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
         catch (System.Exception ex)
         {
-            TempData["Error"] = $"Erreur lors du transfert du paquet: {ex.Message}";
+            TempData["Error"] = $"Error while transferring the package: {ex.Message}";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
     }
@@ -379,20 +466,47 @@ public class BoxController : Controller
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
-            TempData["Error"] = "La raison est obligatoire.";
+            TempData["Error"] = "A reason is required.";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
 
         try
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var box = await _boxService.RetraitPackageAsync(packageId, reason, userId, cancellationToken);
-            TempData["ScanSuccess"] = "Paquet retiré avec succès.";
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.RetraitPackageAsync(packageId, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Package removed successfully.";
             return RedirectToAction("Details", new { barcode = box.BarcodeValue });
         }
         catch (System.Exception ex)
         {
-            TempData["Error"] = $"Erreur lors du retrait du paquet: {ex.Message}";
+            TempData["Error"] = $"Error while removing the package: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
+    public async Task<IActionResult> DisassociatePackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "A reason is required.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = GetUserId();
+            var workstationName = GetWorkstationName();
+            var box = await _boxService.DisassociatePackageAsync(packageId, reason, userId, workstationName, cancellationToken);
+            TempData["ScanSuccess"] = "Package disassociated successfully.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Error while disassociating the package: {ex.Message}";
             return RedirectToAction("Details", new { barcode = boxBarcode });
         }
     }

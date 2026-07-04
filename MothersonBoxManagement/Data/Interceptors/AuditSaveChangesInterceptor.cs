@@ -62,7 +62,10 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             return;
         }
 
-        string workstationName = _configuration["WorkstationName"] ?? "DEFAULT-STATION";
+        string? configuredWorkstation = _configuration["WorkstationName"];
+        string workstationName = (string.IsNullOrWhiteSpace(configuredWorkstation) || configuredWorkstation == "DEV-STATION-01" || configuredWorkstation == "DEFAULT-STATION")
+            ? Environment.MachineName
+            : configuredWorkstation;
 
         var entries = context.ChangeTracker.Entries()
             .Where(e => e.Entity is not BoxAuditLog &&
@@ -92,13 +95,98 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 boxId = package.BoxId;
             }
 
-            string actionType = entry.State switch
+            string actionType = "Unknown";
+            if (entry.Entity is Box)
             {
-                EntityState.Added => entry.Entity is BoxPackage ? "PackageScan" : "Insert",
-                EntityState.Modified => "Update",
-                EntityState.Deleted => "Delete",
-                _ => entry.State.ToString()
-            };
+                if (entry.State == EntityState.Added)
+                {
+                    actionType = "BoxCreated";
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    var statusProp = entry.Property("Status");
+                    var expectedQtyProp = entry.Property("ExpectedQuantity");
+                    var isBlockedProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "BlockReason");
+
+                    if (statusProp.IsModified)
+                    {
+                        var oldStatus = (BoxStatus)statusProp.OriginalValue!;
+                        var newStatus = (BoxStatus)statusProp.CurrentValue!;
+                        actionType = newStatus switch
+                        {
+                            BoxStatus.Cancelled => "BoxCancelled",
+                            BoxStatus.Completed => "BoxCompletedAuto",
+                            BoxStatus.CompletedWithException => "BoxCompletedWithException",
+                            BoxStatus.Blocked => "BoxBlocked",
+                            BoxStatus.Open when oldStatus == BoxStatus.Blocked => "BoxUnblocked",
+                            _ => "BoxUpdated"
+                        };
+                    }
+                    else if (expectedQtyProp.IsModified)
+                    {
+                        actionType = "ExpectedQuantityUpdated";
+                    }
+                    else
+                    {
+                        actionType = "BoxUpdated";
+                    }
+                }
+                else if (entry.State == EntityState.Deleted)
+                {
+                    actionType = "BoxDeleted";
+                }
+            }
+            else if (entry.Entity is BoxPackage pkg)
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    actionType = "PackageScanned";
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    var isBlockedProp = entry.Property("IsBlocked");
+                    if (isBlockedProp.IsModified)
+                    {
+                        var wasBlocked = (bool)isBlockedProp.OriginalValue!;
+                        var isNowBlocked = (bool)isBlockedProp.CurrentValue!;
+                        actionType = isNowBlocked ? "PackageBlocked" : "PackageUnblocked";
+                    }
+                    else
+                    {
+                        var boxIdProp = entry.Property("BoxId");
+                        if (boxIdProp.IsModified)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            actionType = "PackageUpdated";
+                        }
+                    }
+                }
+                else if (entry.State == EntityState.Deleted)
+                {
+                    var associatedBox = pkg.Box ?? context.Set<Box>().Find(pkg.BoxId);
+                    if (associatedBox != null && associatedBox.Status == BoxStatus.Cancelled)
+                    {
+                        actionType = "PackageDisassociated";
+                    }
+                    else
+                    {
+                        actionType = "PackageRemoved";
+                    }
+                }
+            }
+            else
+            {
+                actionType = entry.State switch
+                {
+                    EntityState.Added => "Insert",
+                    EntityState.Modified => "Update",
+                    EntityState.Deleted => "Delete",
+                    _ => entry.State.ToString()
+                };
+            }
 
             var originalValues = new Dictionary<string, object?>();
             var currentValues = new Dictionary<string, object?>();
@@ -161,12 +249,72 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
             string detailsJson = JsonSerializer.Serialize(details, options);
 
+            string? previousValue = null;
+            string? newValue = null;
+            string? reason = null;
+            string? packageBarcode = null;
+
+            if (entry.Entity is Box auditBox)
+            {
+                if (entry.State == EntityState.Modified)
+                {
+                    var statusProp = entry.Property("Status");
+                    if (statusProp.IsModified)
+                    {
+                        previousValue = statusProp.OriginalValue?.ToString();
+                        newValue = statusProp.CurrentValue?.ToString();
+                    }
+                    var qtyProp = entry.Property("ExpectedQuantity");
+                    if (qtyProp.IsModified)
+                    {
+                        previousValue = qtyProp.OriginalValue?.ToString();
+                        newValue = qtyProp.CurrentValue?.ToString();
+                    }
+                }
+                if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
+                {
+                    reason = auditBox.ExceptionReason ?? auditBox.BlockReason;
+                }
+            }
+            else if (entry.Entity is BoxPackage auditPkg)
+            {
+                packageBarcode = auditPkg.PackageBarcode;
+                if (entry.State == EntityState.Added)
+                {
+                    newValue = auditPkg.PackageBarcode;
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    var boxIdProp = entry.Property("BoxId");
+                    if (boxIdProp.IsModified)
+                    {
+                        previousValue = boxIdProp.OriginalValue?.ToString();
+                        newValue = boxIdProp.CurrentValue?.ToString();
+                    }
+                    var isBlockedProp = entry.Property("IsBlocked");
+                    if (isBlockedProp.IsModified)
+                    {
+                        previousValue = isBlockedProp.OriginalValue?.ToString();
+                        newValue = isBlockedProp.CurrentValue?.ToString();
+                    }
+                }
+                else if (entry.State == EntityState.Deleted)
+                {
+                    previousValue = auditPkg.PackageBarcode;
+                }
+            }
+
             var auditLog = new BoxAuditLog
             {
                 ActionType = actionType,
                 UserId = userIdVal.Value,
                 Timestamp = DateTime.Now,
                 WorkstationName = workstationName,
+                PreviousValue = previousValue,
+                NewValue = newValue,
+                Reason = reason,
+                PackageBarcode = packageBarcode,
+                Description = GenerateDescription(actionType, entry),
                 DetailsJson = detailsJson
             };
 
@@ -186,6 +334,28 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         {
             context.AddRange(auditLogs);
         }
+    }
+
+    private static string GenerateDescription(string actionType, Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+    {
+        return actionType switch
+        {
+            "BoxCreated" => "New box created.",
+            "BoxCancelled" => "Box cancelled.",
+            "BoxCompletedAuto" => "Box completed automatically.",
+            "BoxCompletedWithException" => "Box closed with an exception.",
+            "BoxBlocked" => "Box blocked.",
+            "BoxUnblocked" => "Box unblocked.",
+            "BoxUpdated" => "Box information updated.",
+            "BoxDeleted" => "Box deleted.",
+            "PackageScanned" => "Package scanned and assigned to a box.",
+            "PackageBlocked" => "Package blocked.",
+            "PackageUnblocked" => "Package unblocked.",
+            "PackageRemoved" => "Package removed from the box.",
+            "PackageDisassociated" => "Package disassociated from a cancelled box.",
+            "ExpectedQuantityUpdated" => "Expected quantity updated.",
+            _ => $"Action {actionType} recorded."
+        };
     }
 
     public override InterceptionResult<int> SavingChanges(
