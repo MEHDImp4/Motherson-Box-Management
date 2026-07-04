@@ -98,7 +98,11 @@ Plans:
   4. Supervisor can quarantine (Block) a box or package to halt scans, and unblock it.
   5. Audit log view displays an unmodifiable list of actions, users, and previous/new values in JSON format.
 
-**Plans**: TBD
+**Plans**: 0/3 plans complete
+Plans:
+- [ ] 04-01-PLAN.md — Database Updates & Audit Interceptor
+- [ ] 04-02-PLAN.md — Supervisor Exception Service Methods
+- [ ] 04-03-PLAN.md — UI Updates & Audit Log View
 **UI hint**: yes
 
 ### Phase 5: Verification & Hardening
@@ -123,5 +127,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Database & Auth Setup | 1/1 | Complete   | 2026-07-02 |
 | 2. Box Lifecycle & Home Lookup | 4/4 | Complete   | 2026-07-02 |
 | 3. Barcode Scan Integration | 3/3 | Complete   | 2026-07-03 |
-| 4. Supervisor Exceptions | 0/1 | Not started | - |
+| 4. Supervisor Exceptions | 0/3 | Planning Complete | - |
 | 5. Verification & Hardening | 0/1 | Not started | - |
