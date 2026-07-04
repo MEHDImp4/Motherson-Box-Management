@@ -56,6 +56,12 @@ public class BoxController : Controller
         if (box is null)
             return NotFound();
 
+        if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+        {
+            var openBoxes = await _boxService.GetOpenBoxesAsync(cancellationToken);
+            ViewBag.OpenBoxes = openBoxes.Where(b => b.Id != box.Id).ToList();
+        }
+
         return View(box);
     }
 
@@ -152,5 +158,242 @@ public class BoxController : Controller
                 scannedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
             } : null
         });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin")]
+    public async Task<IActionResult> CancelBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "La raison est obligatoire.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var box = await _boxService.CancelBoxAsync(boxId, reason, userId, cancellationToken);
+            TempData["ScanSuccess"] = "Box annulée avec succès.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Erreur lors de l'annulation: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin")]
+    public async Task<IActionResult> ForceCloseBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "La raison est obligatoire.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var box = await _boxService.ForceCloseBoxAsync(boxId, reason, userId, cancellationToken);
+            TempData["ScanSuccess"] = "Box fermée avec succès.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Erreur lors de la fermeture forcée: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin")]
+    public async Task<IActionResult> ModifyExpectedQuantity(int boxId, string boxBarcode, int expectedQuantity, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "La raison est obligatoire.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        if (expectedQuantity <= 0)
+        {
+            TempData["Error"] = "La quantité attendue doit être supérieure à 0.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var box = await _boxService.UpdateExpectedQuantityAsync(boxId, expectedQuantity, reason, userId, cancellationToken);
+            TempData["ScanSuccess"] = "Quantité attendue modifiée avec succès.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Erreur lors de la modification de la quantité: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin")]
+    public async Task<IActionResult> BlockBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "La raison est obligatoire.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var box = await _boxService.BlockBoxAsync(boxId, reason, userId, cancellationToken);
+            TempData["ScanSuccess"] = "Box bloquée avec succès.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Erreur lors du blocage: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin")]
+    public async Task<IActionResult> UnblockBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "La raison est obligatoire.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var box = await _boxService.UnblockBoxAsync(boxId, reason, userId, cancellationToken);
+            TempData["ScanSuccess"] = "Box débloquée avec succès.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Erreur lors du déblocage: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin")]
+    public async Task<IActionResult> BlockPackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "La raison est obligatoire.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var box = await _boxService.BlockPackageAsync(packageId, reason, userId, cancellationToken);
+            TempData["ScanSuccess"] = "Paquet bloqué avec succès.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Erreur lors du blocage du paquet: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin")]
+    public async Task<IActionResult> UnblockPackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "La raison est obligatoire.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var box = await _boxService.UnblockPackageAsync(packageId, reason, userId, cancellationToken);
+            TempData["ScanSuccess"] = "Paquet débloqué avec succès.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Erreur lors du déblocage du paquet: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin")]
+    public async Task<IActionResult> TransferPackage(int packageId, string boxBarcode, int destinationBoxId, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "La raison est obligatoire.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        if (destinationBoxId <= 0)
+        {
+            TempData["Error"] = "La box de destination est invalide.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var box = await _boxService.TransferPackageAsync(packageId, destinationBoxId, reason, userId, cancellationToken);
+            TempData["ScanSuccess"] = "Paquet transféré avec succès.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Erreur lors du transfert du paquet: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Superviseur,Admin")]
+    public async Task<IActionResult> RetraitPackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["Error"] = "La raison est obligatoire.";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
+
+        try
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var box = await _boxService.RetraitPackageAsync(packageId, reason, userId, cancellationToken);
+            TempData["ScanSuccess"] = "Paquet retiré avec succès.";
+            return RedirectToAction("Details", new { barcode = box.BarcodeValue });
+        }
+        catch (System.Exception ex)
+        {
+            TempData["Error"] = $"Erreur lors du retrait du paquet: {ex.Message}";
+            return RedirectToAction("Details", new { barcode = boxBarcode });
+        }
     }
 }

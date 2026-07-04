@@ -7,13 +7,67 @@
 <div class="container mt-4">
     <a asp-action="Index" asp-controller="Home" class="btn btn-outline-secondary btn-sm mb-3">← Retour</a>
 
+    @if (TempData["ScanSuccess"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["ScanSuccess"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["ScanError"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ScanError"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
     <div class="row">
         <div class="col-md-8">
             <div class="card shadow-sm mb-4">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h2 style="font-weight: 600; font-size: 24px;">@Model.BoxNumber</h2>
-                        <span class="badge @(Model.Status == MothersonBoxManagement.Entities.BoxStatus.Open ? "bg-success" : Model.Status == MothersonBoxManagement.Entities.BoxStatus.Completed ? "bg-primary" : "bg-secondary")">@Model.Status</span>
+                        <div>
+                            <h2 style="font-weight: 600; font-size: 24px;" class="mb-1">@Model.BoxNumber</h2>
+                            <span class="badge @(Model.Status == MothersonBoxManagement.Entities.BoxStatus.Open ? "bg-success" : Model.Status == MothersonBoxManagement.Entities.BoxStatus.Completed ? "bg-primary" : "bg-secondary")">@Model.Status</span>
+                            @if (!string.IsNullOrEmpty(Model.ExceptionReason))
+                            {
+                                <div class="text-danger mt-1 small"><strong>Raison d'exception:</strong> @Model.ExceptionReason</div>
+                            }
+                        </div>
+                        @if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+                        {
+                            <div class="d-flex flex-wrap gap-2">
+                                @if (Model.Status == MothersonBoxManagement.Entities.BoxStatus.Open)
+                                {
+                                    <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#modifyQtyModal">
+                                        Modifier Qte
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelBoxModal">
+                                        Annuler Box
+                                    </button>
+                                    <button type="button" class="btn btn-dark btn-sm" data-bs-toggle="modal" data-bs-target="#forceCloseBoxModal">
+                                        Clôturer de force
+                                    </button>
+                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#blockBoxModal">
+                                        Bloquer Box
+                                    </button>
+                                }
+                                else if (Model.Status == MothersonBoxManagement.Entities.BoxStatus.Blocked)
+                                {
+                                    <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#unblockBoxModal">
+                                        Débloquer Box
+                                    </button>
+                                }
+                            </div>
+                        }
                     </div>
 
                     <div class="row mb-3">
@@ -53,15 +107,60 @@
                     {
                         <table class="table table-sm">
                             <thead>
-                                <tr><th>Code-barres</th><th>Scanné par</th><th>Date</th></tr>
+                                <tr>
+                                    <th>Code-barres</th>
+                                    <th>Scanné par</th>
+                                    <th>Date</th>
+                                    @if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+                                    {
+                                        <th>Actions</th>
+                                    }
+                                </tr>
                             </thead>
                             <tbody>
                                 @foreach (var pkg in Model.Packages.OrderByDescending(p => p.ScannedAt))
                                 {
                                     <tr>
-                                        <td><code>@pkg.PackageBarcode</code></td>
+                                        <td>
+                                            <code>@pkg.PackageBarcode</code>
+                                            @if (pkg.IsBlocked)
+                                            {
+                                                <span class="badge bg-danger ms-1" title="Raison: @pkg.BlockReason">Bloqué</span>
+                                            }
+                                        </td>
                                         <td>@pkg.ScannedByMatricule</td>
                                         <td>@pkg.ScannedAt.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                        @if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+                                        {
+                                            <td>
+                                                <div class="btn-group">
+                                                    @if (Model.Status == MothersonBoxManagement.Entities.BoxStatus.Open)
+                                                    {
+                                                        <button type="button" class="btn btn-outline-warning btn-sm py-0 px-1" style="font-size: 11px;" data-bs-toggle="modal" data-bs-target="#transferPkgModal-@pkg.Id">
+                                                            Transférer
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 11px;" data-bs-toggle="modal" data-bs-target="#retraitPkgModal-@pkg.Id">
+                                                            Retirer
+                                                        </button>
+                                                    }
+                                                    @if (Model.Status != MothersonBoxManagement.Entities.BoxStatus.Cancelled && Model.Status != MothersonBoxManagement.Entities.BoxStatus.Archived)
+                                                    {
+                                                        @if (pkg.IsBlocked)
+                                                        {
+                                                            <button type="button" class="btn btn-outline-success btn-sm py-0 px-1" style="font-size: 11px;" data-bs-toggle="modal" data-bs-target="#unblockPkgModal-@pkg.Id">
+                                                                Débloquer
+                                                            </button>
+                                                        }
+                                                        else
+                                                        {
+                                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 11px;" data-bs-toggle="modal" data-bs-target="#blockPkgModal-@pkg.Id">
+                                                                Bloquer
+                                                            </button>
+                                                        }
+                                                    }
+                                                </div>
+                                            </td>
+                                        }
                                     </tr>
                                 }
                             </tbody>
@@ -73,9 +172,258 @@
             <div class="card shadow-sm">
                 <div class="card-body">
                     <h5 style="font-weight: 600;">Historique & Audit</h5>
-                    <p class="text-muted">Aucun enregistrement d'audit pour cette box.</p>
+                    <p class="text-muted">Consulter l'historique complet des actions d'audit pour cette box.</p>
+                    <a asp-action="Index" asp-controller="Audit" asp-route-boxId="@Model.Id" class="btn btn-outline-primary btn-sm">Voir le journal d'audit de cette box</a>
                 </div>
             </div>
         </div>
     </div>
+
+    @if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+    {
+        <!-- Modals for Box Operations -->
+        <div class="modal fade" id="modifyQtyModal" tabindex="-1" aria-labelledby="modifyQtyModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form asp-action="ModifyExpectedQuantity" asp-controller="Box" method="post" class="modal-content">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="boxId" value="@Model.Id" />
+                    <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title" id="modifyQtyModalLabel">Modifier la quantité attendue</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="expectedQuantity" class="form-label">Nouvelle quantité attendue</label>
+                            <input type="number" class="form-control" id="expectedQuantity" name="expectedQuantity" value="@Model.ExpectedQuantity" min="1" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="reasonModify" class="form-label">Raison (obligatoire)</label>
+                            <textarea class="form-control" id="reasonModify" name="reason" rows="3" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-warning">Confirmer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal fade" id="cancelBoxModal" tabindex="-1" aria-labelledby="cancelBoxModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form asp-action="CancelBox" asp-controller="Box" method="post" class="modal-content">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="boxId" value="@Model.Id" />
+                    <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="cancelBoxModalLabel">Annuler la Box</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-danger">Attention: Cette action est irréversible et annulera cette box.</p>
+                        <div class="mb-3">
+                            <label for="reasonCancel" class="form-label">Raison (obligatoire)</label>
+                            <textarea class="form-control" id="reasonCancel" name="reason" rows="3" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-danger">Confirmer l'annulation</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal fade" id="forceCloseBoxModal" tabindex="-1" aria-labelledby="forceCloseBoxModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form asp-action="ForceCloseBox" asp-controller="Box" method="post" class="modal-content">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="boxId" value="@Model.Id" />
+                    <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title" id="forceCloseBoxModalLabel">Clôturer de force la Box</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-warning">Cette action clôturera la box avec le statut "CompletedWithException".</p>
+                        <div class="mb-3">
+                            <label for="reasonForceClose" class="form-label">Raison (obligatoire)</label>
+                            <textarea class="form-control" id="reasonForceClose" name="reason" rows="3" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-dark">Confirmer la clôture</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal fade" id="blockBoxModal" tabindex="-1" aria-labelledby="blockBoxModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form asp-action="BlockBox" asp-controller="Box" method="post" class="modal-content">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="boxId" value="@Model.Id" />
+                    <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                    <div class="modal-header bg-secondary text-white">
+                        <h5 class="modal-title" id="blockBoxModalLabel">Bloquer la Box</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="reasonBlockBox" class="form-label">Raison (obligatoire)</label>
+                            <textarea class="form-control" id="reasonBlockBox" name="reason" rows="3" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-secondary">Bloquer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal fade" id="unblockBoxModal" tabindex="-1" aria-labelledby="unblockBoxModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form asp-action="UnblockBox" asp-controller="Box" method="post" class="modal-content">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="boxId" value="@Model.Id" />
+                    <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title" id="unblockBoxModalLabel">Débloquer la Box</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="reasonUnblockBox" class="form-label">Raison (obligatoire)</label>
+                            <textarea class="form-control" id="reasonUnblockBox" name="reason" rows="3" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-success">Débloquer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modals for Package Operations -->
+        @foreach (var pkg in Model.Packages)
+        {
+            <!-- Transfer Package Modal -->
+            <div class="modal fade" id="transferPkgModal-@pkg.Id" tabindex="-1" aria-labelledby="transferPkgModalLabel-@pkg.Id" aria-hidden="true">
+                <div class="modal-dialog">
+                    <form asp-action="TransferPackage" asp-controller="Box" method="post" class="modal-content">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="packageId" value="@pkg.Id" />
+                        <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                        <div class="modal-header bg-warning">
+                            <h5 class="modal-title" id="transferPkgModalLabel-@pkg.Id">Transférer le paquet @pkg.PackageBarcode</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="destBox-@pkg.Id" class="form-label">Box de destination (ouverte)</label>
+                                <select class="form-select" id="destBox-@pkg.Id" name="destinationBoxId" required>
+                                    <option value="">Choisir une box...</option>
+                                    @if (ViewBag.OpenBoxes != null)
+                                    {
+                                        @foreach (var openBox in (List<MothersonBoxManagement.Data.Dtos.BoxListItemDto>)ViewBag.OpenBoxes)
+                                        {
+                                            <option value="@openBox.Id">@openBox.BoxNumber (@openBox.BarcodeValue) - @openBox.CurrentQuantity/@openBox.ExpectedQuantity</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="transferReason-@pkg.Id" class="form-label">Raison (obligatoire)</label>
+                                <textarea class="form-control" id="transferReason-@pkg.Id" name="reason" rows="3" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="submit" class="btn btn-warning">Transférer</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Retrait Package Modal -->
+            <div class="modal fade" id="retraitPkgModal-@pkg.Id" tabindex="-1" aria-labelledby="retraitPkgModalLabel-@pkg.Id" aria-hidden="true">
+                <div class="modal-dialog">
+                    <form asp-action="RetraitPackage" asp-controller="Box" method="post" class="modal-content">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="packageId" value="@pkg.Id" />
+                        <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title" id="retraitPkgModalLabel-@pkg.Id">Retirer le paquet @pkg.PackageBarcode</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-danger">Cette action supprimera définitivement le paquet de cette box.</p>
+                            <div class="mb-3">
+                                <label for="retraitReason-@pkg.Id" class="form-label">Raison (obligatoire)</label>
+                                <textarea class="form-control" id="retraitReason-@pkg.Id" name="reason" rows="3" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="submit" class="btn btn-danger">Retirer</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Block Package Modal -->
+            <div class="modal fade" id="blockPkgModal-@pkg.Id" tabindex="-1" aria-labelledby="blockPkgModalLabel-@pkg.Id" aria-hidden="true">
+                <div class="modal-dialog">
+                    <form asp-action="BlockPackage" asp-controller="Box" method="post" class="modal-content">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="packageId" value="@pkg.Id" />
+                        <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                        <div class="modal-header bg-secondary text-white">
+                            <h5 class="modal-title" id="blockPkgModalLabel-@pkg.Id">Bloquer le paquet @pkg.PackageBarcode</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="blockReason-@pkg.Id" class="form-label">Raison (obligatoire)</label>
+                                <textarea class="form-control" id="blockReason-@pkg.Id" name="reason" rows="3" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="submit" class="btn btn-secondary">Bloquer</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Unblock Package Modal -->
+            <div class="modal fade" id="unblockPkgModal-@pkg.Id" tabindex="-1" aria-labelledby="unblockPkgModalLabel-@pkg.Id" aria-hidden="true">
+                <div class="modal-dialog">
+                    <form asp-action="UnblockPackage" asp-controller="Box" method="post" class="modal-content">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="packageId" value="@pkg.Id" />
+                        <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                        <div class="modal-header bg-success text-white">
+                            <h5 class="modal-title" id="unblockPkgModalLabel-@pkg.Id">Débloquer le paquet @pkg.PackageBarcode</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="unblockReason-@pkg.Id" class="form-label">Raison (obligatoire)</label>
+                                <textarea class="form-control" id="unblockReason-@pkg.Id" name="reason" rows="3" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="submit" class="btn btn-success">Débloquer</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+    }
 </div>
