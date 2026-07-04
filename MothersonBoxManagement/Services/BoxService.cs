@@ -157,22 +157,6 @@ public class BoxService : IBoxService
 
                 await _context.SaveChangesAsync(cancellationToken);
 
-                _context.BoxAuditLogs.Add(new BoxAuditLog
-                {
-                    BoxId = boxId,
-                    ActionType = "PackageScan",
-                    UserId = userId,
-                    Timestamp = DateTime.Now,
-                    DetailsJson = JsonSerializer.Serialize(new
-                    {
-                        barcode,
-                        box.CurrentQuantity,
-                        box.ExpectedQuantity,
-                        autoCompleted = box.Status == BoxStatus.Completed
-                    })
-                });
-                await _context.SaveChangesAsync(cancellationToken);
-
                 if (transaction is not null)
                 {
                     await transaction.CommitAsync(cancellationToken);

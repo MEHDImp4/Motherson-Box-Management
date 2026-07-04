@@ -162,7 +162,7 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
             await client.PostAsync("/Box/Scan", scanForm);
         }
 
-        var detailsResponse = await client.GetAsync(detailsUrl);
+        var detailsResponse = await client.GetAsync($"/Box/Details/{boxBarcode}");
         var content = await detailsResponse.Content.ReadAsStringAsync();
         Assert.Contains("Completed", content);
     }
