@@ -18,6 +18,7 @@ public class BoxDetailsDto
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
+    public string? ExceptionReason { get; set; }
     public List<PackageItemDto> Packages { get; set; } = new();
 }
 
@@ -27,4 +28,6 @@ public class PackageItemDto
     public string PackageBarcode { get; set; } = string.Empty;
     public DateTime ScannedAt { get; set; }
     public string ScannedByMatricule { get; set; } = string.Empty;
+    public bool IsBlocked { get; set; }
+    public string? BlockReason { get; set; }
 }
