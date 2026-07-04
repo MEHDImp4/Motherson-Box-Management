@@ -17,7 +17,7 @@ Implement the scanner listener on the preparation screen, execute package scanni
 - **D-01:** After a successful scan, the input field must auto-focus and clear for the next scan. Operator can scan continuously without clicking.
 - **D-02:** Visual feedback uses green/red Bootstrap alert banner at top (existing pattern) plus a brief CSS animated highlight on the progress bar.
 - **D-03:** The scan input auto-submits on Enter keypress. USB scanners send barcode + Enter — no button click needed.
-- **D-04:** When a box reaches expected quantity and auto-closes, the scan input is disabled (greyed out) with a "Box complétée" message displayed.
+- **D-04:** When a box reaches expected quantity and auto-closes, the scan input is disabled (greyed out) with a "Box completed" message displayed.
 - **D-05:** Scan input has a minimum length check (3 characters) before submitting. Prevents accidental empty/near-empty submits.
 - **D-06:** Progress bar uses CSS transition on width change for animated fill. No animation library required.
 
@@ -35,7 +35,7 @@ Implement the scanner listener on the preparation screen, execute package scanni
 ### Package Barcode Format
 - **D-14:** Package barcodes stay freeform — accept any string. Real-world scanners read whatever is on the label. BOX- prefix check is sufficient for box/package separation.
 - **D-15:** BOX- prefix check uses exact prefix match with case-insensitive comparison. `BOX123` without dash is NOT blocked — only `BOX-` prefix triggers rejection.
-- **D-16:** Error message for box barcodes scanned in package view stays in French: "Les codes-barres de box ne peuvent pas être scannés comme paquets."
+- **D-16:** Error message for box barcodes scanned in package view is: "Box barcodes cannot be scanned as packages."
 
 ### the agent's Discretion
 - No areas marked as agent discretion — all decisions were explicitly made by the user.

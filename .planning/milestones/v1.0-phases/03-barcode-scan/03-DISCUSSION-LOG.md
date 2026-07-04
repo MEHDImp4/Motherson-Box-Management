@@ -48,7 +48,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Disable input + show message (Recommended) | Grey out scan input, show "Box complétée" | ✓ |
+| Disable input + show message (Recommended) | Grey out scan input, show "Box completed" | ✓ |
 | Hide the scan form | Remove scan form entirely when Completed | |
 | Keep active, reject on submit | Let user keep scanning, show error on each attempt | |
 
@@ -192,8 +192,8 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| French message (Recommended) | "Les codes-barres de box ne peuvent pas être scannés comme paquets." | ✓ |
-| Short message | "Code-barres box invalide pour cette opération." | |
+| English message (Recommended) | "Box barcodes cannot be scanned as packages." | ✓ |
+| Short message | "Invalid box barcode for this action." | |
 | Bilingual | Show both French and English | |
 
 **User's choice:** French message

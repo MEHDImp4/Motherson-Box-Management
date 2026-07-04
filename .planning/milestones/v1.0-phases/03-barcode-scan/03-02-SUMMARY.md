@@ -97,7 +97,7 @@ status: complete
 - AJAX `fetch()` to `/Box/ScanAjax` with `X-CSRF-TOKEN` header, real-time DOM updates without page reload
 - `addPackageRow` prepends table rows, `updateProgressBar` animates width with pulse-success class
 - `playBeep` via Web Audio API: 800Hz/150ms success, 300Hz/300ms error
-- `disableScanInput` sets placeholder to "Box complétée" on auto-completion
+- `disableScanInput` sets placeholder to "Box completed" on auto-completion
 - Updated `Prepare.cshtml` with `PrepareViewModel`, all required element IDs, and scanner.js reference
 - Added scanner CSS: flash animations, focus styles, progress bar transition, result badge classes
 

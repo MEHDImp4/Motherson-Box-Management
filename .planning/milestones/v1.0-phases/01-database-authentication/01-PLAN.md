@@ -121,22 +121,22 @@ dotnet build MothersonBoxManagement/MothersonBoxManagement.csproj
 </read_first>
 <action>
 1. Create ViewModels/LoginViewModel.cs with properties: string Matricule ([Required], [RegularExpression(@"^[a-zA-Z0-9]{3,20}$", ErrorMessage)]), string Password ([Required]), string? ReturnUrl. Add DataAnnotations for validation.
-2. Create Controllers/AccountController.cs. Constructor-inject IAuthenticationService. Add [HttpGet] Login(string? returnUrl) action returning View with new LoginViewModel { ReturnUrl = returnUrl }. Add [HttpPost] Login(LoginViewModel model) action: if ModelState is invalid, return View(model). Call _authenticationService.ValidateCredentialsAsync. On null result, add ModelError with message "Matricule ou mot de passe incorrect." and return View. On success, create ClaimsIdentity with claims: ClaimTypes.NameIdentifier = user.Id.ToString(), ClaimTypes.Name = user.Matricule, ClaimTypes.Role = user.Role, custom "Matricule" claim = user.Matricule. Sign in with HttpContext.SignInAsync using AuthenticationProperties { IsPersistent = false }. Redirect to returnUrl or "/" default.
+2. Create Controllers/AccountController.cs. Constructor-inject IAuthenticationService. Add [HttpGet] Login(string? returnUrl) action returning View with new LoginViewModel { ReturnUrl = returnUrl }. Add [HttpPost] Login(LoginViewModel model) action: if ModelState is invalid, return View(model). Call _authenticationService.ValidateCredentialsAsync. On null result, add ModelError with message "Invalid matricule or password." and return View. On success, create ClaimsIdentity with claims: ClaimTypes.NameIdentifier = user.Id.ToString(), ClaimTypes.Name = user.Matricule, ClaimTypes.Role = user.Role, custom "Matricule" claim = user.Matricule. Sign in with HttpContext.SignInAsync using AuthenticationProperties { IsPersistent = false }. Redirect to returnUrl or "/" default.
 3. Add [HttpGet] Logout action: call HttpContext.SignOutAsync and redirect to /Account/Login.
 4. Create Views/Account/Login.cshtml as a Razor view with @model LoginViewModel. Use Bootstrap 5.3 CDN. Build a centered card (max-width 420px) with background #ffffff on page background #f8fafc. Include Inter font from Google Fonts. Form posts to /Account/Login with asp-for bindings for Matricule (text input, placeholder "Matricule") and Password (password input). Submit button text "Se connecter" with background-color #0f52ba. Display validation summary and asp-validation-for spans. Error text color #df2c3f.
 5. Update Views/Shared/_Layout.cshtml to include Bootstrap 5.3 CSS CDN, Inter font, and a minimal navbar with the application name "Motherson Box Management". Add a _LoginPartial partial rendering logout link when user is authenticated.
-6. Create Views/Shared/_LoginPartial.cshtml showing the logged-in user's matricule and a "Se déconnecter" link to /Account/Logout when authenticated, or nothing when anonymous.
+6. Create Views/Shared/_LoginPartial.cshtml showing the logged-in user's matricule and a "Sign out" link to /Account/Logout when authenticated, or nothing when anonymous.
 7. Update wwwroot/css/site.css with body background-color #f8fafc, font-family Inter, and accent color variables.
 </action>
 <acceptance_criteria>
 - `dotnet build` exits 0
 - File MothersonBoxManagement/ViewModels/LoginViewModel.cs contains `[RegularExpression(@"^[a-zA-Z0-9]{3,20}$"`
-- File MothersonBoxManagement/Controllers/AccountController.cs contains `"Matricule ou mot de passe incorrect."`
+- File MothersonBoxManagement/Controllers/AccountController.cs contains `"Invalid matricule or password."`
 - File MothersonBoxManagement/Controllers/AccountController.cs contains `IsPersistent = false`
 - File MothersonBoxManagement/Views/Account/Login.cshtml contains `Se connecter`
 - Navigating to /Account/Login in a browser displays a centered login card with matricule and password fields
 - Submitting OP001 / Motherson2026! redirects to the home page
-- Submitting invalid credentials shows "Matricule ou mot de passe incorrect."
+- Submitting invalid credentials shows "Invalid matricule or password."
 </acceptance_criteria>
 <verify>
 dotnet build MothersonBoxManagement/MothersonBoxManagement.csproj
@@ -183,7 +183,7 @@ dotnet build MothersonBoxManagement/MothersonBoxManagement.csproj
 3. Create CustomWebApplicationFactory.cs inheriting WebApplicationFactory<Program>. Override ConfigureWebHost to replace the SQL Server DbContext registration with UseInMemoryDatabase("TestDb") and ensure seeding runs. Make Program class accessible by adding `[assembly: InternalsVisibleTo("MothersonBoxManagement.Tests")]` or a partial Program class in the main project.
 4. Create AccountControllerTests.cs with test methods:
    a. DisplayLogin_ReturnsLoginPage — GET /Account/Login returns 200 with "Se connecter" in response body.
-   b. InvalidLogin_ShowsGenericError — POST /Account/Login with { Matricule: "INVALID", Password: "wrong" } returns 200 with "Matricule ou mot de passe incorrect." in response body.
+   b. InvalidLogin_ShowsGenericError — POST /Account/Login with { Matricule: "INVALID", Password: "wrong" } returns 200 with "Invalid matricule or password." in response body.
    c. ValidLogin_RedirectsToHome — POST /Account/Login with { Matricule: "OP001", Password: "Motherson2026!" } returns 302 redirect to /.
    d. UnauthenticatedAccess_RedirectsToLogin — GET / without auth cookie returns 302 redirect containing "/Account/Login".
    e. MatriculeValidation_RejectsInvalidFormat — POST /Account/Login with { Matricule: "A!", Password: "test" } returns 200 with validation error (ModelState invalid).
@@ -193,7 +193,7 @@ dotnet build MothersonBoxManagement/MothersonBoxManagement.csproj
 - `dotnet build` exits 0 for the entire solution
 - `dotnet test` reports 5 passing tests, 0 failures
 - Test DisplayLogin_ReturnsLoginPage verifies 200 status and "Se connecter" presence
-- Test InvalidLogin_ShowsGenericError verifies "Matricule ou mot de passe incorrect." presence
+- Test InvalidLogin_ShowsGenericError verifies "Invalid matricule or password." presence
 - Test ValidLogin_RedirectsToHome verifies 302 redirect
 - Test UnauthenticatedAccess_RedirectsToLogin verifies redirect to /Account/Login
 - Test MatriculeValidation_RejectsInvalidFormat verifies validation rejection
@@ -208,7 +208,7 @@ dotnet test MothersonBoxManagement.Tests/MothersonBoxManagement.Tests.csproj
 truths:
   - Navigating to / without authentication redirects to /Account/Login with 302 status
   - Submitting OP001 / Motherson2026! on /Account/Login authenticates and redirects to /
-  - Submitting invalid credentials on /Account/Login displays "Matricule ou mot de passe incorrect."
+  - Submitting invalid credentials on /Account/Login displays "Invalid matricule or password."
   - The authentication cookie is named "Motherson.BoxManagement.Auth" with HttpOnly=true and SameSite=Lax
   - The authentication cookie is session-only (IsPersistent=false), destroyed when the browser closes
   - Cookie sliding expiration is 60 minutes

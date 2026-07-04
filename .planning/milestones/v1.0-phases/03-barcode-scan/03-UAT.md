@@ -35,27 +35,27 @@ result: pass
 
 ### 5. Enforce Global Duplicate Validation
 expected: |
-  Scan "PKG-VALID-001" again. Verify that the scan is rejected with a red error alert: "Ce code-barres paquet a déjà été scanné."
+  Scan "PKG-VALID-001" again. Verify that the scan is rejected with a red error alert: "This package barcode has already been scanned."
 result: pass
 
 ### 6. Enforce Minimum Barcode Length
 expected: |
-  Scan a short barcode like "12". Verify that the scan is rejected with a red error alert: "Le code-barres doit contenir au moins 3 caractères."
+  Scan a short barcode like "12". Verify that the scan is rejected with a red error alert: "The barcode must contain at least 3 characters."
 result: pass
 
 ### 7. Enforce Box Barcode Rejection
 expected: |
-  Scan a box barcode like "BOX-20260702-999999". Verify that the scan is rejected with a red error alert: "Les codes-barres de box ne peuvent pas être scannés comme paquets."
+  Scan a box barcode like "BOX-20260702-999999". Verify that the scan is rejected with a red error alert: "Box barcodes cannot be scanned as packages."
 result: pass
 
 ### 8. Batch Simulator Scans & Progress Pulsing
 expected: |
-  Click "Ouvrir le simulateur", set count to 2, and click "Générez et scanner". Verify that the button updates sequentially ("Scan 1/2...", "Scan 2/2...") with a brief delay, the page reloads on completion, and the progress bar flashes with a green pulse animation.
+  Click "Open simulator", set count to 2, and click "Generate and scan". Verify that the button updates sequentially ("Scan 1/2...", "Scan 2/2...") with a brief delay, the page reloads on completion, and the progress bar flashes with a green pulse animation.
 result: pass
 
 ### 9. Automatic Box Completion Transition
 expected: |
-  Scan additional package barcodes until ExpectedQuantity (3) is reached. Verify that the box status transitions to "Completed", you are immediately redirected to the Details page, and a success banner shows: "Scan réussi ! Box complétée automatiquement."
+  Scan additional package barcodes until ExpectedQuantity (3) is reached. Verify that the box status transitions to "Completed", you are immediately redirected to the Details page, and a success banner shows: "Scan successful! Box completed automatically."
 result: pass
 
 ## Summary

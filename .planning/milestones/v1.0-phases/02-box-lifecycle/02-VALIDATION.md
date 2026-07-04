@@ -51,5 +51,5 @@ Phase 2 execution is complete only when:
 
 1. All four executable plans have summaries.
 2. `dotnet restore`, `dotnet build`, and `dotnet test` pass from the repository root.
-3. `TODO.md` marks TSK-007 through TSK-010 as `Terminé`.
+3. `TODO.md` marks TSK-007 through TSK-010 as `Done`.
 4. `AGENT.md` records the Phase 2 barcode, route, dimension, and migration decisions.

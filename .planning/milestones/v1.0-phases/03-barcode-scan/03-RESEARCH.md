@@ -152,7 +152,7 @@ Phase 3's backend scan flow is **substantially implemented**. The `IBoxService.S
 | Test | Scenario | Status |
 |------|----------|--------|
 | `ScanValidPackage_Success` | Valid scan → redirect + barcode in details | ✅ |
-| `ScanDuplicatePackage_Rejected` | Duplicate barcode → "déjà" message | ✅ |
+| `ScanDuplicatePackage_Rejected` | Duplicate barcode -> "already" message | ✅ |
 | `ScanBoxBarcode_Rejected` | BOX-prefix → rejected | ✅ |
 | `ScanPackage_AutoCompletesBox` | 3/3 scans → Completed status | ✅ |
 | `ScanPackage_EmptyBarcode_ReturnsToDetails` | Empty → redirect | ✅ |
@@ -270,7 +270,7 @@ Phase 3's backend scan flow is **substantially implemented**. The `IBoxService.S
 **Current risk:** Both `SaveChangesAsync` calls succeed before the unique index is violated.  
 **Mitigation:**
 1. SQL unique index on `PackageBarcode` will cause `DbUpdateException` on the second insert
-2. Catch this exception in the service, return `ScanResult { Success = false, Message = "Doublon détecté" }`
+2. Catch this exception in the service, return `ScanResult { Success = false, Message = "Duplicate detected" }`
 3. The transaction ensures the second operator's box update is also rolled back
 
 ### 5.3 CSRF on AJAX (🟡 MEDIUM)

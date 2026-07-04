@@ -4,7 +4,7 @@
 
 ### Task 1: Fix role check in BoxController.Details for transfer dropdown
 - Modified the role check inside the `Details` action of `BoxController.cs` (line 59).
-- Expanded the check to encompass all 4 localized role name variants: `"Superviseur"`, `"Admin"`, `"Supervisor"`, and `"Administrator"`.
+- Expanded the check to encompass all 4 supported role name variants: `"Superviseur"`, `"Admin"`, `"Supervisor"`, and `"Administrator"`.
 - This ensures `ViewBag.OpenBoxes` is populated when logged in as "Supervisor" or "Administrator", restoring functional dropdown items in the transfer modal window.
 
 ### Task 2: Improve audit log interceptor with ChangedProperties diff and enum labels

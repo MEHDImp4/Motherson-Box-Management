@@ -44,12 +44,12 @@ result: pass
 expected: In the package list, a Supervisor/Admin sees a "Transfer" button. Clicking it opens a modal with a dropdown of other open boxes. Selecting a destination and confirming moves the package to the target box atomically. Quantities update on both boxes.
 result: pass
 
-### 9. Supervisor Performs a Retrait
-expected: In the package list, a Supervisor/Admin sees a "Retrait" button. Clicking it opens a confirmation modal. After confirming, the package is removed from the database and the box current quantity decrements.
+### 9. Supervisor Performs a Package Removal
+expected: In the package list, a Supervisor/Admin sees a "Remove package" button. Clicking it opens a confirmation modal. After confirming, the package is removed from the database and the box current quantity decrements.
 result: pass
 
 ### 10. Operator Cannot Access Supervisor Actions
-expected: When logged in as an Operator, the Cancel, Force Close, Block, Unblock, Modify Capacity, Transfer, and Retrait buttons are NOT visible on Box Details. Attempting to access supervisor endpoints directly returns an unauthorized redirect.
+expected: When logged in as an Operator, the Cancel, Force Close, Block, Unblock, Modify Capacity, Transfer, and Remove package buttons are NOT visible on Box Details. Attempting to access supervisor endpoints directly returns an unauthorized redirect.
 result: pass
 
 ### 11. Audit Log Displays All Actions
@@ -76,7 +76,7 @@ skipped: 0
 
 - truth: "The transfer modal dropdown shows all other open boxes as destination options"
   status: resolved
-  reason: "User reported: Le dropdown qui montre les autres box ne marche pas, il n'affiche pas les autres box, même s'il y a plusieurs autres box."
+  reason: "User reported: The dropdown that should show the other boxes does not work. It does not list the other boxes even when several other boxes exist."
   severity: major
   test: 8
   root_cause: "Role check mismatch in BoxController.Details action (line 59): only checks 'Superviseur' and 'Admin', but the view and [Authorize] attributes check all 4 role names ('Superviseur', 'Admin', 'Supervisor', 'Administrator'). When logged in as 'Supervisor' or 'Administrator', ViewBag.OpenBoxes is never populated."

@@ -16,7 +16,7 @@
 - Decorated each endpoint with `[HttpPost]`, `[ValidateAntiForgeryToken]`, and roles-based `[Authorize]`.
 - Updated `Details` method in `BoxController` to populate `ViewBag.OpenBoxes` with open box listings for the package transfer dropdown.
 - Integrated Bootstrap modal forms in `Views/Box/Details.cshtml` to capture reasons (and destination box for package transfers).
-- Added action buttons to the Box details header (Cancel, Force Close, Block/Unblock, Modify capacity) and inside each package row (Transfer, Retrait, Block/Unblock).
+- Added action buttons to the Box details header (Cancel, Force Close, Block/Unblock, Modify capacity) and inside each package row (Transfer, Remove package, Block/Unblock).
 
 ### Task 2: Audit Controller and View
 - Created `AuditController.cs` under `Controllers/` with an `Index` action restricted to supervisors/administrators.
@@ -31,7 +31,7 @@
 - Verified that all 45 tests run and pass successfully.
 
 ## Deviations
-- **Role Mapping Optimization:** Database seeds use English names (`Supervisor`, `Administrator`) while the plan requested French (`Superviseur`, `Admin`). Supported both in `[Authorize]` and view assertions to prevent authorization and runtime bugs.
+- **Role Mapping Optimization:** Database seeds use English names (`Supervisor`, `Administrator`) while the original plan referenced mixed localized names. We support both in `[Authorize]` and view assertions to prevent authorization and runtime bugs.
 
 ## Commits
 1. `feat(04-03): implement Box Details exception buttons and controller actions`

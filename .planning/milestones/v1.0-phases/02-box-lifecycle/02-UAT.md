@@ -33,7 +33,7 @@ result: pass
 
 ### 4. Successful Box Creation
 expected: |
-  On `/Box/Create`, enter valid values (Type = Carton, Height = 30, Width = 20, Depth = 15, ExpectedQuantity = 5) and click "Créer". Verify you are redirected to the box details page (`/Box/Details/{id}`).
+  On `/Box/Create`, enter valid values (Type = Carton, Height = 30, Width = 20, Depth = 15, ExpectedQuantity = 5) and click "Create". Verify you are redirected to the box details page (`/Box/Details/{id}`).
 result: pass
 
 ### 5. Verify Generated BOX Barcode & Metadata
@@ -145,9 +145,9 @@ result: pass
 source: automated
 coverage_id: D2
 
-### 22. Mark tasks TSK-007 through TSK-010 as Terminé in TODO.md
+### 22. Mark tasks TSK-007 through TSK-010 as Done in TODO.md
 expected: |
-  Mark tasks TSK-007 through TSK-010 as Terminé in TODO.md.
+  Mark tasks TSK-007 through TSK-010 as Done in TODO.md.
 result: pass
 source: automated
 coverage_id: D3

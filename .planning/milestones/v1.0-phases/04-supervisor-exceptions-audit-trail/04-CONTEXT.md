@@ -27,9 +27,9 @@ Requirements covered: AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04, EXC-01, EXC-02, EX
 - **D-07:** Workstation name is config-based — each workstation has a name in `appsettings.json` or environment variable (e.g., `WorkstationName: "P3-STATION-01"`). Injected via `IConfiguration`, consistent across all operations.
 - **D-08:** Audit logs are viewable on a dedicated `/Audit/Index` page accessible from the navigation menu. Page supports filtering by box, user, and date range. Not embedded in Box Details — keeps the details view focused.
 
-### Transfer/Retrait Mechanics
+### Transfer/Removal Mechanics
 - **D-09:** Transfer moves the `BoxPackage` record from source box to destination box. Source `CurrentQuantity` decrements, destination increments. Package record updated with new `BoxId`. Single atomic transaction.
-- **D-10:** Retrait deletes the `BoxPackage` record entirely from the database. Box `CurrentQuantity` decrements. Package barcode is freed and can be re-scanned into any open box.
+- **D-10:** Package removal deletes the `BoxPackage` record entirely from the database. Box `CurrentQuantity` decrements. The package barcode is freed and can be re-scanned into any open box.
 - **D-11:** After a retrait, the same package barcode can be scanned again into any open box. Physical reality — a retracted package can be reassigned.
 - **D-12:** Transfer form is a single view with dropdown of open boxes, package list to select, and a reason textarea. Submit button confirms. No multi-step wizard.
 
@@ -87,7 +87,7 @@ Requirements covered: AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04, EXC-01, EXC-02, EX
 
 ### Integration Points
 - `BoxDetailsDto` needs to show block status and exception action buttons.
-- `BoxController` needs new actions: Cancel, ForceClose, Block, Unblock, Transfer, Retrait.
+- `BoxController` needs new actions: Cancel, ForceClose, Block, Unblock, Transfer, RemovePackage.
 - `IBoxService`/`BoxService` needs new methods for each exception operation.
 - `ApplicationDbContext` needs a `SaveChangesInterceptor` for automatic audit logging.
 - Navigation menu (`_Layout.cshtml`) needs an Audit Log link.

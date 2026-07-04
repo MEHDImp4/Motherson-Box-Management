@@ -102,7 +102,7 @@
 
 ---
 
-## Transfer/Retrait Mechanics
+## Transfer/Removal Mechanics
 
 ### Package Record Handling
 
@@ -114,7 +114,7 @@
 **User's choice:** Move the BoxPackage record
 **Notes:** Single atomic transaction, no data duplication.
 
-### Retrait Behavior
+### Removal Behavior
 
 | Option | Description | Selected |
 |--------|-------------|----------|
@@ -124,7 +124,7 @@
 **User's choice:** Delete the record
 **Notes:** Package barcode freed, can be re-scanned.
 
-### Post-Retrait Re-scan
+### Post-Removal Re-scan
 
 | Option | Description | Selected |
 |--------|-------------|----------|

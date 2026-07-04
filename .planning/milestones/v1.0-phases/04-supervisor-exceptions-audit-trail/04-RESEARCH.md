@@ -36,8 +36,8 @@
 - **Proposed change:** Add `public bool IsBlocked { get; set; }` and `public string? BlockReason { get; set; }` to `BoxPackage.cs`. Add a migration.
 
 ### 5. UI Integration
-- **Box Details (`Views/Box/Details.cshtml`):** Add Exception buttons (Modify, Cancel, Force Close, Block) that appear for Superviseur/Admin. Use an inline form or Bootstrap collapse to show the reason input field.
-- **Package List in Details:** Add Transfer/Retrait/Block buttons per package row.
+- **Box Details (`Views/Box/Details.cshtml`):** Add Exception buttons (Modify, Cancel, Force Close, Block) that appear for Supervisor/Admin. Use an inline form or Bootstrap collapse to show the reason input field.
+- **Package List in Details:** Add Transfer/Removal/Block buttons per package row.
 - **Audit Logs (`Views/Audit/Index.cshtml`):** Create an `AuditController` and an `Index` view. Fetch logs using EF Core pagination (e.g., `.Skip().Take()`).
 
 ### 6. Transaction & Concurrency Patterns
@@ -45,7 +45,7 @@
 - **Transactions:** Use `_context.Database.BeginTransactionAsync(cancellationToken)` for any operation that spans multiple entities (e.g., Transferring a package).
 
 ### 7. Authorization
-- Use `[Authorize(Roles = "Superviseur,Admin")]` on the exception endpoints in `BoxController` (or a dedicated `ExceptionsController`).
+- Use `[Authorize(Roles = "Supervisor,Admin")]` on the exception endpoints in `BoxController` (or a dedicated `ExceptionsController`).
 
 ## Summary of Findings
 - **Risk:** Implementing the `SaveChangesInterceptor` will double-log `PackageScan` if we don't remove the manual `BoxAuditLog.Add` from `ScanPackageAsync`.
