@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -101,6 +102,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
             var originalValues = new Dictionary<string, object?>();
             var currentValues = new Dictionary<string, object?>();
+            var changedProperties = new Dictionary<string, object?>();
 
             if (entry.State == EntityState.Modified || entry.State == EntityState.Deleted)
             {
@@ -118,15 +120,46 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 }
             }
 
+            if (entry.State == EntityState.Added)
+            {
+                foreach (var property in entry.CurrentValues.Properties)
+                {
+                    changedProperties[property.Name] = entry.CurrentValues[property];
+                }
+            }
+            else if (entry.State == EntityState.Deleted)
+            {
+                foreach (var property in entry.OriginalValues.Properties)
+                {
+                    changedProperties[property.Name] = entry.OriginalValues[property];
+                }
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                foreach (var property in entry.OriginalValues.Properties)
+                {
+                    var originalValue = entry.OriginalValues[property];
+                    var currentValue = entry.CurrentValues[property];
+                    if (!Equals(originalValue, currentValue))
+                    {
+                        changedProperties[property.Name] = new { Old = originalValue, New = currentValue };
+                    }
+                }
+            }
+
             var details = new
             {
                 EntityName = entry.Entity.GetType().Name,
                 State = entry.State.ToString(),
-                OriginalValues = originalValues.Count > 0 ? originalValues : null,
-                CurrentValues = currentValues.Count > 0 ? currentValues : null
+                ChangedProperties = changedProperties.Count > 0 ? changedProperties : null
             };
 
-            string detailsJson = JsonSerializer.Serialize(details);
+            var options = new JsonSerializerOptions
+            {
+                Converters = { new JsonStringEnumConverter() }
+            };
+
+            string detailsJson = JsonSerializer.Serialize(details, options);
 
             var auditLog = new BoxAuditLog
             {

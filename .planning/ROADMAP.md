@@ -106,7 +106,7 @@ Plans:
 - [x] 04-01-PLAN.md — Database Updates & Audit Interceptor
 - [x] 04-02-PLAN.md — Supervisor Exception Service Methods
 - [x] 04-03-PLAN.md — UI Updates & Audit Log View
-- [ ] 04-04-PLAN.md — Gap closure: fix transfer dropdown role check + audit log ChangedProperties
+- [x] 04-04-PLAN.md — Gap closure: fix transfer dropdown role check + audit log ChangedProperties
 
 **UI hint**: yes
 

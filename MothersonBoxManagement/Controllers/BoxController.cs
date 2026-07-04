@@ -56,7 +56,7 @@ public class BoxController : Controller
         if (box is null)
             return NotFound();
 
-        if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+        if (User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
         {
             var openBoxes = await _boxService.GetOpenBoxesAsync(cancellationToken);
             ViewBag.OpenBoxes = openBoxes.Where(b => b.Id != box.Id).ToList();

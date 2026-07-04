@@ -399,4 +399,110 @@ public class SupervisorExceptionsControllerTests : IClassFixture<CustomWebApplic
         var content = await response.Content.ReadAsStringAsync();
         Assert.Contains("Journal d'Audit", content);
     }
+
+    [Fact]
+    public async Task BoxDetails_AsSupervisor_PopulatesOpenBoxesDropdown()
+    {
+        // Arrange
+        var supervisorClient = await LoginAsSupervisorAsync();
+
+        using var scopeSetup = _factory.Services.CreateScope();
+        var dbSetup = scopeSetup.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        // clear existing boxes for clean dropdown assertion
+        dbSetup.Boxes.RemoveRange(dbSetup.Boxes);
+        await dbSetup.SaveChangesAsync();
+
+        var supervisorUser = await dbSetup.Users.FirstAsync(u => u.Matricule == "SP001");
+
+        var sourceBoxDto = new CreateBoxDto
+        {
+            Type = BoxType.Carton,
+            Height = 30,
+            Width = 20,
+            Depth = 15,
+            ExpectedQuantity = 10
+        };
+
+        using var scope = _factory.Services.CreateScope();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var sourceBox = await boxService.CreateBoxAsync(sourceBoxDto, supervisorUser.Id);
+        var destBox = await boxService.CreateBoxAsync(new CreateBoxDto
+        {
+            Type = BoxType.Carton,
+            Height = 30,
+            Width = 20,
+            Depth = 15,
+            ExpectedQuantity = 10
+        }, supervisorUser.Id);
+
+        // Add a package to sourceBox so the packages loop and transfer modal render
+        using (var scopePkg = _factory.Services.CreateScope())
+        {
+            var db = scopePkg.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var dbBox = await db.Boxes.FindAsync(sourceBox.Id);
+            dbBox!.CurrentQuantity = 1;
+            db.BoxPackages.Add(new BoxPackage
+            {
+                BoxId = sourceBox.Id,
+                PackageBarcode = "PKG-TEST-TRANSFER-OPTION-001",
+                ScannedByUserId = supervisorUser.Id,
+                ScannedAt = DateTime.Now
+            });
+            await db.SaveChangesAsync();
+        }
+
+        // Act - Fetch details of sourceBox
+        var response = await supervisorClient.GetAsync($"/Box/Details/{sourceBox.BarcodeValue}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        // Dropdown option should contain destination box number
+        Assert.Contains(destBox.BoxNumber, content);
+    }
+
+    [Fact]
+    public async Task AuditLog_ChangedPropertiesOnly_SerializesEnumsAsStrings()
+    {
+        // Arrange
+        using var scopeSetup = _factory.Services.CreateScope();
+        var dbSetup = scopeSetup.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var supervisorUser = await dbSetup.Users.FirstAsync(u => u.Matricule == "SP001");
+
+        var boxDto = new CreateBoxDto
+        {
+            Type = BoxType.Carton,
+            Height = 30,
+            Width = 20,
+            Depth = 15,
+            ExpectedQuantity = 10
+        };
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        
+        var box = await boxService.CreateBoxAsync(boxDto, supervisorUser.Id);
+
+        // Fetch audit logs from DB
+        var auditLogs = await db.BoxAuditLogs
+            .Where(l => l.BoxId == box.Id)
+            .ToListAsync();
+
+        Assert.NotEmpty(auditLogs);
+        var insertLog = auditLogs.First(l => l.ActionType == "Insert");
+        Assert.NotNull(insertLog.DetailsJson);
+
+        // Assert JSON structure: should have ChangedProperties and not OriginalValues or CurrentValues in top level
+        using var doc = System.Text.Json.JsonDocument.Parse(insertLog.DetailsJson);
+        var root = doc.RootElement;
+        
+        Assert.True(root.TryGetProperty("ChangedProperties", out var changedProps));
+        Assert.False(root.TryGetProperty("OriginalValues", out _));
+        Assert.False(root.TryGetProperty("CurrentValues", out _));
+
+        // Enums should serialize as strings (e.g. Type = "Carton", Status = "Open")
+        Assert.Equal("Carton", changedProps.GetProperty("Type").GetString());
+        Assert.Equal("Open", changedProps.GetProperty("Status").GetString());
+    }
 }
