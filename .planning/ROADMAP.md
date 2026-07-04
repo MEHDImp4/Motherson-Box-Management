@@ -120,7 +120,10 @@ Plans:
   1. Verification of concurrent scans of the same barcode block one scan and succeed on the other.
   2. Security check verifies that error logs contain no sensitive internal database details.
 
-**Plans**: TBD
+**Plans**: 1/1 plans complete
+Plans:
+
+- [ ] 05-01-PLAN.md — Verification, Concurrency & Security Hardening Tests
 
 ## Progress
 
@@ -132,5 +135,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Database & Auth Setup | 1/1 | Complete   | 2026-07-02 |
 | 2. Box Lifecycle & Home Lookup | 4/4 | Complete   | 2026-07-02 |
 | 3. Barcode Scan Integration | 3/3 | Complete   | 2026-07-03 |
-| 4. Supervisor Exceptions | 3/3 | Complete   | 2026-07-04 |
-| 5. Verification & Hardening | 0/1 | Not started | - |
+| 4. Supervisor Exceptions | 4/4 | Complete   | 2026-07-04 |
+| 5. Verification & Hardening | 1/1 | Planned | - |
