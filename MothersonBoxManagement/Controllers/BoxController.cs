@@ -162,7 +162,7 @@ public class BoxController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Superviseur,Admin")]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
     public async Task<IActionResult> CancelBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -187,7 +187,7 @@ public class BoxController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Superviseur,Admin")]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
     public async Task<IActionResult> ForceCloseBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -212,7 +212,7 @@ public class BoxController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Superviseur,Admin")]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
     public async Task<IActionResult> ModifyExpectedQuantity(int boxId, string boxBarcode, int expectedQuantity, string reason, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -243,7 +243,7 @@ public class BoxController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Superviseur,Admin")]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
     public async Task<IActionResult> BlockBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -268,7 +268,7 @@ public class BoxController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Superviseur,Admin")]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
     public async Task<IActionResult> UnblockBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -293,7 +293,7 @@ public class BoxController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Superviseur,Admin")]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
     public async Task<IActionResult> BlockPackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -318,7 +318,7 @@ public class BoxController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Superviseur,Admin")]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
     public async Task<IActionResult> UnblockPackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -343,7 +343,7 @@ public class BoxController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Superviseur,Admin")]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
     public async Task<IActionResult> TransferPackage(int packageId, string boxBarcode, int destinationBoxId, string reason, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -374,7 +374,7 @@ public class BoxController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Roles = "Superviseur,Admin")]
+    [Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
     public async Task<IActionResult> RetraitPackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(reason))

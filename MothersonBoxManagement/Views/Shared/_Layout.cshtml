@@ -17,7 +17,7 @@
                 <a class="navbar-brand" asp-controller="Home" asp-action="Index">Motherson Box Management</a>
                 <div class="navbar-nav me-auto">
                     <a class="nav-link" asp-controller="Box" asp-action="Create">Créer une box</a>
-                    @if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+                    @if (User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
                     {
                         <a class="nav-link" asp-controller="Audit" asp-action="Index">Journal d'Audit</a>
                     }

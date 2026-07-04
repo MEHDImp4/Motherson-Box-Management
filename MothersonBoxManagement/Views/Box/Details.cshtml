@@ -42,7 +42,7 @@
                                 <div class="text-danger mt-1 small"><strong>Raison d'exception:</strong> @Model.ExceptionReason</div>
                             }
                         </div>
-                        @if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+                        @if (User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
                         {
                             <div class="d-flex flex-wrap gap-2">
                                 @if (Model.Status == MothersonBoxManagement.Entities.BoxStatus.Open)
@@ -111,7 +111,7 @@
                                     <th>Code-barres</th>
                                     <th>Scanné par</th>
                                     <th>Date</th>
-                                    @if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+                                    @if (User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
                                     {
                                         <th>Actions</th>
                                     }
@@ -130,7 +130,7 @@
                                         </td>
                                         <td>@pkg.ScannedByMatricule</td>
                                         <td>@pkg.ScannedAt.ToString("dd/MM/yyyy HH:mm:ss")</td>
-                                        @if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+                                        @if (User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
                                         {
                                             <td>
                                                 <div class="btn-group">
@@ -179,7 +179,7 @@
         </div>
     </div>
 
-    @if (User.IsInRole("Superviseur") || User.IsInRole("Admin"))
+    @if (User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
     {
         <!-- Modals for Box Operations -->
         <div class="modal fade" id="modifyQtyModal" tabindex="-1" aria-labelledby="modifyQtyModalLabel" aria-hidden="true">

@@ -10,7 +10,7 @@ using MothersonBoxManagement.Entities;
 
 namespace MothersonBoxManagement.Controllers;
 
-[Authorize(Roles = "Superviseur,Admin")]
+[Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
 public class AuditController : Controller
 {
     private readonly ApplicationDbContext _context;
