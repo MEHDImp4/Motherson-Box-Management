@@ -7,6 +7,21 @@
 }
 
 @functions {
+    private static bool TryGetProp(JsonElement el, string name, out JsonElement val)
+    {
+        val = default;
+        if (el.ValueKind != JsonValueKind.Object) return false;
+        if (el.TryGetProperty(name, out val)) return true;
+        
+        string camel = char.ToLowerInvariant(name[0]) + name.Substring(1);
+        if (el.TryGetProperty(camel, out val)) return true;
+        
+        string lower = name.ToLowerInvariant();
+        if (el.TryGetProperty(lower, out val)) return true;
+        
+        return false;
+    }
+
     public Microsoft.AspNetCore.Html.IHtmlContent RenderStructuredDetails(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) 
@@ -20,8 +35,8 @@
             var sb = new System.Text.StringBuilder();
 
             // Try to extract EntityName and State
-            string entityName = root.TryGetProperty("EntityName", out var entProp) ? entProp.GetString() ?? "" : "";
-            string state = root.TryGetProperty("State", out var stateProp) ? stateProp.GetString() ?? "" : "";
+            string entityName = TryGetProp(root, "EntityName", out var entProp) ? entProp.GetString() ?? "" : "";
+            string state = TryGetProp(root, "State", out var stateProp) ? stateProp.GetString() ?? "" : "";
 
             if (!string.IsNullOrEmpty(entityName) || !string.IsNullOrEmpty(state))
             {
@@ -43,7 +58,7 @@
             }
 
             // Check if ChangedProperties exists (Modified state)
-            if (root.TryGetProperty("ChangedProperties", out var changedProps) && changedProps.ValueKind == JsonValueKind.Object)
+            if (TryGetProp(root, "ChangedProperties", out var changedProps) && changedProps.ValueKind == JsonValueKind.Object)
             {
                 sb.Append("<table class=\"table table-sm mb-0 align-middle\" style=\"font-size: 11px; background: transparent;\">");
                 sb.Append("<thead><tr><th style=\"padding: 4px; border:none; color:var(--secondary); font-size:10px; text-transform:uppercase;\">Field</th>");
@@ -59,11 +74,11 @@
 
                     if (prop.Value.ValueKind == JsonValueKind.Object)
                     {
-                        if (prop.Value.TryGetProperty("Old", out var oldProp))
+                        if (TryGetProp(prop.Value, "Old", out var oldProp))
                         {
                             oldVal = oldProp.ValueKind == JsonValueKind.Null ? "-" : oldProp.ToString() ?? "-";
                         }
-                        if (prop.Value.TryGetProperty("New", out var newProp))
+                        if (TryGetProp(prop.Value, "New", out var newProp))
                         {
                             newVal = newProp.ValueKind == JsonValueKind.Null ? "-" : newProp.ToString() ?? "-";
                         }
@@ -78,7 +93,7 @@
                 sb.Append("</tbody></table>");
             }
             // Check if Properties exists (Added state or general properties)
-            else if (root.TryGetProperty("Properties", out var props) && props.ValueKind == JsonValueKind.Object)
+            else if (TryGetProp(root, "Properties", out var props) && props.ValueKind == JsonValueKind.Object)
             {
                 sb.Append("<table class=\"table table-sm mb-0 align-middle\" style=\"font-size: 11px; background: transparent;\">");
                 sb.Append("<thead><tr><th style=\"padding: 4px; border:none; color:var(--secondary); font-size:10px; text-transform:uppercase;\">Field</th>");
