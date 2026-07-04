@@ -18,6 +18,7 @@ public class Box
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
+    public string? ExceptionReason { get; set; }
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
     public User CreatedBy { get; set; } = null!;
