@@ -1,4 +1,5 @@
 @model List<MothersonBoxManagement.Entities.BoxAuditLog>
+@using System.Text.Json
 @{
     ViewData["Title"] = "Audit Log";
     int currentPage = ViewBag.CurrentPage;
@@ -6,20 +7,114 @@
 }
 
 @functions {
-    public string FormatJson(string? json)
+    public Microsoft.AspNetCore.Html.IHtmlContent RenderStructuredDetails(string? json)
     {
-        if (string.IsNullOrWhiteSpace(json)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(json)) 
+            return new Microsoft.AspNetCore.Html.HtmlString("<span class=\"text-muted\">-</span>");
+
         try
         {
-            var parsed = System.Text.Json.JsonSerializer.Deserialize<object>(json);
-            return System.Text.Json.JsonSerializer.Serialize(parsed, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            var sb = new System.Text.StringBuilder();
+
+            // Try to extract EntityName and State
+            string entityName = root.TryGetProperty("EntityName", out var entProp) ? entProp.GetString() ?? "" : "";
+            string state = root.TryGetProperty("State", out var stateProp) ? stateProp.GetString() ?? "" : "";
+
+            if (!string.IsNullOrEmpty(entityName) || !string.IsNullOrEmpty(state))
+            {
+                string stateBadgeClass = state switch
+                {
+                    "Added" => "badge-status open",
+                    "Modified" => "badge-status blocked",
+                    "Deleted" => "badge-status cancelled",
+                    _ => "badge-status archived"
+                };
+
+                sb.Append("<div class=\"mb-2 d-flex align-items-center gap-2\">");
+                sb.Append($"<span class=\"label-md\" style=\"font-weight: 700; color: var(--on-surface); text-transform: uppercase;\">{entityName}</span>");
+                if (!string.IsNullOrEmpty(state))
+                {
+                    sb.Append($"<span class=\"{stateBadgeClass}\" style=\"font-size: 10px; padding: 2px 6px; font-weight: 600;\">{state}</span>");
+                }
+                sb.Append("</div>");
+            }
+
+            // Check if ChangedProperties exists (Modified state)
+            if (root.TryGetProperty("ChangedProperties", out var changedProps) && changedProps.ValueKind == JsonValueKind.Object)
+            {
+                sb.Append("<table class=\"table table-sm mb-0 align-middle\" style=\"font-size: 11px; background: transparent;\">");
+                sb.Append("<thead><tr><th style=\"padding: 4px; border:none; color:var(--secondary); font-size:10px; text-transform:uppercase;\">Field</th>");
+                sb.Append("<th style=\"padding: 4px; border:none; color:var(--secondary); font-size:10px; text-transform:uppercase;\">Old Value</th>");
+                sb.Append("<th style=\"padding: 4px; border:none; color:var(--secondary); font-size:10px; text-transform:uppercase;\">New Value</th></tr></thead>");
+                sb.Append("<tbody>");
+
+                foreach (var prop in changedProps.EnumerateObject())
+                {
+                    string propName = prop.Name;
+                    string oldVal = "-";
+                    string newVal = "-";
+
+                    if (prop.Value.ValueKind == JsonValueKind.Object)
+                    {
+                        if (prop.Value.TryGetProperty("Old", out var oldProp))
+                        {
+                            oldVal = oldProp.ValueKind == JsonValueKind.Null ? "-" : oldProp.ToString() ?? "-";
+                        }
+                        if (prop.Value.TryGetProperty("New", out var newProp))
+                        {
+                            newVal = newProp.ValueKind == JsonValueKind.Null ? "-" : newProp.ToString() ?? "-";
+                        }
+                    }
+
+                    sb.Append("<tr>");
+                    sb.Append($"<td style=\"padding: 6px 4px; font-weight: 600; color: var(--on-surface); border-bottom: 1px solid var(--border);\">{propName}</td>");
+                    sb.Append($"<td style=\"padding: 6px 4px; color: var(--secondary); text-decoration: line-through; border-bottom: 1px solid var(--border);\">{oldVal}</td>");
+                    sb.Append($"<td style=\"padding: 6px 4px; color: var(--primary); font-weight: 700; border-bottom: 1px solid var(--border);\">{newVal}</td>");
+                    sb.Append("</tr>");
+                }
+                sb.Append("</tbody></table>");
+            }
+            // Check if Properties exists (Added state or general properties)
+            else if (root.TryGetProperty("Properties", out var props) && props.ValueKind == JsonValueKind.Object)
+            {
+                sb.Append("<table class=\"table table-sm mb-0 align-middle\" style=\"font-size: 11px; background: transparent;\">");
+                sb.Append("<thead><tr><th style=\"padding: 4px; border:none; color:var(--secondary); font-size:10px; text-transform:uppercase;\">Field</th>");
+                sb.Append("<th style=\"padding: 4px; border:none; color:var(--secondary); font-size:10px; text-transform:uppercase;\">Value</th></tr></thead>");
+                sb.Append("<tbody>");
+
+                foreach (var prop in props.EnumerateObject())
+                {
+                    string val = prop.Value.ValueKind == JsonValueKind.Null ? "-" : prop.Value.ToString() ?? "-";
+                    sb.Append("<tr>");
+                    sb.Append($"<td style=\"padding: 6px 4px; font-weight: 600; color: var(--on-surface); border-bottom: 1px solid var(--border);\">{prop.Name}</td>");
+                    sb.Append($"<td style=\"padding: 6px 4px; color: var(--on-surface); border-bottom: 1px solid var(--border);\">{val}</td>");
+                    sb.Append("</tr>");
+                }
+                sb.Append("</tbody></table>");
+            }
+            else
+            {
+                // Fallback to formatted raw JSON if structure doesn't match
+                sb.Append("<pre style=\"background: var(--surface-container-low); padding: 8px; margin: 0; border-radius: var(--radius-md); font-size: 10px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; color: var(--on-surface); border: 1px solid var(--border);\">");
+                sb.Append(System.Text.Encodings.Web.HtmlEncoder.Default.Encode(
+                    JsonSerializer.Serialize(JsonSerializer.Deserialize<object>(json), new JsonSerializerOptions { WriteIndented = true })
+                ));
+                sb.Append("</pre>");
+            }
+
+            return new Microsoft.AspNetCore.Html.HtmlString(sb.ToString());
         }
         catch
         {
-            return json;
+            // Fallback to raw string if parsing fails
+            return new Microsoft.AspNetCore.Html.HtmlString($"<span style=\"font-size: 11px; font-family: monospace; white-space: pre-wrap;\">{json}</span>");
         }
     }
 }
+
 
 <div class="container" style="padding-top: var(--space-md);">
     <div class="page-header d-flex justify-content-between align-items-center mb-4">
@@ -174,7 +269,9 @@
                                     {
                                         <details>
                                             <summary style="cursor: pointer; font-size: 13px; color: var(--primary); font-weight: 600; outline: none;">Inspect Changes</summary>
-                                            <pre style="background: var(--surface-container-low); padding: 12px; margin-top: 8px; border-radius: var(--radius-md); border: 1px solid var(--border); font-size: 11px; max-height: 250px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; font-family: monospace; color: var(--on-surface);"><code>@FormatJson(log.DetailsJson)</code></pre>
+                                            <div style="background: var(--surface-container-lowest); padding: 12px; margin-top: 8px; border-radius: var(--radius-md); border: 1px solid var(--border); max-height: 250px; overflow-y: auto;">
+                                                @RenderStructuredDetails(log.DetailsJson)
+                                            </div>
                                         </details>
                                     }
                                     else
