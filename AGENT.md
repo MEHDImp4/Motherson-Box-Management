@@ -166,6 +166,8 @@ La configuration de développement s'effectue via le fichier `appsettings.Develo
 * `/Box/Create` : Formulaire de création de box (Opérateur/Superviseur/Admin).
 * `/Box/Prepare/{id}` : Écran de scan de packages pour une box ouverte (Opérateur/Superviseur/Admin). Contient le simulateur de scan virtuel.
 * `/Box/Details/{id}` : Vue en lecture seule de la box, des packages scannés et de l'historique d'audit associé.
+* `/Box/Scan` : Action standard de scan de package (POST, Opérateur/Superviseur/Admin).
+* `/Box/ScanAjax` : Action AJAX de scan de package (POST, Opérateur/Superviseur/Admin, retourne du JSON).
 * `/Box/Cancel/{id}` : Action d'annulation (POST, Superviseur/Admin uniquement, motif obligatoire).
 * `/Box/ForceClose/{id}` : Action de clôture avec écart (POST, Superviseur/Admin uniquement, motif obligatoire).
 * `/Box/Transfer` : Action de transfert de package (POST, Superviseur/Admin uniquement, motif obligatoire).

@@ -10,7 +10,7 @@ namespace MothersonBoxManagement.Tests;
 
 public static class TestAuthHelper
 {
-    public static async Task<HttpClient> CreateAuthenticatedClient(CustomWebApplicationFactory factory, string matricule, string password)
+    public static async Task<HttpClient> CreateAuthenticatedClient(Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory, string matricule, string password)
     {
         var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
         {
@@ -24,7 +24,11 @@ public static class TestAuthHelper
         });
 
         var loginResponse = await client.PostAsync("/Account/Login", formData);
-        loginResponse.EnsureSuccessStatusCode();
+        if (loginResponse.StatusCode != System.Net.HttpStatusCode.Redirect)
+        {
+            var content = await loginResponse.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Login failed with {loginResponse.StatusCode}: {content}");
+        }
 
         return client;
     }

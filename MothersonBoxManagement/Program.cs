@@ -41,9 +41,12 @@ var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
 {
+    // Critical: Prevents internal database schema, SQL errors, or connection string details from leaking to the client.
     app.UseExceptionHandler("/Home/Error");
 }
 app.UseStaticFiles();
+
+app.UseStatusCodePagesWithReExecute("/Home/Error/{0}");
 
 app.UseRouting();
 

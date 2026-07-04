@@ -79,3 +79,41 @@ body {
     0% { opacity: 1; }
     100% { opacity: 0; }
 }
+
+/* ── Error Page ── */
+
+.error-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
+.error-page-icon {
+    font-size: 6rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--error);
+    margin-bottom: 1rem;
+}
+
+.error-page-title {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.error-page-message {
+    color: #6c757d;
+    max-width: 480px;
+    margin-bottom: 1.5rem;
+}
+
+.error-page-request-id {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}

@@ -32,9 +32,9 @@
 | **TSK-020** | Phase 4 | Blocage et déblocage de boxes / packages (Quarantaine) | EXC-04 | P1 | `Terminé` | Agent | 2026-07-04 | Statut Blocked | `BoxController.cs` |
 | **TSK-021** | Phase 4 | Retrait, transfert et désaffectation contrôlés de packages | EXC-03 | P1 | `Terminé` | Agent | 2026-07-04 | Traçabilité avec motif obligatoire | `IBoxService` |
 | **TSK-022** | Phase 4 | Recherche multicritères et filtres (Statut, numéro, date, user) | - | P2 | `Terminé` | Agent | 2026-07-04 | Pour superviseurs et admins | `BoxController.cs` |
-| **TSK-023** | Phase 5 | Tests unitaires et d'intégration métier | - | P1 | `En cours` | Agent | 2026-07-04 | Couvrir règles d'unicité et concurrence | Projet de tests |
-| **TSK-024** | Phase 5 | Audit de sécurité (Vérification secrets, logs et injection SQL) | - | P0 | `En cours` | Agent | 2026-07-04 | Checklist sécurité | Analyse statique de code |
-| **TSK-025** | Phase 5 | Préparation de la configuration de déploiement local (IIS / Kestrel) | - | P2 | `En cours` | Agent | 2026-07-04 | Aucun | `appsettings.json` |
+| **TSK-023** | Phase 5 | Tests unitaires et d'intégration métier | - | P1 | `Terminé` | Agent | 2026-07-04 | Aucun | Projet de tests |
+| **TSK-024** | Phase 5 | Audit de sécurité (Vérification secrets, logs et injection SQL) | - | P0 | `Terminé` | Agent | 2026-07-04 | Aucun | Analyse statique de code |
+| **TSK-025** | Phase 5 | Préparation de la configuration de déploiement local (IIS / Kestrel) | - | P2 | `Terminé` | Agent | 2026-07-04 | Aucun | `appsettings.json` |
 
 ## Règles de maintenance
 1. **Lien GSD Core :** Associer impérativement chaque tâche à la phase active ou au plan GSD Core correspondant.

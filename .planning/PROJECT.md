@@ -16,14 +16,15 @@ Ensure absolute traceability of packaging boxes and guarantee that no cable pack
 - [Phase 2] Create boxes specifying their type (Carton, Bois, Plastique), dimensions (Height, Width, Depth), and expected quantity of packages.
 - [Phase 2] Generate unique box numbers and barcode values distinguishable from package formats.
 - [Phase 2] Direct access to a box's details and preparation screen by scanning its barcode from the homepage.
+- [Phase 3] Scan cable package barcodes via a USB scanner (simulating keyboard input) to associate them with the open box, performing real-time uniqueness and quantity limits checks.
+- [Phase 3] Automatically close a box (set status to Completed) when the expected package count is reached.
+- [Phase 3] Provide a dedicated virtual barcode scanner simulator in the UI to facilitate testing without physical hardware.
+- [Phase 4] Allow supervisors and administrators to perform exceptional operations: cancel a box, close with an exception (Completed with deviation), block/unblock a box or package, and transfer packages between boxes.
+- [Phase 4] Retain an immutable audit trail of all sensitive operations (creation, scan, exception, transfer, blocking, etc.) tracking previous/new values, reasons, and workstation names.
 
 ### Active
 
-- [ ] Scan cable package barcodes via a USB scanner (simulating keyboard input) to associate them with the open box, performing real-time uniqueness and quantity limits checks.
-- [ ] Automatically close a box (set status to Completed) when the expected package count is reached.
-- [ ] Allow supervisors and administrators to perform exceptional operations: cancel a box, close with an exception (Completed with deviation), block/unblock a box or package, and transfer packages between boxes.
-- [ ] Retain an immutable audit trail of all sensitive operations (creation, scan, exception, transfer, blocking, etc.) tracking previous/new values, reasons, and workstation names.
-- [ ] Provide a dedicated virtual barcode scanner simulator in the UI to facilitate testing without physical hardware.
+*(None - All MVP Phase requirements validated)*
 
 ### Out of Scope
 
@@ -68,4 +69,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-02 after initialization*
+*Last updated: 2026-07-04 after Phase 5 completion*
