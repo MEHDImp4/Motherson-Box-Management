@@ -136,7 +136,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="d-flex flex-column">
+                                    <div class="d-flex flex-column gap-1">
                                         <span style="font-size: 13px; color: var(--on-surface);">@box.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
                                         <code style="font-size: 11px; color: var(--secondary);">@box.CreatedByMatricule</code>
                                     </div>
@@ -144,7 +144,7 @@
                                 <td>
                                     @if (box.ModifiedAt.HasValue)
                                     {
-                                        <div class="d-flex flex-column">
+                                        <div class="d-flex flex-column gap-1">
                                             <span style="font-size: 13px; color: var(--on-surface);">@box.ModifiedAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
                                             <code style="font-size: 11px; color: var(--secondary);">@box.LastUserMatricule</code>
                                         </div>
