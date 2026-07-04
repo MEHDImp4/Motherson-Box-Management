@@ -25,7 +25,7 @@
                        style="width: 84px; height: 84px; border-radius: 50%; font-size: 32px; padding: 0; min-height: auto; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; border: none; background-color: var(--primary); transition: transform 0.2s;"
                        onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"
                        aria-label="Create new box">
-                        &#65291;
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     </a>
                     <h3 class="headline-md" style="margin-bottom: 8px; font-size: 18px; font-weight: 700;">Create Box</h3>
                     <p class="body-md text-muted" style="margin: 0; max-width: 220px; line-height: 1.4;">Open a new packaging box for cable package scanning</p>
@@ -80,7 +80,9 @@
     {
         <div class="card" style="border: 1px solid var(--border);">
             <div class="empty-state" style="padding: var(--space-xl) var(--space-lg);">
-                <div class="empty-state-icon">&#128230;</div>
+                <div class="empty-state-icon" style="margin-bottom: var(--space-sm); color: var(--secondary);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="12" y1="12" x2="12" y2="21"/></svg>
+                </div>
                 <h3 class="empty-state-title">No Active Boxes</h3>
                 <p class="empty-state-text">There are currently no open boxes in the workspace. Create a box above to start preparation.</p>
                 <a asp-controller="Box" asp-action="Create" class="btn btn-primary-custom" style="min-height: 44px; padding: 0 24px;">Create Box</a>

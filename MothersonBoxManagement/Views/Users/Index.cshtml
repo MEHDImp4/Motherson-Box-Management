@@ -28,7 +28,9 @@
         @if (Model.Users.Count == 0)
         {
             <div class="empty-state" style="padding: 48px var(--space-lg);">
-                <div class="empty-state-icon">&#128100;</div>
+                <div class="empty-state-icon" style="margin-bottom: var(--space-sm); color: var(--secondary);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
                 <h3 class="empty-state-title">No Users Found</h3>
                 <p class="empty-state-text">There are currently no registered users in the database.</p>
             </div>

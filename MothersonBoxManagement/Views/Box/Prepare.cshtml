@@ -19,11 +19,15 @@
 }
 
 <div class="container" style="padding-top: var(--space-md);">
-    <div class="d-flex align-items-center justify-content-between mb-md flex-wrap gap-2">
-        <a asp-action="Index" asp-controller="Dashboard" class="back-link" style="margin-bottom: 0;">&#8592; Back to Dashboard</a>
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <a asp-action="Index" asp-controller="Dashboard" class="back-link d-inline-flex align-items-center" style="margin-bottom: 0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="margin-right: 6px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Back to Dashboard
+        </a>
         <div class="d-flex gap-2">
-            <a asp-action="Details" asp-controller="Box" asp-route-barcode="@Model.Box.BarcodeValue" class="btn btn-outline-custom btn-sm" style="min-height: 36px; padding: 0 16px;">
-                &#128196; View Details @(User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator") ? "& Exceptions" : "")
+            <a asp-action="Details" asp-controller="Box" asp-route-barcode="@Model.Box.BarcodeValue" class="btn btn-outline-custom btn-sm d-inline-flex align-items-center" style="min-height: 36px; padding: 0 16px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="margin-right: 6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                View Details @(User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator") ? "& Exceptions" : "")
             </a>
         </div>
     </div>
@@ -166,7 +170,9 @@
                     </div>
                     
                     <div id="noPackagesPlaceholder" class="empty-state" style="padding: 32px 16px; @(Model.Box.Packages.Count > 0 ? "display: none;" : "")">
-                        <div class="empty-state-icon" style="width: 48px; height: 48px; font-size: 20px; margin-bottom: 8px;">&#128230;</div>
+                        <div class="empty-state-icon d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; margin-bottom: 8px; color: var(--secondary);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="12" y1="12" x2="12" y2="21"/></svg>
+                        </div>
                         <h3 class="empty-state-title" style="font-size: 15px; font-weight: 700; margin-bottom: 4px;">No Packages Scanned Yet</h3>
                         <p class="empty-state-text" style="font-size: 13px; margin: 0;">Scan a package barcode to begin filling this box.</p>
                     </div>
