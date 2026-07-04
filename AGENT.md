@@ -1,221 +1,228 @@
-# AGENT.md — Mémoire persistante du projet
+# AGENT.md - Persistent Project Memory
 
-## 1. Identité du projet et objectif métier
-Le projet **Motherson Box Management** est une application web interne conçue pour la zone de packaging P3 de l'usine Motherson.
-Son objectif principal est de permettre aux opérateurs de préparer, suivre et auditer des boxes de packaging contenant des packages de câbles identifiés par codes-barres.
-**Valeur fondamentale :** Assurer la traçabilité absolue des boxes de packaging et garantir qu'aucun package de câbles n'est scanné ou affecté à plus d'une box dans l'ensemble du système.
+## 1. Project Identity and Business Goal
+The **Motherson Box Management** project is an internal web application built for the P3 packaging area at the Motherson plant.
+Its main goal is to let operators prepare, track, and audit packaging boxes that contain cable packages identified by barcodes.
+**Core value:** Ensure complete traceability of packaging boxes and guarantee that no cable package is ever scanned or assigned to more than one box in the whole system.
 
-## 2. Périmètre du MVP
-Le MVP fonctionne de manière **autonome** :
-* **Aucune synchronisation externe :** Pas de connexion avec un ERP ou un MES.
-* **Aucun référentiel externe de packages :** Un package de câbles est découvert et enregistré par l'application lors de son premier scan valide.
-* **Règle d'unicité globale :** Un package de câbles ne peut être associé qu'à une seule et unique box.
-* **Interface en français.**
-* **Simulateur de scanner intégré :** Un panel virtuel dans l'UI pour simuler les entrées de scanner de codes-barres USB (keyboard wedge) afin de faciliter le test et la validation sans matériel physique.
+## 2. MVP Scope
+The MVP runs in a **standalone** way:
+* **No external sync:** No connection to ERP or MES.
+* **No external package master data:** A cable package is discovered and recorded by the application when it is scanned successfully for the first time.
+* **Global uniqueness rule:** A cable package can be linked to one and only one box.
+* **English interface.**
+* **Built-in scanner simulator:** A virtual panel in the UI simulates USB barcode scanner input (keyboard wedge) to make testing easier without physical hardware.
+* **Accepted UX additions beyond the strict specification:** AJAX scan without full page reload, scan sound feedback, and application-level archiving of completed boxes.
 
-## 3. Technologies et versions
-* **Framework principal :** ASP.NET Core MVC `[À confirmer dans le dépôt, cible présumée: 8.0]`
-* **Accès aux données :** Entity Framework Core `[À confirmer dans le dépôt, cible présumée: 8.0]`
-* **Base de données :** SQL Server `[À confirmer dans le dépôt, cible présumée: 2022]`
-* **Framework CSS :** Bootstrap `[À confirmer dans le dépôt, cible présumée: 5.3]`
-* **Authentification/Autorisation :** Cookie Authentication native d'ASP.NET Core avec revendications (claims) de rôle liées au matricule.
+## 3. Technologies and Versions
+* **Main framework:** ASP.NET Core MVC `[To confirm in the repository, assumed target: 8.0]`
+* **Data access:** Entity Framework Core `[To confirm in the repository, assumed target: 8.0]`
+* **Database:** SQL Server `[To confirm in the repository, assumed target: 2022]`
+* **CSS framework:** Bootstrap `[To confirm in the repository, assumed target: 5.3]`
+* **Authentication/Authorization:** Native ASP.NET Core Cookie Authentication with role claims linked to the matricule.
 
-## 4. Architecture MVC et responsabilités des dossiers
-L'architecture suit le modèle standard ASP.NET Core MVC. Les responsabilités sont réparties comme suit :
-* `[Dossier Racine du projet C# à confirmer]` (ex. `MothersonBoxManagement/` ou directement à la racine)
-  * `/Controllers` : Contrôleurs MVC légers (minces). Ils gèrent le routage, valident les ViewModels d'entrée et délèguent la logique métier aux services.
-  * `/Models` : Contient exclusivement les ViewModels pour l'affichage et la soumission de formulaires (ex. `LoginViewModel`, `BoxViewModel`, `ScanViewModel`). Les entités de base de données ne doivent jamais être exposées directement aux vues MVC.
-  * `/Data` : Contient le `ApplicationDbContext`, les configurations EF Core (`IEntityTypeConfiguration`) et le dossier `/Migrations`.
-  * `/Entities` : Entités métier pures mappées en base de données (ex. `User`, `Box`, `BoxPackage`, `BoxAuditLog`).
-  * `/Services` : Services métier autonomes contenant toute la logique métier, validations, transactions SQL, gestion des états et appels EF Core (ex. `IBoxService`, `IScanService`, `IUserService`).
-  * `/Views` : Pages Razor structurées avec Bootstrap.
-  * `/wwwroot` : Fichiers statiques (scripts JS pour le scanner USB, styles CSS, images).
+## 4. MVC Architecture and Folder Responsibilities
+The architecture follows the standard ASP.NET Core MVC model. Responsibilities are split as follows:
+* `[Project root folder to confirm]` (for example `MothersonBoxManagement/` or directly at the root)
+  * `/Controllers`: Thin MVC controllers. They handle routing, validate input ViewModels, and delegate business logic to services.
+  * `/Models`: Contains only ViewModels for display and form submission (for example `LoginViewModel`, `BoxViewModel`, `ScanViewModel`). Database entities must never be exposed directly to MVC views.
+  * `/Data`: Contains `ApplicationDbContext`, EF Core configurations (`IEntityTypeConfiguration`), and `/Migrations`.
+  * `/Entities`: Pure business entities mapped to the database (for example `User`, `Box`, `BoxPackage`, `BoxAuditLog`).
+  * `/Services`: Standalone business services containing all business logic, validation, SQL transactions, state handling, and EF Core calls (for example `IBoxService`, `IScanService`, `IUserService`).
+  * `/Views`: Razor pages structured with Bootstrap.
+  * `/wwwroot`: Static files (JS scripts for the USB scanner, CSS, images).
 
-## 5. Conventions de code et de structure
-* **Nommage :**
-  * `PascalCase` pour les types (classes, interfaces, structs, enums), les méthodes et les propriétés publiques.
-  * `camelCase` pour les variables locales et les arguments de méthode.
-  * `_camelCase` pour les champs privés en lecture seule (readonly).
-* **Nullables :** Activation des *Nullable Reference Types* (`<Nullable>enable</Nullable>`) obligatoire dans les fichiers `.csproj`. Tout avertissement de type nullable doit être résolu proprement (pas de suppression sauvage d'alertes).
-* **Asynchronisme :** Utilisation systématique de `async`/`await` pour toutes les opérations d'E/S (accès DB via EF Core, lectures de fichiers). Les méthodes asynchrones doivent accepter et propager un `CancellationToken`. L'utilisation de `.Result` ou `.Wait()` est strictement interdite pour éviter les deadlocks.
-* **Injection de dépendances :** Utilisation du conteneur d'injection de dépendances natif d'ASP.NET Core. L'anti-pattern *Service Locator* est interdit.
+## 5. Code and Structure Conventions
+* **Naming:**
+  * `PascalCase` for types (classes, interfaces, structs, enums), methods, and public properties.
+  * `camelCase` for local variables and method arguments.
+  * `_camelCase` for private readonly fields.
+* **Nullables:** *Nullable Reference Types* (`<Nullable>enable</Nullable>`) must be enabled in `.csproj` files. Every nullable warning must be fixed cleanly.
+* **Async:** Always use `async`/`await` for all I/O operations (DB access through EF Core, file reads). Async methods must accept and pass through a `CancellationToken`. `.Result` and `.Wait()` are strictly forbidden to avoid deadlocks.
+* **Dependency Injection:** Use the native ASP.NET Core dependency injection container. The *Service Locator* anti-pattern is forbidden.
 
-## 6. Règles métier critiques
-* **Distinctivité des codes-barres :** Les codes-barres des boxes et des packages doivent être différenciables par leur format.
-  * *Format :* `BOX-YYYYMMDD-XXXXXX` (où `XXXXXX` est un suffixe hexadécimal majuscule de 6 caractères) pour le numéro de box et son code-barres (qui sont identiques). Les packages de câbles commencent généralement par `PKG-` ou un format distinct sans le préfixe `BOX-`.
-  * Tout scan d'un code box sur l'écran d'association de package doit être rejeté avec une erreur explicite.
-  * Tout scan de package sur l'écran d'accueil ou de recherche de box doit être rejeté avec une erreur explicite.
-* **Dimensions en centimètres entiers :** Les dimensions des boxes (`Height`, `Width`, `Depth`) sont stockées sous forme d'entiers strictement positifs (`int`) représentant les centimètres. Les valeurs décimales, nulles ou négatives sont rejetées lors de la saisie et de la validation.
-* **Concurrence optimiste :** Les boxes doivent implémenter un mécanisme de concurrence optimiste (`RowVersion` / `byte[]` sous SQL Server) pour empêcher que deux opérateurs n'écrasent leurs modifications simultanément.
-* **Immutabilité de l'audit :** Aucun enregistrement dans `BoxAuditLogs` ne peut être modifié, mis à jour ou supprimé. L'accès en écriture se fait uniquement par ajout (Append-Only) via le contexte sécurisé.
+## 6. Critical Business Rules
+* **Barcode format distinction:** Box and package barcodes must be distinguishable by format.
+  * *Format:* `BOX-YYYYMMDD-XXXXXX` (where `XXXXXX` is a 6-character uppercase hexadecimal suffix) for the box number and box barcode, which are identical. Cable packages usually start with `PKG-` or another distinct format that does not use the `BOX-` prefix.
+  * Any scan of a box code on the package association screen must be rejected with an explicit error.
+  * Any package scan on the home or box search screen must be rejected with an explicit error.
+* **Whole-centimeter dimensions:** Box dimensions (`Height`, `Width`, `Depth`) are stored as strictly positive whole numbers (`int`) representing centimeters. Decimal, zero, or negative values must be rejected during input and validation.
+* **Optimistic concurrency:** Boxes must use optimistic concurrency (`RowVersion` / `byte[]` on SQL Server) to prevent two operators from overwriting each other's changes.
+* **Audit immutability:** No record in `BoxAuditLogs` can be modified, updated, or deleted. Write access is append-only through the secured context.
 
-## 7. Rôles et autorisations
-Les utilisateurs accèdent à l'application via leur identifiant unique (matricule) et leur mot de passe.
-Les rôles configurés sont :
-1. **Opérateur (`Operator`) :** Création de box, scan de packages, reprise de box ouverte, consultation de son historique personnel. Il ne peut effectuer aucune action d'exception (retrait, transfert, annulation, forçage).
-2. **Superviseur (`Supervisor`) :** Possède tous les droits de l'Opérateur, plus les droits d'exception : annuler une box, forcer la clôture avec écart (CompletedWithException), modifier la quantité attendue, retirer/transférer un package, bloquer/débloquer une box ou un package. Motif obligatoire exigé pour chaque exception.
-3. **Administrateur / Service IT (`Administrator`) :** Possède tous les droits du Superviseur, plus la gestion des comptes utilisateurs, la consultation du journal d'audit complet et le paramétrage des formats de codes-barres.
+## 7. Roles and Permissions
+Users access the application with their unique matricule and password.
+Configured roles:
+1. **Operator (`Operator`):** Create boxes, scan packages, resume an open box, view personal history. No exception actions are allowed (remove, transfer, cancel, force close).
+2. **Supervisor (`Supervisor`):** Has all Operator rights plus exception rights: cancel a box, force close with exception (`CompletedWithException`), change expected quantity, remove/transfer a package, block/unblock a box or package. A reason is required for every exception.
+3. **Administrator / IT (`Administrator`):** Has all Supervisor rights plus user account management, access to the full audit log, and barcode format configuration.
 
-## 8. Modèle de données fonctionnel
-Toutes les entités clés sont stockées dans des tables uniques.
+## 8. Functional Data Model
+All key entities are stored in single tables.
 
-| Nom de l'entité | Table SQL | Propriétés clés | Relations & Contraintes |
+| Entity Name | SQL Table | Key Properties | Relationships & Constraints |
 | :--- | :--- | :--- | :--- |
 | `User` | `Users` | `Id` (PK), `Matricule` (Unique), `PasswordHash`, `Role` (Enum/String), `IsActive` | - |
-| `Box` | `Boxes` | `Id` (PK), `BoxNumber` (Unique), `BarcodeValue` (Unique), `Type` (Enum: Carton, Bois, Plastique), `Height` (int), `Width` (int), `Depth` (int), `ExpectedQuantity`, `CurrentQuantity`, `Status` (Enum), `CreatedByUserId` (FK), `LastModifiedByUserId` (FK), `ClosedByUserId` (FK), `CreatedAt`, `UpdatedAt`, `ClosedAt`, `RowVersion` (ConcurrencyToken) | Relations avec `Users` (Créateur, Modificateur, Clôture) ; Relation One-to-Many avec `BoxPackages`. |
-| `BoxPackage` | `BoxPackages` | `Id` (PK), `BoxId` (FK), `PackageBarcode` (Unique SQL Global), `ScannedByUserId` (FK), `ScannedAt` | FK vers `Boxes`. **Contrainte d'unicité SQL stricte sur `PackageBarcode`** au niveau de la base pour interdire le double scan sur deux boxes différentes. |
-| `BoxAuditLog` | `BoxAuditLogs` | `Id` (PK), `BoxId` (FK, Nullable), `ActionType` (String), `UserId` (FK), `Timestamp`, `WorkstationName`, `DetailsJson` (Contient motif, valeurs avant/après, écarts, etc.) | Table append-only sans droits d'édition/suppression applicatifs. |
+| `Box` | `Boxes` | `Id` (PK), `BoxNumber` (Unique), `BarcodeValue` (Unique), `Type` (Enum: Carton, Bois, Plastique), `Height` (int), `Width` (int), `Depth` (int), `ExpectedQuantity`, `CurrentQuantity`, `Status` (Enum), `CreatedByUserId` (FK), `LastModifiedByUserId` (FK), `ClosedByUserId` (FK), `CreatedAt`, `UpdatedAt`, `ClosedAt`, `RowVersion` (ConcurrencyToken) | Relations to `Users` (creator, modifier, closer); one-to-many relation with `BoxPackages`. |
+| `BoxPackage` | `BoxPackages` | `Id` (PK), `BoxId` (FK), `PackageBarcode` (Global SQL Unique), `ScannedByUserId` (FK), `ScannedAt` | FK to `Boxes`. **Strict SQL uniqueness constraint on `PackageBarcode`** to prevent the same package from being scanned into two boxes. |
+| `BoxAuditLog` | `BoxAuditLogs` | `Id` (PK), `BoxId` (FK, Nullable), `ActionType` (String), `UserId` (FK), `Timestamp`, `WorkstationName`, `DetailsJson` (contains reason, before/after values, gaps, etc.) | Append-only table with no application edit/delete rights. |
 
-## 9. État des migrations EF Core
-Cette section récapitule l'historique des migrations EF Core appliquées.
+## 9. EF Core Migration Status
+This section summarizes the history of applied EF Core migrations.
 
-| Nom de la migration | Objectif principal | Statut (Appliquée/En attente) | Impact sur les données | Rollback / Notes |
+| Migration Name | Main Goal | Status (Applied/Pending) | Data Impact | Rollback / Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `20260702125840_InitialSchema` | Création des tables `Users`, `Boxes`, `BoxPackages`, `BoxAuditLogs` | Appliquée | Initialisation du schéma | - |
-| `20260702143042_UseIntegerBoxDimensions` | Conversion des dimensions `Height`, `Width` et `Depth` de la table `Boxes` de double (float) vers entier (int) | Appliquée | Conversion de colonnes | - |
+| `20260702125840_InitialSchema` | Create tables `Users`, `Boxes`, `BoxPackages`, `BoxAuditLogs` | Applied | Initial schema | - |
+| `20260702143042_UseIntegerBoxDimensions` | Convert `Height`, `Width`, and `Depth` in `Boxes` from double (float) to whole number (int) | Applied | Column conversion | - |
 
-*Note réglementaire :* Aucun changement direct de schéma en base de données n'est toléré sans passer par une migration EF Core explicite.
+*Regulatory note:* No direct database schema change is allowed without an explicit EF Core migration.
 
-## 10. Contraintes SQL essentielles
-* **Unicité globale du package :** `ALTER TABLE BoxPackages ADD CONSTRAINT UQ_BoxPackages_PackageBarcode UNIQUE (PackageBarcode);`
-  * Cette contrainte doit être explicitement déclarée dans la configuration EF Core via `.HasIndex(p => p.PackageBarcode).IsUnique();`.
-* **Index de recherche :** Un index non-clustered doit être posé sur `Boxes.BarcodeValue` pour accélérer les redirections depuis la page d'accueil.
-* **Type RowVersion :** La colonne `RowVersion` de la table `Boxes` doit être de type `rowversion` (ou `timestamp` SQL Server) et configurée comme jeton de concurrence dans EF Core : `.IsRowVersion()`.
+## 10. Essential SQL Constraints
+* **Global package uniqueness:** `ALTER TABLE BoxPackages ADD CONSTRAINT UQ_BoxPackages_PackageBarcode UNIQUE (PackageBarcode);`
+  * This constraint must be explicitly declared in EF Core with `.HasIndex(p => p.PackageBarcode).IsUnique();`.
+* **Search index:** A non-clustered index must exist on `Boxes.BarcodeValue` to speed up redirects from the home page.
+* **RowVersion type:** The `RowVersion` column in `Boxes` must be a SQL Server `rowversion` (or `timestamp`) and must be configured as a concurrency token in EF Core with `.IsRowVersion()`.
 
-## 11. Statuts de box et transitions autorisées
-Une box suit la machine à états suivante :
+## 11. Box Statuses and Allowed Transitions
+A box follows this state machine:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Open : Création de la Box
-    Open --> Completed : Remplissage complet (Auto)
-    Open --> CompletedWithException : Clôture exceptionnelle par Superviseur (Forced)
-    Open --> Cancelled : Annulation par Superviseur (Cancelled)
-    Open --> Blocked : Blocage temporaire (Blocked)
-    Blocked --> Open : Déblocage (Unblocked)
-    Completed --> Archived : Archivage automatique/manuel
-    CompletedWithException --> Archived : Archivage
+    [*] --> Open : Box created
+    Open --> Completed : Fully filled (Auto)
+    Open --> CompletedWithException : Exceptional close by Supervisor (Forced)
+    Open --> Cancelled : Cancelled by Supervisor
+    Open --> Blocked : Temporary block
+    Blocked --> Open : Unblocked
+    Completed --> Archived : Automatic/manual archive
+    CompletedWithException --> Archived : Archive
     Cancelled --> [*]
     Archived --> [*]
 ```
 
-*Règles strictes :*
-* Une box au statut `Completed`, `CompletedWithException`, `Cancelled`, `Archived` ou `Blocked` refuse systématiquement tout nouveau scan de package.
-* Les packages associés à une box au statut `Cancelled` ne sont pas libérés automatiquement ; ils restent rattachés à la box annulée pour garantir l'historique (une action explicite de désaffectation par un superviseur est requise pour les libérer).
+*Strict rules:*
+* A box with status `Completed`, `CompletedWithException`, `Cancelled`, `Archived`, or `Blocked` must always reject new package scans.
+* Packages linked to a `Cancelled` box are not released automatically; they stay attached to the cancelled box to preserve history. An explicit supervisor disassociation action is required to release them.
 
-## 12. Parcours de scan de box et de package
-### A. Scan de box (Accès direct depuis la page d'accueil)
-1. L'utilisateur positionne le focus dans le champ "Scanner une box" de l'accueil.
-2. Le scanner USB lit le code-barres de la box (format `BOX-...`) et valide l'entrée.
-3. Le système intercepte la saisie, valide le format du code box, recherche la box correspondante dans la base de données.
-4. Si la box existe et est `Open` : redirection vers la page de préparation et d'association de packages.
-5. Si la box existe et est fermée (`Completed`, `CompletedWithException`, `Cancelled`, `Archived`) ou `Blocked` : redirection vers la vue de détail en lecture seule (avec avertissement pour les boxes bloquées).
-6. Si la box n'existe pas : affichage d'un message d'erreur clair "Box inconnue".
+## 12. Box and Package Scan Flow
+### A. Box Scan (Direct access from the home page)
+1. The user focuses the "Scan a box" field on the home page.
+2. The USB scanner reads the box barcode (`BOX-...`) and submits the input.
+3. The system captures the input, validates the box code format, and looks up the box in the database.
+4. If the box exists and is `Open`: redirect to the preparation and package association page.
+5. If the box exists and is closed (`Completed`, `CompletedWithException`, `Cancelled`, `Archived`) or `Blocked`: redirect to the read-only details view (with a warning for blocked boxes).
+6. If the box does not exist: show a clear error message such as "Unknown box".
 
-### B. Scan de package (Depuis l'écran de préparation)
-1. L'opérateur scanne le code-barres d'un package (format `PKG-...`).
-2. Le système intercepte le code et exécute les vérifications suivantes dans une transaction SQL isolée :
-   * Validation du format : le code scanné doit être un package et non une box.
-   * État de la box : elle doit être au statut `Open`.
-   * Unicité : vérification que le code-barres n'existe pas déjà dans la table `BoxPackages` (qu'il soit associé à cette box ou à une autre).
-   * Quantité : vérification que la quantité attendue n'est pas déjà atteinte.
-3. Si toutes les validations passent :
-   * Création de la ligne dans `BoxPackages` avec l'ID utilisateur de l'opérateur connecté et l'horodatage.
-   * Incrémentation de `CurrentQuantity` sur la box.
-   * Ajout d'une ligne d'audit `PackageScanned`.
-   * Si `CurrentQuantity` devient égale à `ExpectedQuantity` : modification automatique du statut de la box à `Completed` et écriture d'un log d'audit `BoxCompletedAuto`.
-4. Si une validation échoue : rejet immédiat du scan, rollback de la transaction, écriture d'une entrée d'audit `PackageRejected` (pour traçabilité des tentatives d'erreur ou de fraude) et affichage d'un message d'erreur rouge explicite à l'écran.
+### B. Package Scan (From the preparation screen)
+1. The operator scans a package barcode (`PKG-...`).
+2. The system captures the code and performs these checks inside an isolated SQL transaction:
+   * Format validation: the scanned code must be a package, not a box.
+   * Box state: the box must be `Open`.
+   * Uniqueness: check that the barcode does not already exist in `BoxPackages`, whether in this box or another one.
+   * Quantity: check that the expected quantity has not already been reached.
+3. If all validations pass:
+   * Create the row in `BoxPackages` with the logged-in operator user ID and timestamp.
+   * Increment `CurrentQuantity` on the box.
+   * Add a `PackageScanned` audit record.
+   * If `CurrentQuantity` becomes equal to `ExpectedQuantity`: automatically change the box status to `Completed` and write a `BoxCompletedAuto` audit log.
+4. If a validation fails: reject the scan immediately, roll back the transaction, write a `PackageRejected` audit entry (to trace errors or fraud attempts), and show a clear red error message on screen.
 
-## 13. Commandes utiles
-*(Commandes à exécuter à la racine de la solution C#)*
-* **Restauration des dépendances :**
+## 13. Useful Commands
+*(Run these commands from the C# solution root)*
+* **Restore dependencies:**
   ```powershell
   dotnet restore
   ```
-* **Compilation du projet :**
+* **Build the project:**
   ```powershell
   dotnet build
   ```
-* **Exécution des tests unitaires et d'intégration :**
+* **Run unit and integration tests:**
   ```powershell
   dotnet test
   ```
-* **Ajout d'une migration EF Core :**
+* **Add an EF Core migration:**
   ```powershell
-  dotnet ef migrations add <NomMigration> --project <CheminProjetDataOrWeb> --startup-project <CheminProjetWeb>
+  dotnet ef migrations add <MigrationName> --project <DataOrWebProjectPath> --startup-project <WebProjectPath>
   ```
-* **Mise à jour de la base de données :**
+* **Update the database:**
   ```powershell
-  dotnet ef database update --project <CheminProjetDataOrWeb> --startup-project <CheminProjetWeb>
+  dotnet ef database update --project <DataOrWebProjectPath> --startup-project <WebProjectPath>
   ```
 
-## 14. Configuration locale sécurisée
-La configuration de développement s'effectue via le fichier `appsettings.Development.json` ou l'outil Secrets Manager de .NET (`dotnet user-secrets`).
-**Variables d'environnement requises (Placeholders sécurisés) :**
-* `ConnectionStrings__DefaultConnection` : Chaîne de connexion SQL Server locale (ex. `Server=(localdb)\\mssqllocaldb;Database=MothersonBoxManagement;Trusted_Connection=True;MultipleActiveResultSets=true`).
-* `Authentication__CookieName` : Nom du cookie de session (ex. `Motherson.BoxManagement.Auth`).
-* `Authentication__ExpireTimeSpanMinutes` : Durée de validité de la session (ex. `60`).
+## 14. Secure Local Configuration
+Development configuration uses `appsettings.Development.json` or the .NET Secrets Manager tool (`dotnet user-secrets`).
+**Required environment variables (secure placeholders):**
+* `ConnectionStrings__DefaultConnection`: Local SQL Server connection string (for example `Server=(localdb)\\mssqllocaldb;Database=MothersonBoxManagement;Trusted_Connection=True;MultipleActiveResultSets=true`).
+* `Authentication__CookieName`: Session cookie name (for example `Motherson.BoxManagement.Auth`).
+* `Authentication__ExpireTimeSpanMinutes`: Session lifetime in minutes (for example `60`).
 
 > [!CAUTION]
-> Ne jamais commiter de secrets de production (vrais mots de passe, vraies chaînes de connexion de production) dans le code source ou dans les dépôts Git.
+> Never commit production secrets (real passwords, real production connection strings) to source code or Git repositories.
 
-## 15. Routes et Endpoints MVC principaux
-* `/Account/Login` : Écran de connexion (POST pour authentifier).
-* `/Account/Logout` : Déconnexion de la session.
-* `/` ou `/Home/Index` : Tableau de bord principal. Contient le champ "Scanner une box" et la liste des boxes actives.
-* `/Box/Create` : Formulaire de création de box (Opérateur/Superviseur/Admin).
-* `/Box/Prepare/{id}` : Écran de scan de packages pour une box ouverte (Opérateur/Superviseur/Admin). Contient le simulateur de scan virtuel.
-* `/Box/Details/{id}` : Vue en lecture seule de la box, des packages scannés et de l'historique d'audit associé.
-* `/Box/Scan` : Action standard de scan de package (POST, Opérateur/Superviseur/Admin).
-* `/Box/ScanAjax` : Action AJAX de scan de package (POST, Opérateur/Superviseur/Admin, retourne du JSON).
-* `/Box/Cancel/{id}` : Action d'annulation (POST, Superviseur/Admin uniquement, motif obligatoire).
-* `/Box/ForceClose/{id}` : Action de clôture avec écart (POST, Superviseur/Admin uniquement, motif obligatoire).
-* `/Box/Transfer` : Action de transfert de package (POST, Superviseur/Admin uniquement, motif obligatoire).
-* `/Box/Block/{id}` / `/Box/Unblock/{id}` : Actions de blocage/déblocage (POST, Superviseur/Admin uniquement, motif obligatoire).
+## 15. Main MVC Routes and Endpoints
+* `/Account/Login`: Login screen (POST authenticates).
+* `/Account/Logout`: Sign out the session.
+* `/` or `/Home/Index`: Main dashboard. Contains the "Scan a box" field and the list of active boxes.
+* `/Box/Index`: Multi-criteria box search and tracking screen (all roles).
+* `/Box/Create`: Box creation form (Operator/Supervisor/Admin).
+* `/Box/Prepare/{id}`: Package scan screen for an open box (Operator/Supervisor/Admin). Contains the virtual scan simulator.
+* `/Box/Details/{id}`: Read-only box view with scanned packages and related audit history.
+* `/Box/Scan`: Standard package scan action (POST, Operator/Supervisor/Admin).
+* `/Box/ScanAjax`: AJAX package scan action (POST, Operator/Supervisor/Admin, returns JSON).
+* `/Box/Cancel/{id}`: Cancel action (POST, Supervisor/Admin only, reason required).
+* `/Box/ForceClose/{id}`: Close with exception action (POST, Supervisor/Admin only, reason required).
+* `/Box/Transfer`: Package transfer action (POST, Supervisor/Admin only, reason required).
+* `/Box/Block/{id}` / `/Box/Unblock/{id}`: Block/unblock actions (POST, Supervisor/Admin only, reason required).
 
-## 16. Packages NuGet significatifs et justification
-* `Microsoft.EntityFrameworkCore.SqlServer` : Provider EF Core officiel pour SQL Server (mandaté).
-* `Microsoft.EntityFrameworkCore.Design` & `Microsoft.EntityFrameworkCore.Tools` : Nécessaires pour la génération des migrations et la gestion de la base de données en ligne de commande.
+## 16. Important NuGet Packages and Why They Matter
+* `Microsoft.EntityFrameworkCore.SqlServer`: Official EF Core SQL Server provider (required).
+* `Microsoft.EntityFrameworkCore.Design` and `Microsoft.EntityFrameworkCore.Tools`: Needed for migration generation and command-line database management.
 
-## 17. Journal des décisions d'architecture (ADR léger)
-Toute décision d'architecture significative doit être consignée ici.
+## 17. Architecture Decision Log (Light ADR)
+Every significant architecture decision must be recorded here.
 
-| Date | Décision | Contexte | Raisons | Impact | Statut |
+| Date | Decision | Context | Reasons | Impact | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 2026-07-02 | Tables uniques pour Boxes et Packages | Cahier des charges spécifiant d'éviter les tables dynamiques par box. | Facilité de recherche, d'indexation, de rapports globaux et d'audits. | Schéma relationnel standard simple et performant. | **Validé** |
-| 2026-07-02 | Cookie Authentication sans ASP.NET Identity | Identification par matricule interne simple, sans inscription publique ni flux OAuth. | Plus léger et aligné sur le besoin de validation simple contre la table `Users`. | Moins de tables système à maintenir, schéma `Users` entièrement sous contrôle. | **Validé** |
-| 2026-07-02 | Intercepteur EF Core pour l'audit | Besoin d'un historique append-only, immuable et automatique pour toutes les opérations. | Centralise l'audit dans `SaveChanges` / `SaveChangesAsync` pour garantir qu'aucune modification n'échappe à la journalisation. | Implémentation propre découplée des contrôleurs MVC. | **Validé** |
+| 2026-07-02 | Single tables for Boxes and Packages | The specification requires avoiding dynamic tables per box. | Easier search, indexing, global reports, and audits. | Simple and efficient standard relational schema. | **Validated** |
+| 2026-07-02 | Cookie Authentication without ASP.NET Identity | Internal matricule-based identification, no public sign-up and no OAuth flow. | Lighter and aligned with simple validation against the `Users` table. | Fewer framework tables to maintain, full control of the `Users` schema. | **Validated** |
+| 2026-07-02 | EF Core interceptor for audit | Need for append-only, immutable, automatic history for all operations. | Centralizes auditing in `SaveChanges` / `SaveChangesAsync` so no change can escape logging. | Clean implementation decoupled from MVC controllers. | **Validated** |
 
-## 18. Hypothèses et points à valider
-* **Format précis des codes-barres :** Les préfixes exacts (`BOX-` et `PKG-`) doivent être validés avec les équipes de production de la zone P3.
-* **Matériel de scan :** Le comportement du scanner USB (keyboard wedge avec envoi automatique de la touche `Enter` en fin de saisie) doit être testé sur les terminaux cibles de l'usine.
-* **Volume de données :** Fréquence d'archivage des boxes pour éviter de ralentir la table `BoxPackages` à long terme.
+## 18. Assumptions and Open Points
+* **Exact barcode format:** The exact prefixes (`BOX-` and `PKG-`) must be confirmed with the production teams in the P3 area.
+* **Scan hardware:** USB scanner behavior (keyboard wedge sending `Enter` automatically at the end) must be tested on the target factory terminals.
+* **Data volume:** Define archive frequency for boxes to avoid slowing down `BoxPackages` over time.
+* **Documentation alignment with CDC v1.5:** The SQL table in the PDF still mentions `decimal(10,2)` dimensions, but the repository and migration `20260702143042_UseIntegerBoxDimensions` define strictly positive whole-centimeter dimensions.
 
-## 19. Risques et dette technique
-* **Risque de double scan concurrent :** Deux opérateurs scannant le même code-barres de package au même instant sur deux boxes différentes.
-  * *Mitigation :* Contrainte d'unicité SQL stricte en base de données gérée par SQL Server pour lever une exception de concurrence au niveau de la transaction.
-* **Secrets dans le dépôt :** Risque de fuite des chaînes de connexion lors des commits de configuration.
-  * *Mitigation :* Utilisation systématique de `appsettings.Development.json` local ignoré par Git (ou contenant uniquement des placeholders) et configuration via variables d'environnement.
+## 19. Risks and Technical Debt
+* **Concurrent double-scan risk:** Two operators scan the same package barcode at the same time into two different boxes.
+  * *Mitigation:* Strict SQL uniqueness constraint handled by SQL Server to raise a concurrency exception at transaction level.
+* **Secrets in the repository:** Risk of leaking connection strings through config commits.
+  * *Mitigation:* Use a local `appsettings.Development.json` ignored by Git (or containing only placeholders) and environment variables.
 
-## 20. Intégration et règles de synchronisation avec GSD Core
-* L'agent doit toujours synchroniser ses tâches avec le cycle GSD Core.
-* Toute tâche commencée doit être marquée `En cours` dans `TODO.md` avec sa référence de phase/plan GSD correspondante.
-* Les artefacts internes de GSD Core (`.planning/`) ne doivent jamais être modifiés manuellement en dehors des commandes ou processus GSD.
-* L'état d'avancement des tâches doit être mis à jour régulièrement dans `TODO.md` pour refléter fidèlement le statut réel du dépôt.
+## 20. GSD Core Integration and Sync Rules
+* The agent must always sync its tasks with the GSD Core workflow.
+* Every started task must be marked `In progress` in `TODO.md` with the matching GSD phase/plan reference.
+* Internal GSD Core artifacts (`.planning/`) must never be edited manually outside GSD commands or processes.
+* Task progress must be updated regularly in `TODO.md` so it accurately reflects the real repository status.
 
-## 21. Checklist obligatoire avant toute modification
-1. Lire le fichier `.planning/PROJECT.md` et `.planning/ROADMAP.md` pour identifier la phase active.
-2. Vérifier `AGENT.md` pour comprendre les règles métier liées aux entités modifiées.
-3. Consulter `TODO.md` et s'assurer que la tâche est marquée `En cours` (ou la créer si tâche rapide/corrective).
-4. S'assurer que le workspace est propre (`git status` sans modifications inattendues).
+## 21. Required Checklist Before Any Change
+1. Read `.planning/PROJECT.md` and `.planning/ROADMAP.md` to identify the active phase.
+2. Check `AGENT.md` to understand the business rules for the entities being changed.
+3. Review `TODO.md` and make sure the task is marked `In progress` (or create it for a quick/corrective task).
+4. Make sure the workspace is clean (`git status` with no unexpected changes).
 
-## 22. Checklist obligatoire après toute modification
-1. Lancer la compilation locale (`dotnet build`) et corriger tous les avertissements/erreurs.
-2. Lancer les tests unitaires (`dotnet test`) et s'assurer qu'aucun test ne régresse.
-3. En cas de modification de schéma de base de données : générer la migration EF Core correspondante et appliquer la migration localement pour tester.
-4. Mettre à jour `AGENT.md` si une entité, une relation, un statut ou une décision d'architecture a changé.
-5. Mettre à jour `TODO.md` en passant la tâche à `Terminé` ou `En revue`.
-6. Rédiger un message de commit conforme aux Conventional Commits.
+## 22. Required Checklist After Any Change
+1. Run the local build (`dotnet build`) and fix all warnings/errors.
+2. Run unit tests (`dotnet test`) and ensure no tests regress.
+3. If the database schema changed: generate the matching EF Core migration and apply it locally for testing.
+4. Update `AGENT.md` if an entity, relationship, status, or architecture decision changed.
+5. Update `TODO.md`, moving the task to `Completed` or `In review`.
+6. Write a Conventional Commits message.
+
+## 23. Latest Validation State
+* **2026-07-04:** Completed the full visual and UX redesign of the application shell, forms, dashboard, preparation/scanning, search, audit trace, and user administration screens. Build and tests remain green with **129 passing tests out of 129**.
 
 ---
-> **Règle d'or :** Toute modification d'entité, de relation, de migration, de contrainte SQL, d'index, de règle de persistance, de statut métier, d'autorisation, de route MVC, de package NuGet ou de décision d'architecture doit entraîner la mise à jour de `AGENT.md`.
+> **Golden rule:** Any change to an entity, relationship, migration, SQL constraint, index, persistence rule, business status, authorization, MVC route, NuGet package, or architecture decision must trigger an update to `AGENT.md`.
+

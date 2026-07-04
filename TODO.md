@@ -1,51 +1,62 @@
-# TODO.md — Tableau de pilotage Motherson Box Management
+# TODO.md - Motherson Box Management Task Board
 
-## Légende des priorités
-* **P0** = Bloque le MVP, la sécurité ou l'intégrité des données
-* **P1** = Fonctionnalité MVP essentielle
-* **P2** = Amélioration importante mais non bloquante
-* **P3** = Amélioration future ou dette technique
+## Priority Legend
+* **P0** = Blocks the MVP, security, or data integrity
+* **P1** = Essential MVP feature
+* **P2** = Important improvement but not blocking
+* **P3** = Future improvement or technical debt
 
-## Tableau des tâches
+## Task Table
 
-| ID | Référence GSD | Fonctionnalité / tâche | Exigences CDC liées | Priorité | Statut | Responsable | Dernière mise à jour | Blocage / notes | Référence technique |
+| ID | GSD Reference | Feature / Task | Related Specification Requirements | Priority | Status | Owner | Last Updated | Blocker / Notes | Technical Reference |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **TSK-001** | Phase 1 | Initialisation de la solution MVC (.NET 8.0, structure des dossiers) | - | P0 | `Terminé` | Agent | 2026-07-02 | Aucun | `Program.cs`, `.csproj` |
-| **TSK-002** | Phase 1 | Schéma de base de données (Entités EF Core, Context, configurations) | DONNÉES-01 | P0 | `Terminé` | Agent | 2026-07-02 | Aucun | `ApplicationDbContext.cs` |
-| **TSK-003** | Phase 1 | Contrainte d'unicité SQL sur `BoxPackages.PackageBarcode` | SCAN-03 | P0 | `Terminé` | Agent | 2026-07-02 | Clé pour l'intégrité des données | EF Core Fluent API |
-| **TSK-004** | Phase 1 | Migrations EF Core initiales et script de Seed (Utilisateurs et Rôles) | DECISION-03 | P0 | `Terminé` | Agent | 2026-07-02 | Doit pré-seed les rôles et users de test | `/Migrations` |
-| **TSK-005** | Phase 1 | Authentification par matricule / mot de passe (Cookie Auth) | AUTH-01, AUTH-02 | P0 | `Terminé` | Agent | 2026-07-02 | Session persistante requise | `AccountController.cs` |
-| **TSK-006** | Phase 1 | Gestion et contrôle d'accès par rôles (Opérateur, Superviseur, Admin) | AUTH-03 | P0 | `Terminé` | Agent | 2026-07-02 | Filtres d'autorisation MVC | `[Authorize(Roles = "...")]` |
-| **TSK-007** | Phase 2 / Plan 02-01 | Création de box (Type, Dimensions, Qté attendue) | BOX-01 | P1 | `Terminé` | Agent | 2026-07-02 | Validé par tests de compilation et d'intégration | `BoxController.cs` |
-| **TSK-008** | Phase 2 / Plan 02-02 | Génération des numéros et codes-barres uniques de boxes | BOX-02, BOX-03 | P1 | `Terminé` | Agent | 2026-07-02 | Validé par tests unitaires et génération avec retry | `IBoxService` |
-| **TSK-009** | Phase 2 / Plan 02-03 | Tableau de bord des boxes ouvertes et progression | BOX-07, BOX-08 | P1 | `Terminé` | Agent | 2026-07-02 | Validé par tests unitaires et intégration UI | `HomeController.cs` |
-| **TSK-010** | Phase 2 / Plan 02-03 | Accès direct par scan de box sur la page d'accueil | HOME-01, HOME-02 | P1 | `Terminé` | Agent | 2026-07-02 | Validé par tests de lookup et de redirection | Champ de scan distinct |
-| **TSK-011** | Phase 3 | Écran de préparation de box et simulateur de scan virtuel | SIM-01 | P1 | `Terminé` | Agent | 2026-07-03 | Panel de simulation dans l'UI | `Views/Box/Prepare.cshtml` |
-| **TSK-012** | Phase 3 | Scan et affectation des packages de câbles (USB Wedge / JS listener) | SCAN-01, SCAN-02 | P1 | `Terminé` | Agent | 2026-07-03 | Doit intercepter la saisie | Script JS scanner |
-| **TSK-013** | Phase 3 | Validation d'unicité et distinction des formats de codes-barres | SCAN-04, SCAN-05 | P0 | `Terminé` | Agent | 2026-07-03 | Rejeter codes boxes sur scan package et vice versa | `IScanService` |
-| **TSK-014** | Phase 3 | Clôture automatique de box (quantité attendue atteinte) | SCAN-06 | P1 | `Terminé` | Agent | 2026-07-03 | Transition vers statut "Completed" | `IScanService` / `Box` |
-| **TSK-015** | Phase 3 | Gestion des scans concurrents et de la concurrence optimiste | - | P0 | `Terminé` | Agent | 2026-07-03 | Gérer DbUpdateConcurrencyException | EF Core `RowVersion` |
-| **TSK-016** | Phase 4 | Journal d'audit append-only immuable | AUDIT-01, AUDIT-02 | P0 | `Terminé` | Agent | 2026-07-04 | SaveChangesInterceptor pour EF Core | `BoxAuditLogInterceptor` |
-| **TSK-017** | Phase 4 | Reprise de box ouverte par un autre opérateur | BOX-04 | P1 | `Terminé` | Agent | 2026-07-04 | Conserver créateur initial | `IBoxService` |
-| **TSK-018** | Phase 4 | Clôture exceptionnelle avec écart (Superviseur uniquement + motif) | EXC-02 | P1 | `Terminé` | Agent | 2026-07-04 | CompletedWithException + CompletionMode=Forced | `BoxController.cs` |
-| **TSK-019** | Phase 4 | Annulation de box (Superviseur uniquement + motif) | EXC-01 | P1 | `Terminé` | Agent | 2026-07-04 | Statut Cancelled | `BoxController.cs` |
-| **TSK-020** | Phase 4 | Blocage et déblocage de boxes / packages (Quarantaine) | EXC-04 | P1 | `Terminé` | Agent | 2026-07-04 | Statut Blocked | `BoxController.cs` |
-| **TSK-021** | Phase 4 | Retrait, transfert et désaffectation contrôlés de packages | EXC-03 | P1 | `Terminé` | Agent | 2026-07-04 | Traçabilité avec motif obligatoire | `IBoxService` |
-| **TSK-022** | Phase 4 | Recherche multicritères et filtres (Statut, numéro, date, user) | - | P2 | `Terminé` | Agent | 2026-07-04 | Pour superviseurs et admins | `BoxController.cs` |
-| **TSK-023** | Phase 5 | Tests unitaires et d'intégration métier | - | P1 | `Terminé` | Agent | 2026-07-04 | Aucun | Projet de tests |
-| **TSK-024** | Phase 5 | Audit de sécurité (Vérification secrets, logs et injection SQL) | - | P0 | `Terminé` | Agent | 2026-07-04 | Aucun | Analyse statique de code |
-| **TSK-025** | Phase 5 | Préparation de la configuration de déploiement local (IIS / Kestrel) | - | P2 | `Terminé` | Agent | 2026-07-04 | Aucun | `appsettings.json` |
+| **TSK-001** | Phase 1 | Initialize the MVC solution (.NET 8.0, folder structure) | - | P0 | `Completed` | Agent | 2026-07-02 | None | `Program.cs`, `.csproj` |
+| **TSK-002** | Phase 1 | Database schema (EF Core entities, context, configurations) | DONNEES-01 | P0 | `Completed` | Agent | 2026-07-02 | None | `ApplicationDbContext.cs` |
+| **TSK-003** | Phase 1 | SQL uniqueness constraint on `BoxPackages.PackageBarcode` | SCAN-03 | P0 | `Completed` | Agent | 2026-07-02 | Key to data integrity | EF Core Fluent API |
+| **TSK-004** | Phase 1 | Initial EF Core migrations and seed script (users and roles) | DECISION-03 | P0 | `Completed` | Agent | 2026-07-02 | Must pre-seed test roles and users | `/Migrations` |
+| **TSK-005** | Phase 1 | Matricule / password authentication (Cookie Auth) | AUTH-01, AUTH-02 | P0 | `Completed` | Agent | 2026-07-02 | Persistent session required | `AccountController.cs` |
+| **TSK-006** | Phase 1 | Role-based access control (Operator, Supervisor, Admin) | AUTH-03 | P0 | `Completed` | Agent | 2026-07-02 | MVC authorization filters | `[Authorize(Roles = "...")]` |
+| **TSK-007** | Phase 2 / Plan 02-01 | Box creation (type, dimensions, expected quantity) | BOX-01 | P1 | `Completed` | Agent | 2026-07-02 | Validated by build and integration tests | `BoxController.cs` |
+| **TSK-008** | Phase 2 / Plan 02-02 | Generate unique box numbers and barcodes | BOX-02, BOX-03 | P1 | `Completed` | Agent | 2026-07-02 | Validated by unit tests and retry generation | `IBoxService` |
+| **TSK-009** | Phase 2 / Plan 02-03 | Open boxes dashboard and progress display | BOX-07, BOX-08 | P1 | `Completed` | Agent | 2026-07-02 | Validated by unit and UI integration tests | `HomeController.cs` |
+| **TSK-010** | Phase 2 / Plan 02-03 | Direct box access by scan on the home page | HOME-01, HOME-02 | P1 | `Completed` | Agent | 2026-07-02 | Validated by lookup and redirect tests | Separate scan field |
+| **TSK-011** | Phase 3 | Box preparation screen and virtual scan simulator | SIM-01 | P1 | `Completed` | Agent | 2026-07-03 | Simulation panel in the UI | `Views/Box/Prepare.cshtml` |
+| **TSK-012** | Phase 3 | Scan and assign cable packages (USB wedge / JS listener) | SCAN-01, SCAN-02 | P1 | `Completed` | Agent | 2026-07-03 | Must intercept input | Scanner JS script |
+| **TSK-013** | Phase 3 | Uniqueness validation and barcode format distinction | SCAN-04, SCAN-05 | P0 | `Completed` | Agent | 2026-07-03 | Reject box codes during package scan and vice versa | `IScanService` |
+| **TSK-014** | Phase 3 | Automatic box closure (expected quantity reached) | SCAN-06 | P1 | `Completed` | Agent | 2026-07-03 | Transition to `Completed` status | `IScanService` / `Box` |
+| **TSK-015** | Phase 3 | Handle concurrent scans and optimistic concurrency | - | P0 | `Completed` | Agent | 2026-07-03 | Handle `DbUpdateConcurrencyException` | EF Core `RowVersion` |
+| **TSK-016** | Phase 4 | Immutable append-only audit log | AUDIT-01, AUDIT-02 | P0 | `Completed` | Agent | 2026-07-04 | `SaveChangesInterceptor` for EF Core | `BoxAuditLogInterceptor` |
+| **TSK-017** | Phase 4 | Resume an open box by another operator | BOX-04 | P1 | `Completed` | Agent | 2026-07-04 | Keep original creator | `IBoxService` |
+| **TSK-018** | Phase 4 | Exceptional close with deviation (Supervisor only + reason) | EXC-02 | P1 | `Completed` | Agent | 2026-07-04 | `CompletedWithException` + `CompletionMode=Forced` | `BoxController.cs` |
+| **TSK-019** | Phase 4 | Cancel a box (Supervisor only + reason) | EXC-01 | P1 | `Completed` | Agent | 2026-07-04 | `Cancelled` status | `BoxController.cs` |
+| **TSK-020** | Phase 4 | Block and unblock boxes / packages (quarantine) | EXC-04 | P1 | `Completed` | Agent | 2026-07-04 | `Blocked` status | `BoxController.cs` |
+| **TSK-021** | Phase 4 | Controlled removal, transfer, and disassociation of packages | EXC-03 | P1 | `Completed` | Agent | 2026-07-04 | Traceability with required reason | `IBoxService` |
+| **TSK-022** | Phase 4 | Multi-criteria search and filters (status, number, date, user) | - | P2 | `Completed` | Agent | 2026-07-04 | For supervisors and admins | `BoxController.cs` |
+| **TSK-023** | Phase 5 | Business unit and integration tests | - | P1 | `Completed` | Agent | 2026-07-04 | None | Test project |
+| **TSK-024** | Phase 5 | Security audit (check secrets, logs, and SQL injection) | - | P0 | `Completed` | Agent | 2026-07-04 | None | Static code analysis |
+| **TSK-025** | Phase 5 | Prepare local deployment configuration (IIS / Kestrel) | - | P2 | `Completed` | Agent | 2026-07-04 | None | `appsettings.json` |
+| **TSK-026** | Phase 5 | Additional E2E test scenarios (concurrency, duplicates, access rights) | SCAN-03 | P1 | `Completed` | Agent | 2026-07-04 | None | `E2ELifecycleTests.cs` |
+| **TSK-027** | Phase 5 | Integration tests (HomeController, AuditController) and validation theories (125 tests) | - | P1 | `Completed` | Agent | 2026-07-04 | None | `AuditControllerTests.cs`, `HomeControllerTests.cs`, `AdditionalTests.cs` |
+| **TSK-028** | Wave 1 | Multi-criteria box search (Requirement F-20) | F-20 | P1 | `Completed` | Agent | 2026-07-04 | None | `BoxController.cs`, `Index.cshtml` |
+| **TSK-029** | Wave 1 | Disassociate packages from a cancelled box (F-28, F-30, RG-21) | F-28, F-30, RG-21 | P1 | `Completed` | Agent | 2026-07-04 | None | `BoxService.cs`, `Details.cshtml` |
+| **TSK-030** | Wave 2 | Complete audit and specific action types (F-21, 7.5, 7.6) | F-21, 7.5, 7.6 | P1 | `Completed` | Agent | 2026-07-04 | None | `AuditSaveChangesInterceptor.cs` |
+| **TSK-031** | Wave 2 | French localization of error and warning messages (A-10) | A-10 | P2 | `Completed` | Agent | 2026-07-04 | None | `BoxService.cs`, `HomeController.cs` |
+| **TSK-032** | Wave 3 | CDC v1.5 compliance for scan rejections, transfer audit, and validation tests | F-21, F-27, RG-20 | P0 | `Completed` | Agent | 2026-07-04 | `dotnet test` green (129/129) after fixing business scan rejections and related traceability | `PackageScanService.cs`, `AuditService.cs`, `AuditSaveChangesInterceptor.cs` |
+| **TSK-033** | Out of phase / Documentation | Fix and realign the LaTeX specification (cover version + PDF pagination) | - | P2 | `Completed` | Agent | 2026-07-04 | Rework completed with improved cover, table of contents, and typographic hierarchy | `Cahier_des_charges_Motherson_Box_Management.tex` |
+| **TSK-034** | Out of phase / Translation | Translate French UI text, comments, tests, and readable documentation into simple English | - | P2 | `Completed` | Agent | 2026-07-04 | Completed remaining validation and JS translation passes | UI views, controllers, services, docs |
+| **TSK-035** | Out of phase / UI Redesign | Completely redesign and rebuild the visual interface of the entire application from end to end | UI specifications | P0 | `Completed` | Agent | 2026-07-04 | Redesigning layout, views, css, and js | UI views, controllers, css, js |
 
-## Règles de maintenance
-1. **Lien GSD Core :** Associer impérativement chaque tâche à la phase active ou au plan GSD Core correspondant.
-2. **Cycle de Vie des Tâches :**
-   * Passer à `En cours` dès le début du travail sur la tâche.
-   * Si un élément bloque la tâche, la passer en `Bloqué` et commenter le blocage dans la colonne "Blocage / notes".
-   * Passer à `En revue` lorsque le code est écrit mais non validé globalement.
-   * Ne passer à `Terminé` qu'après :
-     * Validation du build (`dotnet build` sans erreur ni warning majeur).
-     * Exécution des tests unitaires (`dotnet test` au vert).
-     * Validation manuelle des parcours d'écrans.
-     * Mise à jour de la documentation dans `AGENT.md` (schéma, ADR, migrations, etc.).
-3. **Synchronisation :** Les statuts de ce fichier doivent être le miroir exact de l'état d'avancement réel du projet.
-4. **Intégrité métier :** Ne jamais forcer le statut `Terminé` si un comportement métier ou de sécurité n'a pas été formellement testé et prouvé.
+
+## Maintenance Rules
+1. **GSD Core link:** Every task must be tied to the active phase or matching GSD Core plan.
+2. **Task lifecycle:**
+   * Set to `In progress` as soon as work starts.
+   * If something blocks the task, set it to `Blocked` and describe the blocker in the "Blocker / Notes" column.
+   * Set it to `In review` when the code is written but not fully validated.
+   * Only set it to `Completed` after:
+     * Build validation (`dotnet build` with no errors and no major warnings).
+     * Unit tests pass (`dotnet test` green).
+     * Manual screen-flow validation.
+     * Documentation is updated in `AGENT.md` (schema, ADR, migrations, and so on).
+3. **Synchronization:** The statuses in this file must exactly reflect the real project state.
+4. **Business integrity:** Never force the `Completed` status if business or security behavior has not been formally tested and proven.

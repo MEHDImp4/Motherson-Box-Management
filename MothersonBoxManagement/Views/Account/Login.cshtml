@@ -1,40 +1,50 @@
 @model MothersonBoxManagement.ViewModels.LoginViewModel
 @{
-    ViewData["Title"] = "Connexion";
+    ViewData["Title"] = "Sign in";
     Layout = "_Layout";
 }
 
-<div class="d-flex align-items-center justify-content-center min-vh-100">
-    <div class="card shadow-sm" style="max-width: 420px; width: 100%;">
-        <div class="card-body p-4">
-            <h2 class="text-center mb-4" style="font-weight: 600; font-size: 24px;">Motherson Box Management</h2>
+<div class="login-page">
+    <div class="login-card">
+        <div class="login-logo">
+            <img src="~/images/mothersson-logo.png" alt="Motherson Logo" />
+        </div>
 
-            <form asp-action="Login" method="post">
-                <input type="hidden" asp-for="ReturnUrl" />
+        <h1 class="login-title" style="margin-bottom: 4px; font-size: 24px; font-weight: 700;">Motherson Box Management</h1>
+        <p style="text-align: center; color: var(--secondary); font-size: 14px; margin-bottom: 24px;">P3 Packaging Area Traceability System</p>
 
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="color: #df2c3f !important;" role="alert"></div>
+        <form asp-action="Login" method="post">
+            <input type="hidden" asp-for="ReturnUrl" />
 
-                <div class="mb-3">
-                    <label asp-for="Matricule" class="form-label" style="font-size: 14px;">Matricule</label>
-                    <input asp-for="Matricule" class="form-control" placeholder="Matricule" autocomplete="username" />
-                    <span asp-validation-for="Matricule" class="text-danger" style="color: #df2c3f !important; font-size: 14px;"></span>
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-3" role="alert"></div>
+
+            <div class="mb-3">
+                <label asp-for="Matricule" class="form-label">Employee ID (Matricule)</label>
+                <input asp-for="Matricule" class="form-control" placeholder="Enter your employee ID (e.g. OP001)" autocomplete="username" autofocus />
+                <span asp-validation-for="Matricule" class="text-danger"></span>
+            </div>
+
+            <div class="mb-4">
+                <label asp-for="Password" class="form-label">Password</label>
+                <div class="input-group">
+                    <input asp-for="Password" type="password" id="passwordInput" class="form-control" placeholder="Enter your password" autocomplete="current-password" style="border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                    <button class="btn btn-outline-custom" type="button" id="togglePasswordBtn" style="border-top-left-radius: 0; border-bottom-left-radius: 0; min-height: 44px; padding: 0 16px; border-left: none;" aria-label="Toggle password visibility">
+                        <span id="togglePasswordIcon">&#128065;</span>
+                    </button>
                 </div>
+                <span asp-validation-for="Password" class="text-danger"></span>
+            </div>
 
-                <div class="mb-4">
-                    <label asp-for="Password" class="form-label" style="font-size: 14px;">Mot de passe</label>
-                    <input asp-for="Password" class="form-control" placeholder="Mot de passe" autocomplete="current-password" />
-                    <span asp-validation-for="Password" class="text-danger" style="color: #df2c3f !important; font-size: 14px;"></span>
-                </div>
+            <button type="submit" class="btn btn-primary-custom btn-primary-large w-100" style="font-weight: 600;">Sign in</button>
+        </form>
 
-                <button type="submit" class="btn w-100" style="background-color: #0f52ba; color: #ffffff; font-weight: 600;">Se connecter</button>
-            </form>
-
-            <div class="mt-4 p-3 bg-light rounded text-muted" style="font-size: 13px; border: 1px solid #e3e8ee;">
-                <h6 class="mb-2 text-dark" style="font-weight: 600; font-size: 14px;">Comptes de test (Seeded) :</h6>
-                <div class="mb-1"><strong>Opérateur :</strong> Matricule <code>OP001</code></div>
-                <div class="mb-1"><strong>Superviseur :</strong> Matricule <code>SP001</code></div>
-                <div class="mb-1"><strong>Administrateur :</strong> Matricule <code>AD001</code></div>
-                <div class="mt-2"><strong>Mot de passe :</strong> <code>Motherson2026!</code></div>
+        <div class="mt-4" style="padding: 16px; background-color: var(--surface-container-low); border-radius: var(--radius-md); border: 1px solid var(--border);">
+            <div class="label-md mb-2" style="color: var(--on-surface); text-transform: none; font-weight: 600;">Standard Seeded Test Accounts</div>
+            <div class="body-md" style="font-size: 13px; color: var(--secondary); line-height: 1.8;">
+                <div><strong>Operator:</strong> <code style="background: var(--surface-container); padding: 2px 6px; border-radius: 4px;">OP001</code></div>
+                <div><strong>Supervisor:</strong> <code style="background: var(--surface-container); padding: 2px 6px; border-radius: 4px;">SP001</code></div>
+                <div><strong>Administrator:</strong> <code style="background: var(--surface-container); padding: 2px 6px; border-radius: 4px;">AD001</code></div>
+                <div class="mt-2" style="border-top: 1px solid var(--border); padding-top: var(--space-xs);"><strong>Password:</strong> <code style="background: var(--surface-container); padding: 2px 6px; border-radius: 4px;">Motherson2026!</code></div>
             </div>
         </div>
     </div>
@@ -42,4 +52,20 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const passwordInput = document.getElementById('passwordInput');
+            const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+            const togglePasswordIcon = document.getElementById('togglePasswordIcon');
+
+            if (togglePasswordBtn && passwordInput) {
+                togglePasswordBtn.addEventListener('click', () => {
+                    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                    passwordInput.setAttribute('type', type);
+                    // eye / eye slash simple symbols
+                    togglePasswordIcon.innerHTML = type === 'password' ? '&#128065;' : '&#128064;';
+                });
+            }
+        });
+    </script>
 }

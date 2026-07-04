@@ -1,38 +1,38 @@
 @model ErrorViewModel
 @{
-    ViewData["Title"] = Model.IsNotFound ? "Page introuvable" : "Erreur";
+    ViewData["Title"] = Model.IsNotFound ? "Page Not Found" : "System Error";
 }
 
-@if (Model.IsNotFound)
-{
-    <div class="error-page">
-        <div class="error-page-icon">404</div>
-        <h1 class="error-page-title">Page introuvable</h1>
-        <p class="error-page-message">
-            La page que vous recherchez n'existe pas ou a été déplacée.
-            Vérifiez l'adresse ou retournez à l'accueil.
-        </p>
-        <a asp-controller="Home" asp-action="Index" class="btn btn-primary-accent">
-            Retour à l'accueil
-        </a>
+<div class="container d-flex align-items-center justify-content-center" style="min-height: calc(100vh - 160px); padding-top: var(--space-md);">
+    <div class="card text-center" style="max-width: 500px; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+        <div class="card-body" style="padding: var(--space-xl);">
+            @if (Model.IsNotFound)
+            {
+                <div class="error-page-icon" style="font-size: 72px; font-weight: 800; color: var(--secondary); margin-bottom: var(--space-md); line-height: 1;">404</div>
+                <h2 class="headline-lg" style="font-weight: 700; margin-bottom: var(--space-sm);">Page Not Found</h2>
+                <p class="body-md text-muted mb-4">
+                    The requested resources or pages do not exist or have been moved.
+                    Please verify the address or return to safety.
+                </p>
+            }
+            else
+            {
+                <div class="error-page-icon" style="font-size: 72px; font-weight: 800; color: var(--error); margin-bottom: var(--space-md); line-height: 1;">&times;</div>
+                <h2 class="headline-lg" style="font-weight: 700; margin-bottom: var(--space-sm);">An error occurred</h2>
+                <p class="body-md text-muted mb-4">
+                    An unexpected internal server exception occurred while processing your workstation request.
+                </p>
+                @if (Model.ShowRequestId)
+                {
+                    <div class="mb-4" style="background-color: var(--surface-container-low); padding: 8px 16px; border-radius: var(--radius-md); border: 1px solid var(--border);">
+                        <span class="label-md">Request Identifier:</span>
+                        <code style="font-size: 12px; font-weight: 700; color: var(--primary); margin-left: 8px;">@Model.RequestId</code>
+                    </div>
+                }
+            }
+            <a asp-controller="Dashboard" asp-action="Index" class="btn btn-primary-custom w-100" style="min-height: 44px; font-weight: 600;">
+                Return to Dashboard
+            </a>
+        </div>
     </div>
-}
-else
-{
-    <div class="error-page">
-        <div class="error-page-icon text-danger">!</div>
-        <h1 class="error-page-title text-danger">Une erreur est survenue</h1>
-        <p class="error-page-message">
-            Une erreur inattendue s'est produite lors du traitement de votre demande.
-        </p>
-        @if (Model.ShowRequestId)
-        {
-            <p class="error-page-request-id">
-                <strong>Identifiant de la demande :</strong> <code>@Model.RequestId</code>
-            </p>
-        }
-        <a asp-controller="Home" asp-action="Index" class="btn btn-primary-accent">
-            Retour à l'accueil
-        </a>
-    </div>
-}
+</div>

@@ -1,0 +1,31 @@
+@{
+    ViewData["Title"] = "Privacy Policy";
+}
+
+<div class="container" style="max-width: 800px; padding-top: var(--space-md);">
+    <div class="card" style="border: 1px solid var(--border);">
+        <div class="card-body" style="padding: var(--space-xl);">
+            <h1 class="headline-lg" style="margin-bottom: 8px; font-weight: 700;">Data Privacy Policy</h1>
+            <p class="body-md text-muted mb-4">Motherson Box Management application security and data processing terms.</p>
+
+            <div class="body-md" style="line-height: 1.6; color: var(--on-surface);">
+                <p class="mb-3">
+                    This internal application is reserved exclusively for the operational personnel of Motherson Group.
+                    All scanned barcodes, user transactions, and supervisor actions are recorded and stored securely inside
+                    the corporate network infrastructure.
+                </p>
+                <p class="mb-3">
+                    <strong>Traceability Data:</strong> Box numbers, package barcodes, user matricules, and workstation logs
+                    are maintained for quality assurance, inventory reconciliation, and procedural compliance auditing purposes.
+                </p>
+                <p class="mb-4">
+                    If you require support or have concerns about data storage policies, please contact your plant IT Administrator.
+                </p>
+            </div>
+            
+            <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-custom" style="min-height: 40px; font-weight: 600;">
+                &larr; Return to Dashboard
+            </a>
+        </div>
+    </div>
+</div>

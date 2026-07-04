@@ -1,120 +1,192 @@
 @model MothersonBoxManagement.ViewModels.PrepareViewModel
 @{
-    ViewData["Title"] = $"Préparation Box {Model.Box.BoxNumber}";
+    ViewData["Title"] = $"Prepare Box {Model.Box.BoxNumber}";
     var progress = Model.ProgressPercent;
+    var remaining = Model.Box.ExpectedQuantity - Model.Box.CurrentQuantity;
     var successMsg = TempData["ScanSuccess"] as string;
     var errorMsg = TempData["ScanError"] as string;
+    
+    var statusClass = Model.Box.Status switch
+    {
+        MothersonBoxManagement.Entities.BoxStatus.Open => "open",
+        MothersonBoxManagement.Entities.BoxStatus.Completed => "completed",
+        MothersonBoxManagement.Entities.BoxStatus.CompletedWithException => "exception",
+        MothersonBoxManagement.Entities.BoxStatus.Cancelled => "cancelled",
+        MothersonBoxManagement.Entities.BoxStatus.Blocked => "blocked",
+        MothersonBoxManagement.Entities.BoxStatus.Archived => "archived",
+        _ => ""
+    };
 }
 
-<div class="container mt-4">
-    <a asp-action="Index" asp-controller="Home" class="btn btn-outline-secondary btn-sm mb-3">← Retour</a>
+<div class="container" style="padding-top: var(--space-md);">
+    <div class="d-flex align-items-center justify-content-between mb-md flex-wrap gap-2">
+        <a asp-action="Index" asp-controller="Dashboard" class="back-link" style="margin-bottom: 0;">&#8592; Back to Dashboard</a>
+        <div class="d-flex gap-2">
+            <a asp-action="Details" asp-controller="Box" asp-route-barcode="@Model.Box.BarcodeValue" class="btn btn-outline-custom btn-sm" style="min-height: 36px; padding: 0 16px;">
+                &#128196; View Details @(User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator") ? "& Exceptions" : "")
+            </a>
+        </div>
+    </div>
 
     @if (!string.IsNullOrEmpty(successMsg))
     {
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            @successMsg
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+            <strong>Success:</strong> @successMsg
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
     @if (!string.IsNullOrEmpty(errorMsg))
     {
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            @errorMsg
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <strong>Scan Error:</strong> @errorMsg
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
 
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card shadow-sm mb-4">
+    <div class="row g-4">
+        <!-- Left Column: Box Status, Progress & Scanning Input -->
+        <div class="col-lg-6">
+            <!-- Box Information Card -->
+            <div class="card mb-4" style="border: 1px solid var(--border);">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h2 style="font-weight: 600; font-size: 24px;">@Model.Box.BoxNumber (Préparation)</h2>
-                        <span class="badge bg-success">@Model.Box.Status</span>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-sm-4"><strong>Code-barres:</strong></div>
-                        <div class="col-sm-8">@Model.Box.BarcodeValue</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-sm-4"><strong>Type:</strong></div>
-                        <div class="col-sm-8">@Model.Box.Type</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-sm-4"><strong>Dimensions:</strong></div>
-                        <div class="col-sm-8">@Model.Box.Height × @Model.Box.Width × @Model.Box.Depth cm</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-sm-4"><strong>Créé par:</strong></div>
-                        <div class="col-sm-8">@Model.Box.CreatedByMatricule le @Model.Box.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
-                    </div>
-
-                    <h5 class="mt-4" style="font-weight: 600;">Progression</h5>
-                    <div class="progress mt-2 @(TempData["ScanSuccess"] != null ? "pulse-success" : "")" style="height: 24px;">
-                        <div id="progressBarFill" class="progress-bar @(progress >= 100 ? "bg-success" : "bg-primary")" style="width: @progress%; font-size:14px;">
-                            @Model.Box.CurrentQuantity / @Model.Box.ExpectedQuantity
+                    <div class="d-flex justify-content-between align-items-start mb-md">
+                        <div>
+                            <span class="label-md" style="text-transform: uppercase; font-weight: 700;">Box Preparation</span>
+                            <h1 style="font-size: 24px; font-weight: 700; color: var(--on-surface); margin: 2px 0 0 0;">
+                                @Model.Box.BoxNumber
+                            </h1>
                         </div>
+                        <span class="badge-status @statusClass" style="font-size: 12px; font-weight: 700; padding: 6px 12px;">
+                            @Model.Box.Status
+                        </span>
+                    </div>
+
+                    <div class="info-row">
+                        <span class="info-row-label">Box Barcode</span>
+                        <span class="info-row-value"><code>@Model.Box.BarcodeValue</code></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-row-label">Material Type</span>
+                        <span class="info-row-value" style="font-weight: 600;">@Model.Box.Type</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-row-label">Dimensions</span>
+                        <span class="info-row-value">@Model.Box.Height × @Model.Box.Width × @Model.Box.Depth cm</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-row-label">Opened By</span>
+                        <span class="info-row-value">@Model.Box.CreatedByMatricule on @Model.Box.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
                     </div>
                 </div>
             </div>
 
-            <div class="card shadow-sm mb-4">
+            <!-- Package Scanning Input Card -->
+            <div class="card mb-4" style="border: 2px solid var(--primary); background-color: var(--surface-container-lowest);">
                 <div class="card-body">
-                    <h5 style="font-weight: 600;">Scanner un paquet</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-sm">
+                        <h3 class="headline-md" style="margin: 0; font-size: 18px; font-weight: 700;">Scan Cable Package</h3>
+                        @if (remaining > 0 && Model.IsBoxOpen)
+                        {
+                            <span class="badge-status blocked" style="font-size: 11px; font-weight: 600;">@remaining package(s) remaining</span>
+                        }
+                    </div>
+                    <p class="body-md text-muted mb-md">Ensure the USB Barcode Scanner is connected and focused. The scan will validate and save automatically.</p>
+                    
                     <div id="scanFeedback"></div>
+                    
                     <form asp-action="Scan" method="post" id="scanForm">
                         <input type="hidden" name="boxId" id="scanBoxId" value="@Model.Box.Id" />
                         <input type="hidden" name="boxBarcode" id="scanBoxBarcode" value="@Model.Box.BarcodeValue" />
-                        <div class="input-group">
-                            <input type="text" name="barcode" id="scanInput" class="form-control" placeholder="@(Model.Box.Status == MothersonBoxManagement.Entities.BoxStatus.Completed ? "Box complétée" : "Scanner ou taper un code-barres paquet...")" @(!Model.IsBoxOpen || Model.IsCapacityReached ? "disabled" : "") minlength="3" autofocus />
-                            <button type="submit" id="scanBtn" class="btn" style="background-color: #0f52ba; color: #fff;" @(!Model.IsBoxOpen || Model.IsCapacityReached ? "disabled" : "")>Scanner</button>
+                        <div class="scan-input-wrapper">
+                            <div class="input-group">
+                                <input type="text" name="barcode" id="scanInput" class="form-control"
+                                       placeholder="@(!Model.IsBoxOpen ? $"Box is {Model.Box.Status}" : Model.IsCapacityReached ? "Expected quantity reached" : "Scan package barcode (PKG-...)...")"
+                                       @(!Model.IsBoxOpen || Model.IsCapacityReached ? "disabled" : "")
+                                       minlength="3" autofocus autocomplete="off"
+                                       style="font-size: 16px; min-height: 52px; font-weight: 600; border-right: none;" />
+                                <button type="submit" id="scanBtn" class="btn btn-primary-custom"
+                                        @(!Model.IsBoxOpen || Model.IsCapacityReached ? "disabled" : "")
+                                        style="min-height: 52px; padding: 0 32px; font-weight: 700; border-top-left-radius: 0; border-bottom-left-radius: 0;">
+                                    Scan
+                                </button>
+                            </div>
                         </div>
                     </form>
-
-                    <div class="mt-3">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleSimulator(event)">Ouvrir le simulateur</button>
-                    </div>
-
-                    <div id="simulatorContainer" style="display: none;">
-                        <partial name="_SimulatorPanel" model="Model" />
-                    </div>
                 </div>
             </div>
 
-            <div class="card shadow-sm">
+            <!-- Capacity Progress Card -->
+            <div class="card" style="border: 1px solid var(--border);">
                 <div class="card-body">
-                    <h5 id="packageCountHeader" style="font-weight: 600;">Paquets (<span id="packageCount">@Model.Box.Packages.Count</span>)</h5>
-                    @if (Model.Box.Packages.Count == 0)
-                    {
-                        <p id="noPackagesPlaceholder" class="text-muted">Aucun paquet scanné.</p>
-                        <table class="table table-sm" id="packageTable" style="display: none;">
+                    <div class="d-flex align-items-center justify-content-between mb-sm">
+                        <span class="label-lg" style="font-weight: 700;">Filling Progress</span>
+                        <strong style="font-size: 16px; color: var(--on-surface);">@Model.Box.CurrentQuantity / @Model.Box.ExpectedQuantity Packages</strong>
+                    </div>
+                    <div class="progress @(TempData["ScanSuccess"] != null ? "pulse-success" : "")" style="height: 28px; border-radius: var(--radius-md);">
+                        <div id="progressBarFill" class="progress-bar @(progress >= 100 ? "bg-success" : "bg-primary")" 
+                             style="width: @progress%; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;">
+                            @progress% Filled
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Recent Scans & Virtual Scanner Simulator -->
+        <div class="col-lg-6">
+            <!-- Scanned Packages List Card -->
+            <div class="card mb-4" style="border: 1px solid var(--border);">
+                <div class="card-body" style="padding: 24px 24px 12px 24px;">
+                    <div class="d-flex align-items-center justify-content-between mb-md">
+                        <h3 class="headline-md" style="margin: 0; font-size: 18px; font-weight: 700;" id="packageCountHeader">
+                            Scanned Packages (<span id="packageCount">@Model.Box.Packages.Count</span>)
+                        </h3>
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+                        <table class="table table-hover" id="packageTable" style="@(Model.Box.Packages.Count == 0 ? "display: none;" : "")">
                             <thead>
-                                <tr><th>Code-barres</th><th>Scanné par</th><th>Date</th></tr>
-                            </thead>
-                            <tbody id="packageTableBody">
-                            </tbody>
-                        </table>
-                    }
-                    else
-                    {
-                        <p id="noPackagesPlaceholder" class="text-muted" style="display: none;">Aucun paquet scanné.</p>
-                        <table class="table table-sm" id="packageTable">
-                            <thead>
-                                <tr><th>Code-barres</th><th>Scanné par</th><th>Date</th></tr>
+                                <tr>
+                                    <th>Package Barcode</th>
+                                    <th>Scanned By</th>
+                                    <th>Timestamp</th>
+                                </tr>
                             </thead>
                             <tbody id="packageTableBody">
                                 @foreach (var pkg in Model.Box.Packages.OrderByDescending(p => p.ScannedAt))
                                 {
                                     <tr>
-                                        <td><code>@pkg.PackageBarcode</code></td>
-                                        <td>@pkg.ScannedByMatricule</td>
-                                        <td>@pkg.ScannedAt.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                        <td><code style="font-size: 13px; font-weight: 600; color: var(--on-surface);">@pkg.PackageBarcode</code></td>
+                                        <td><code style="font-size: 12px;">@pkg.ScannedByMatricule</code></td>
+                                        <td><span style="font-size: 13px; color: var(--secondary);">@pkg.ScannedAt.ToString("dd/MM/yyyy HH:mm:ss")</span></td>
                                     </tr>
                                 }
                             </tbody>
                         </table>
-                    }
+                    </div>
+                    
+                    <div id="noPackagesPlaceholder" class="empty-state" style="padding: 32px 16px; @(Model.Box.Packages.Count > 0 ? "display: none;" : "")">
+                        <div class="empty-state-icon" style="width: 48px; height: 48px; font-size: 20px; margin-bottom: 8px;">&#128230;</div>
+                        <h3 class="empty-state-title" style="font-size: 15px; font-weight: 700; margin-bottom: 4px;">No Packages Scanned Yet</h3>
+                        <p class="empty-state-text" style="font-size: 13px; margin: 0;">Scan a package barcode to begin filling this box.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Virtual Scanner Simulator Card -->
+            <div class="card" style="border: 1px solid var(--border);">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <h3 class="headline-md" style="margin: 0; font-size: 16px; font-weight: 700;">Wedge Scanner Simulator</h3>
+                        <button type="button" class="btn btn-outline-custom btn-sm" onclick="toggleSimulator(event)" id="toggleSimBtn"
+                                style="min-height: 32px; padding: 0 12px; font-size: 12px;">
+                            Show Simulator
+                        </button>
+                    </div>
+                    
+                    <div id="simulatorContainer" style="display: none; margin-top: 16px;">
+                        <partial name="_SimulatorPanel" model="Model" />
+                    </div>
                 </div>
             </div>
         </div>
@@ -126,13 +198,13 @@
     <script>
         function toggleSimulator(event) {
             var container = document.getElementById('simulatorContainer');
-            var btn = event.currentTarget || event.target;
+            var btn = document.getElementById('toggleSimBtn');
             if (container.style.display === 'none') {
                 container.style.display = 'block';
-                btn.textContent = 'Fermer le simulateur';
+                btn.textContent = 'Hide Simulator';
             } else {
                 container.style.display = 'none';
-                btn.textContent = 'Ouvrir le simulateur';
+                btn.textContent = 'Show Simulator';
             }
         }
     </script>

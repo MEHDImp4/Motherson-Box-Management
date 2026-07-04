@@ -1,0 +1,183 @@
+@model List<MothersonBoxManagement.Data.Dtos.BoxListItemDto>
+@using MothersonBoxManagement.Entities
+@{
+    ViewData["Title"] = "Search Boxes";
+    var filter = ViewBag.Filter as MothersonBoxManagement.Data.Dtos.BoxSearchFilterDto;
+    var users = ViewBag.Users as List<MothersonBoxManagement.Data.Dtos.UserListItemDto>;
+}
+
+<div class="container" style="padding-top: var(--space-md);">
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="page-title" style="font-size: 24px; font-weight: 700;">Box Search &amp; Tracking</h1>
+            <p class="body-md text-muted mb-0">Search the global box database, track filling progress, and perform operational lookups.</p>
+        </div>
+        <a asp-action="Create" class="btn btn-primary-custom" style="font-weight: 600;">+ New Box</a>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="card mb-4" style="border: 1px solid var(--border); background-color: var(--surface-container-lowest);">
+        <div class="card-header" style="background-color: var(--surface-container-low); font-weight: 700; color: var(--on-surface);">
+            Search Filters
+        </div>
+        <div class="card-body" style="padding: 20px;">
+            <form asp-action="Index" method="get">
+                <div class="row g-3">
+                    <div class="col-lg-3 col-md-6">
+                        <label for="BoxNumber" class="form-label">Barcode / Box Number</label>
+                        <input type="text" id="BoxNumber" name="BoxNumber" class="form-control" value="@filter?.BoxNumber" placeholder="BOX-..." />
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <label for="Status" class="form-label">Status</label>
+                        <select id="Status" name="Status" class="form-select">
+                            <option value="">-- All Statuses --</option>
+                            @foreach (var status in Enum.GetValues<BoxStatus>())
+                            {
+                                <!option value="@status" @(filter?.Status == status ? "selected" : null)>@status</!option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-lg-2 col-md-4">
+                        <label for="CreatedByUserId" class="form-label">Created By</label>
+                        <select id="CreatedByUserId" name="CreatedByUserId" class="form-select">
+                            <option value="">-- All Operators --</option>
+                            @if (users != null)
+                            {
+                                foreach (var u in users)
+                                {
+                                    <!option value="@u.Id" @(filter?.CreatedByUserId == u.Id ? "selected" : null)>@u.Matricule</!option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-lg-2 col-md-4">
+                        <label for="FromDate" class="form-label">From Date</label>
+                        <input type="date" id="FromDate" name="FromDate" class="form-control" value="@(filter?.FromDate?.ToString("yyyy-MM-dd"))" />
+                    </div>
+                    <div class="col-lg-2 col-md-4">
+                        <label for="ToDate" class="form-label">To Date</label>
+                        <input type="date" id="ToDate" name="ToDate" class="form-control" value="@(filter?.ToDate?.ToString("yyyy-MM-dd"))" />
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a asp-action="Index" class="btn btn-outline-custom btn-sm" style="min-height: 38px; padding: 0 16px;">Reset Filters</a>
+                    <button type="submit" class="btn btn-secondary-custom btn-sm" style="min-height: 38px; padding: 0 20px; font-weight: 600;">Filter Search</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Search Results Section -->
+    <div class="card" style="border: 1px solid var(--border); overflow: hidden;">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background-color: var(--surface-container-low); padding: 12px 20px;">
+            <h2 class="section-title" style="margin: 0; font-size: 16px; font-weight: 700;">Query Results</h2>
+            <span class="badge-status archived" style="font-weight: 600;">@Model.Count box(es) found</span>
+        </div>
+
+        @if (Model.Count == 0)
+        {
+            <div class="empty-state" style="padding: 48px var(--space-lg);">
+                <div class="empty-state-icon">&#128269;</div>
+                <h3 class="empty-state-title">No Boxes Found</h3>
+                <p class="empty-state-text">No box records match the specified search filters. Try adjusting the parameters above.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Box Number / Barcode</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Scanned</th>
+                            <th>Expected</th>
+                            <th style="min-width: 140px;">Progress</th>
+                            <th>Created By</th>
+                            <th>Created On</th>
+                            <th>Last Activity</th>
+                            <th class="text-end" style="padding-right: var(--space-lg);">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var box in Model)
+                        {
+                            var progress = box.ExpectedQuantity > 0 ? (int)((double)box.CurrentQuantity / box.ExpectedQuantity * 100) : 0;
+                            var statusClass = box.Status switch
+                            {
+                                BoxStatus.Open => "open",
+                                BoxStatus.Completed => "completed",
+                                BoxStatus.CompletedWithException => "exception",
+                                BoxStatus.Cancelled => "cancelled",
+                                BoxStatus.Blocked => "blocked",
+                                BoxStatus.Archived => "archived",
+                                _ => ""
+                            };
+
+                            <tr>
+                                <td>
+                                    <code style="font-size: 13px; font-weight: 600; color: var(--on-surface);">@box.BoxNumber</code>
+                                </td>
+                                <td>
+                                    <span class="label-md" style="font-weight: 600; text-transform: uppercase;">@box.Type</span>
+                                </td>
+                                <td>
+                                    <span class="badge-status @statusClass" style="font-size: 11px;">@box.Status</span>
+                                </td>
+                                <td>
+                                    <strong style="color: var(--primary);">@box.CurrentQuantity</strong>
+                                </td>
+                                <td>
+                                    <span>@box.ExpectedQuantity</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress" style="width: 80px; height: 10px; border-radius: var(--radius-full);">
+                                            <div class="progress-bar @(progress >= 100 ? "bg-success" : "bg-primary")" style="width: @progress%;"></div>
+                                        </div>
+                                        <span class="label-md" style="font-weight: 600;">@progress%</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <code style="font-size: 12px;">@box.CreatedByMatricule</code>
+                                </td>
+                                <td>
+                                    <span style="font-size: 13px; color: var(--secondary);">@box.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                </td>
+                                <td>
+                                    @if (box.ModifiedAt.HasValue)
+                                    {
+                                        <span style="font-size: 13px; color: var(--on-surface);">@box.ModifiedAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                                        <br />
+                                        <code style="font-size: 11px; color: var(--secondary);">@box.LastUserMatricule</code>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" style="font-size: 13px;">-</span>
+                                    }
+                                </td>
+                                <td class="text-end" style="padding-right: var(--space-lg);">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a asp-action="Details" asp-route-barcode="@box.BarcodeValue"
+                                           class="btn btn-outline-custom btn-sm" style="min-height: 36px; padding: 0 16px; font-size: 13px;">
+                                            Details
+                                        </a>
+                                        @if (box.Status == BoxStatus.Open)
+                                        {
+                                            <a asp-action="Prepare" asp-route-barcode="@box.BarcodeValue"
+                                               class="btn btn-primary-custom btn-sm" style="min-height: 36px; padding: 0 16px; font-size: 13px;">
+                                                Scan
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
