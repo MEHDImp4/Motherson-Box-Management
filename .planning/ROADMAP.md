@@ -100,12 +100,13 @@ Plans:
   4. Supervisor can quarantine (Block) a box or package to halt scans, and unblock it.
   5. Audit log view displays an unmodifiable list of actions, users, and previous/new values in JSON format.
 
-**Plans**: 3/3 plans complete
+**Plans**: 4/4 plans complete
 Plans:
 
 - [x] 04-01-PLAN.md — Database Updates & Audit Interceptor
 - [x] 04-02-PLAN.md — Supervisor Exception Service Methods
 - [x] 04-03-PLAN.md — UI Updates & Audit Log View
+- [ ] 04-04-PLAN.md — Gap closure: fix transfer dropdown role check + audit log ChangedProperties
 
 **UI hint**: yes
 
