@@ -91,7 +91,7 @@
                         <h3 class="headline-md" style="margin: 0; font-size: 18px; font-weight: 700;">Scan Cable Package</h3>
                         @if (remaining > 0 && Model.IsBoxOpen)
                         {
-                            <span class="badge-status blocked" style="font-size: 11px; font-weight: 600;">@remaining package(s) remaining</span>
+                            <span id="remainingBadge" class="badge-status blocked" style="font-size: 11px; font-weight: 600;">@remaining package(s) remaining</span>
                         }
                     </div>
                     <p class="body-md text-muted mb-md">Ensure the USB Barcode Scanner is connected and focused. The scan will validate and save automatically.</p>
@@ -124,7 +124,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-sm">
                         <span class="label-lg" style="font-weight: 700;">Filling Progress</span>
-                        <strong style="font-size: 16px; color: var(--on-surface);">@Model.Box.CurrentQuantity / @Model.Box.ExpectedQuantity Packages</strong>
+                        <strong id="fillingProgressLabel" style="font-size: 16px; color: var(--on-surface);">@Model.Box.CurrentQuantity / @Model.Box.ExpectedQuantity Packages</strong>
                     </div>
                     <div class="progress @(TempData["ScanSuccess"] != null ? "pulse-success" : "")" style="height: 28px; border-radius: var(--radius-md);">
                         <div id="progressBarFill" class="progress-bar @(progress >= 100 ? "bg-success" : "bg-primary")" 

@@ -23,12 +23,17 @@ The MVP runs in a **standalone** way:
 
 ## 4. MVC Architecture and Folder Responsibilities
 The architecture follows the standard ASP.NET Core MVC model. Responsibilities are split as follows:
-* `[Project root folder to confirm]` (for example `MothersonBoxManagement/` or directly at the root)
+* `MothersonBoxManagement/`
   * `/Controllers`: Thin MVC controllers. They handle routing, validate input ViewModels, and delegate business logic to services.
+    * `BoxController`: Read-only operations (Index, Create, Details, Prepare, Scan, ScanAjax).
+    * `BoxOperationsController`: Supervisor/Admin mutations (Cancel, ForceClose, Transfer, Block, Unblock) — requires `Supervisor` or `Administrator` role.
   * `/Models`: Contains only ViewModels for display and form submission (for example `LoginViewModel`, `BoxViewModel`, `ScanViewModel`). Database entities must never be exposed directly to MVC views.
   * `/Data`: Contains `ApplicationDbContext`, EF Core configurations (`IEntityTypeConfiguration`), and `/Migrations`.
+    * `/Interceptors`: `AuditSaveChangesInterceptor` — the single source of truth for automatic audit logging on `SaveChanges`.
+    * `/Dtos`: `BoxMapper` — shared `Expression<Func<Box, BoxDetailsDto>>` used by `BoxService` and `PackageScanService`.
   * `/Entities`: Pure business entities mapped to the database (for example `User`, `Box`, `BoxPackage`, `BoxAuditLog`).
-  * `/Services`: Standalone business services containing all business logic, validation, SQL transactions, state handling, and EF Core calls (for example `IBoxService`, `IScanService`, `IUserService`).
+  * `/Security`: `AppRoles` — centralized role constants for authorization (`Supervisor`, `Administrator`, `Operator`).
+  * `/Services`: Standalone business services containing all business logic, validation, SQL transactions, state handling, and EF Core calls (for example `IBoxService`, `IScanService`, `IUserService`, `IWorkstationResolver`).
   * `/Views`: Razor pages structured with Bootstrap.
   * `/wwwroot`: Static files (JS scripts for the USB scanner, CSS, images).
 
@@ -162,7 +167,7 @@ Development configuration uses `appsettings.Development.json` or the .NET Secret
 
 ## 15. Main MVC Routes and Endpoints
 * `/Account/Login`: Login screen (POST authenticates).
-* `/Account/Logout`: Sign out the session.
+* `/Account/Logout`: Sign out the session (requires `[Authorize]`).
 * `/` or `/Home/Index`: Main dashboard. Contains the "Scan a box" field and the list of active boxes.
 * `/Box/Index`: Multi-criteria box search and tracking screen (all roles).
 * `/Box/Create`: Box creation form (Operator/Supervisor/Admin).
@@ -187,6 +192,17 @@ Every significant architecture decision must be recorded here.
 | 2026-07-02 | Single tables for Boxes and Packages | The specification requires avoiding dynamic tables per box. | Easier search, indexing, global reports, and audits. | Simple and efficient standard relational schema. | **Validated** |
 | 2026-07-02 | Cookie Authentication without ASP.NET Identity | Internal matricule-based identification, no public sign-up and no OAuth flow. | Lighter and aligned with simple validation against the `Users` table. | Fewer framework tables to maintain, full control of the `Users` schema. | **Validated** |
 | 2026-07-02 | EF Core interceptor for audit | Need for append-only, immutable, automatic history for all operations. | Centralizes auditing in `SaveChanges` / `SaveChangesAsync` so no change can escape logging. | Clean implementation decoupled from MVC controllers. | **Validated** |
+| 2026-07-05 | Split BoxController into BoxController + BoxOperationsController | BoxController had 513 lines with 20 actions mixing read and write operations. | Cleaner separation of concerns; supervisor-only mutations are now isolated with `[Authorize]` attributes. | `BoxController` (read/create/scan) and `BoxOperationsController` (Cancel, ForceClose, Transfer, Block, Unblock). | **Validated** |
+| 2026-07-05 | Centralized role constants via AppRoles | Role strings were hardcoded in multiple controllers and views. | Single source of truth for role names; prevents typos and makes role renaming safer. | `Security/AppRoles.cs` with `Supervisor`, `Administrator`, `Operator` constants. | **Validated** |
+| 2026-07-05 | Shared WorkstationResolver service | Duplicated workstation resolution logic in `BoxController` and `AuditSaveChangesInterceptor`. | DRY principle; single implementation for resolving workstation from HTTP context or environment. | `IWorkstationResolver` / `WorkstationResolver` injected where needed. | **Validated** |
+| 2026-07-05 | Shared BoxMapper expression for DTO projection | `BoxService` and `PackageScanService` had nearly identical `BoxDetailsDto` mapping code. | Single `Expression<Func<Box, BoxDetailsDto>>` shared via `BoxMapper` ensures consistency and allows EF Core SQL translation. | `Data/Dtos/BoxMapper.cs` — both services use `BoxMapper.BoxDetailsProjection`. | **Validated** |
+| 2026-07-05 | Audit logging consolidated to interceptor only | Explicit `_auditService.LogBoxUpdatedAsync` / `LogPackageScannedAsync` calls scattered across services. | Interceptor handles all audit automatically on `SaveChanges`; explicit calls were redundant and inconsistent. | `IAuditService` simplified to rejection-only (`LogScanRejectionAsync`). All other audit via interceptor. | **Validated** |
+| 2026-07-05 | DateTime.UtcNow across codebase | `DateTime.Now` was used inconsistently for timestamps. | Consistent UTC timestamps prevent timezone-related bugs in audit logs and box metadata. | All `DateTime.Now` replaced with `DateTime.UtcNow` in services and interceptor. | **Validated** |
+| 2026-07-05 | In-memory brute force lockout | No protection against credential stuffing or brute force attacks on login. | `ConcurrentDictionary`-based lockout is sufficient for an internal app; avoids DB migration overhead. Resets on app restart — acceptable for internal tool. | `LoginLockoutService` (Scoped) — 5 attempts / 15-min lockout. | **Validated** |
+| 2026-07-05 | Built-in ASP.NET Core rate limiting | No rate limiting on any endpoint (scan, login, API). | No new NuGet dependency required (included in ASP.NET Core 8.0 shared framework); built-in token-bucket and fixed-window limiters are sufficient. | Three policies: `login` (TokenBucket, 5/min per matricule), `scan` (FixedWindow, 60/min per user), `global` (FixedWindow, 200/min). | **Validated** |
+| 2026-07-05 | Logout as POST with antiforgery | Logout as GET is vulnerable to CSRF (image tags, links can trigger logout). | Standard CSRF mitigation; `[ValidateAntiForgeryToken]` ensures logout requires a legitimate form submission. | `AccountController.Logout` converted to `[HttpPost]`; `_Layout.cshtml` logout button changed to `<form>` with `@Html.AntiForgeryToken()`. | **Validated** |
+| 2026-07-05 | Conditional HTTPS redirection | HTTPS is mandatory in production but breaks `WebApplicationFactory` tests that run HTTP-only. | Conditional `UseHttpsRedirection()` (only when HTTPS port is configured) and `SameAsRequest` cookie policy in Development preserves test compatibility while enforcing HTTPS in production. | `UseHttpsRedirection()` wrapped in port-check; `CookieSecurePolicy` set per environment. | **Validated** |
+| 2026-07-05 | Dockerized V1 local release path | V1 needed a reproducible startup path for demo, validation, and GitHub release handoff. | `Dockerfile`, `docker-compose.yml`, `.env.example`, and `.dockerignore` provide a simple app + SQL Server bootstrap without changing app behavior. | Local release environment now works through Docker or direct .NET startup; docs aligned. | **Validated** |
 
 ## 18. Assumptions and Open Points
 * **Exact barcode format:** The exact prefixes (`BOX-` and `PKG-`) must be confirmed with the production teams in the P3 area.
@@ -220,9 +236,56 @@ Every significant architecture decision must be recorded here.
 5. Update `TODO.md`, moving the task to `Completed` or `In review`.
 6. Write a Conventional Commits message.
 
-## 23. Latest Validation State
-* **2026-07-04:** Completed the full visual and UX redesign of the application shell, forms, dashboard, preparation/scanning, search, audit trace, and user administration screens. Build and tests remain green with **129 passing tests out of 129**.
+## 23. Security Audit Status
+A comprehensive security audit was performed on 2026-07-05. The following vulnerabilities were identified and fixed:
+
+### Fixed Vulnerabilities
+| ID | Severity | Description | Fix | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| VULN-02 | High | No brute force protection on login | `LoginLockoutService` — in-memory 5-attempt lockout with 15-minute window (`ConcurrentDictionary`) | **Fixed** |
+| VULN-03 | Medium | Self-deactivation allowed (admin could lock themselves out) | `UsersController.Deactivate` now checks `GetCurrentUserId()` and prevents self-deactivation | **Fixed** |
+| VULN-04 | Medium | No rate limiting on endpoints | ASP.NET Core built-in rate limiting: `login` (TokenBucket, 5/min), `scan` (FixedWindow, 60/min), `global` (FixedWindow, 200/min) | **Fixed** |
+| VULN-05 | Low | Missing security response headers | Middleware adds `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `X-XSS-Protection: 0`, `Permissions-Policy` | **Fixed** |
+| VULN-06 | Medium | Logout as GET (CSRF logout via image/link) | Converted to `[HttpPost]` with `[ValidateAntiForgeryToken]`; `_Layout.cshtml` logout changed from `<a>` to `<form method="post">` with anti-forgery token | **Fixed** |
+| VULN-07 | Medium | Hardcoded credentials in `appsettings.json` | Cleared connection string to empty placeholder; real credentials must come from environment variables or User Secrets | **Fixed** |
+| VULN-08 | Low | CDN resources loaded without `crossorigin` attribute | Added `crossorigin="anonymous"` to Bootstrap CSS, Bootstrap JS, and Google Fonts CDN links | **Fixed** |
+| VULN-10 | Medium | No HTTPS redirection | `UseHttpsRedirection()` added (conditional — skipped in Development for test compatibility); `UseHsts()` added for non-Development | **Fixed** |
+| VULN-11 | Low | Cookie `SecurePolicy` not enforced | `CookieSecurePolicy.Always` in Production; `SameAsRequest` in Development (for test compatibility) | **Fixed** |
+
+### Open / Not Yet Fixed
+| ID | Severity | Description | Recommendation |
+| :--- | :--- | :--- | :--- |
+| VULN-01 | Critical | Default password `Motherson2026!` displayed on login page | Remove default credentials from the login view; require first-login password change or use temporary passwords |
+| VULN-09 | Low | No password expiry / rotation policy | Implement configurable password expiry (e.g., 90 days) and force change on first login |
+
+### Security Services Added
+* `ILoginLockoutService` / `LoginLockoutService` — brute force lockout service (in-memory, `ConcurrentDictionary`-based). Registered as `Scoped`.
+* Rate limiting middleware — configured in `Program.cs` with three policies: `login`, `scan`, `global`.
+* Security headers middleware — inline `Use()` pipeline in `Program.cs`.
+
+### Security Configuration (`appsettings.json`)
+* `Security:LoginLockout:MaxAttempts` — maximum failed login attempts (default: 5).
+* `Security:LoginLockout:LockoutMinutes` — lockout duration in minutes (default: 15).
+* `AllowedHosts` restricted from `*` to `localhost`.
+* `ConnectionStrings:DefaultConnection` cleared to empty placeholder (real values via environment variables).
+
+### Security Middleware Pipeline Order (Program.cs)
+1. Exception handler + HSTS (non-Development)
+2. HTTPS redirection (conditional)
+3. Static files
+4. Status code pages
+5. Rate limiter
+6. Security headers
+7. Routing
+8. Authentication
+9. Authorization
+
+### Test Compatibility
+* `UseHttpsRedirection()` is conditionally applied only when an HTTPS port is configured (avoids breaking `WebApplicationFactory` tests that run over HTTP-only).
+* `CookieSecurePolicy` is `SameAsRequest` in Development to allow test clients to receive and send cookies over HTTP.
+
+## 24. Latest Validation State
+* **2026-07-05:** Final V1 release pass completed. Added release metadata (`v1`), a subtle in-app version marker, Docker startup support (`Dockerfile`, `docker-compose.yml`, `.env.example`), and refreshed onboarding/configuration/testing documentation. Validation is green with `dotnet build` passing and **129 passing tests out of 129**.
 
 ---
 > **Golden rule:** Any change to an entity, relationship, migration, SQL constraint, index, persistence rule, business status, authorization, MVC route, NuGet package, or architecture decision must trigger an update to `AGENT.md`.
-

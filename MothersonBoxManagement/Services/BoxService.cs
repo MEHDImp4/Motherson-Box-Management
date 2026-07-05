@@ -6,7 +6,6 @@ using MothersonBoxManagement.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,27 +14,19 @@ namespace MothersonBoxManagement.Services;
 public class BoxService : IBoxService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IBarcodeService _barcodeService;
 
-    public BoxService(ApplicationDbContext context)
+    public BoxService(
+        ApplicationDbContext context,
+        IBarcodeService barcodeService)
     {
         _context = context;
+        _barcodeService = barcodeService;
     }
 
     public async Task<BoxDetailsDto> CreateBoxAsync(CreateBoxDto dto, int userId, CancellationToken cancellationToken = default)
     {
-        string boxIdentifier = "";
-        bool exists = true;
-        int retries = 0;
-        while (exists && retries < 10)
-        {
-            boxIdentifier = $"BOX-{DateTime.Now:yyyyMMdd}-{Random.Shared.Next(0, 16777216):X6}";
-            exists = await _context.Boxes.AnyAsync(b => b.BoxNumber == boxIdentifier || b.BarcodeValue == boxIdentifier, cancellationToken);
-            retries++;
-        }
-        if (exists)
-        {
-            throw new InvalidOperationException("Failed to generate a unique box identifier after 10 attempts.");
-        }
+        var boxIdentifier = await _barcodeService.GenerateUniqueBoxBarcodeAsync(cancellationToken);
 
         var box = new Box
         {
@@ -49,14 +40,14 @@ public class BoxService : IBoxService
             CurrentQuantity = 0,
             Status = BoxStatus.Open,
             CreatedByUserId = userId,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.Boxes.Add(box);
         await _context.SaveChangesAsync(cancellationToken);
 
         return await GetBoxByIdAsync(box.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Box was not persisted.");
+            ?? throw new InvalidOperationException("The box could not be saved.");
     }
 
     public async Task<List<BoxListItemDto>> GetOpenBoxesAsync(CancellationToken cancellationToken = default)
@@ -74,10 +65,76 @@ public class BoxService : IBoxService
                 CurrentQuantity = b.CurrentQuantity,
                 Status = b.Status,
                 CreatedAt = b.CreatedAt,
-                UpdatedAt = b.UpdatedAt,
+                ModifiedAt = b.ModifiedAt,
                 CreatedByMatricule = b.CreatedBy.Matricule,
-                LastUpdatedAt = b.UpdatedAt ?? b.CreatedAt,
+                LastModifiedAt = b.ModifiedAt ?? b.CreatedAt,
                 LastUserMatricule = b.LastModifiedBy != null ? b.LastModifiedBy.Matricule : b.CreatedBy.Matricule
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<BoxListItemDto>> SearchBoxesAsync(BoxSearchFilterDto filter, CancellationToken cancellationToken = default)
+    {
+        var query = _context.Boxes
+            .AsQueryable();
+
+        if (filter.Status.HasValue)
+        {
+            query = query.Where(b => b.Status == filter.Status.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.BoxNumber))
+        {
+            string cleanNumber = filter.BoxNumber.Trim();
+            query = query.Where(b => b.BoxNumber.Contains(cleanNumber) || b.BarcodeValue.Contains(cleanNumber));
+        }
+
+        if (filter.CreatedByUserId.HasValue)
+        {
+            query = query.Where(b => b.CreatedByUserId == filter.CreatedByUserId.Value);
+        }
+
+        if (filter.FromDate.HasValue)
+        {
+            query = query.Where(b => b.CreatedAt >= filter.FromDate.Value);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            var endOfDay = filter.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(b => b.CreatedAt <= endOfDay);
+        }
+
+        return await query
+            .OrderByDescending(b => b.CreatedAt)
+            .Select(b => new BoxListItemDto
+            {
+                Id = b.Id,
+                BoxNumber = b.BoxNumber,
+                BarcodeValue = b.BarcodeValue,
+                Type = b.Type,
+                ExpectedQuantity = b.ExpectedQuantity,
+                CurrentQuantity = b.CurrentQuantity,
+                Status = b.Status,
+                CreatedAt = b.CreatedAt,
+                ModifiedAt = b.ModifiedAt,
+                CreatedByMatricule = b.CreatedBy.Matricule,
+                LastModifiedAt = b.ModifiedAt ?? b.CreatedAt,
+                LastUserMatricule = b.LastModifiedBy != null ? b.LastModifiedBy.Matricule : b.CreatedBy.Matricule
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<UserListItemDto>> GetUsersAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.Matricule)
+            .Select(u => new UserListItemDto
+            {
+                Id = u.Id,
+                Matricule = u.Matricule,
+                Role = u.Role
             })
             .ToListAsync(cancellationToken);
     }
@@ -89,7 +146,7 @@ public class BoxService : IBoxService
             .Include(b => b.Packages)
                 .ThenInclude(p => p.ScannedBy)
             .Where(b => b.BarcodeValue == barcode)
-            .Select(MapToDetailsDto())
+            .Select(BoxMapper.ToDetailsDto())
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -100,97 +157,49 @@ public class BoxService : IBoxService
             .Include(b => b.Packages)
                 .ThenInclude(p => p.ScannedBy)
             .Where(b => b.Id == id)
-            .Select(MapToDetailsDto())
+            .Select(BoxMapper.ToDetailsDto())
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<ScanResult> ScanPackageAsync(int boxId, string barcode, int userId, CancellationToken cancellationToken = default)
+    public async Task LogBoxResumedIfNeededAsync(int boxId, int userId, string workstationName, CancellationToken ct = default)
     {
-        barcode = barcode.Trim();
+        var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, ct);
+        if (box == null || box.Status != BoxStatus.Open)
+            return;
 
-        if (barcode.StartsWith("BOX-", StringComparison.OrdinalIgnoreCase))
-            return new ScanResult { Success = false, Message = "Les codes-barres de box ne peuvent pas être scannés comme paquets." };
+        var lastLog = await _context.BoxAuditLogs
+            .Where(l => l.BoxId == boxId)
+            .OrderByDescending(l => l.Timestamp)
+            .FirstOrDefaultAsync(ct);
 
-        for (int attempt = 0; attempt < 3; attempt++)
+        if (lastLog != null && lastLog.UserId == userId && lastLog.ActionType == "BoxResumed")
+            return;
+
+        bool isReprise = false;
+        int? previousUserId = null;
+        string previousUserMatricule = "";
+
+        if (box.LastModifiedByUserId.HasValue)
         {
-            var transaction = _context.Database.IsRelational()
-                ? await _context.Database.BeginTransactionAsync(cancellationToken)
-                : null;
-            try
-            {
-                var isDuplicate = await _context.BoxPackages
-                    .AnyAsync(bp => bp.PackageBarcode == barcode, cancellationToken);
-
-                if (isDuplicate)
-                    return new ScanResult { Success = false, Message = "Ce code-barres paquet a déjà été scanné." };
-
-                var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, cancellationToken);
-
-                if (box is null)
-                    return new ScanResult { Success = false, Message = "Box introuvable." };
-
-                if (box.Status != BoxStatus.Open)
-                    return new ScanResult { Success = false, Message = "Cette box n'est pas ouverte aux scans." };
-
-                if (box.CurrentQuantity >= box.ExpectedQuantity)
-                    return new ScanResult { Success = false, Message = "La quantité attendue est déjà atteinte." };
-
-                var package = new BoxPackage
-                {
-                    BoxId = boxId,
-                    PackageBarcode = barcode,
-                    ScannedByUserId = userId,
-                    ScannedAt = DateTime.Now
-                };
-
-                _context.BoxPackages.Add(package);
-                box.CurrentQuantity++;
-                box.UpdatedAt = DateTime.Now;
-                box.LastModifiedByUserId = userId;
-
-                if (box.CurrentQuantity >= box.ExpectedQuantity)
-                {
-                    box.Status = BoxStatus.Completed;
-                    box.ClosedAt = DateTime.Now;
-                    box.ClosedByUserId = userId;
-                }
-
-                await _context.SaveChangesAsync(cancellationToken);
-
-                if (transaction is not null)
-                {
-                    await transaction.CommitAsync(cancellationToken);
-                }
-
-                var updatedBox = await GetBoxByIdAsync(boxId, cancellationToken);
-                var msg = box.Status == BoxStatus.Completed
-                    ? "Scan réussi ! Box complétée automatiquement."
-                    : $"Scan réussi ! {box.CurrentQuantity}/{box.ExpectedQuantity} paquets.";
-
-                return new ScanResult { Success = true, Message = msg, Box = updatedBox };
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                _context.ChangeTracker.Entries().ToList().ForEach(e => e.Reload());
-            }
-            catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_BoxPackages_PackageBarcode") == true)
-            {
-                if (transaction is not null)
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                }
-                return new ScanResult { Success = false, Message = "Ce code-barres paquet a déjà été scanné." };
-            }
-            finally
-            {
-                if (transaction is not null)
-                {
-                    await transaction.DisposeAsync();
-                }
-            }
+            previousUserId = box.LastModifiedByUserId.Value;
+            isReprise = box.LastModifiedByUserId.Value != userId;
+        }
+        else
+        {
+            previousUserId = box.CreatedByUserId;
+            isReprise = box.CreatedByUserId != userId;
         }
 
-        return new ScanResult { Success = false, Message = "Conflit de concurrence. Veuillez réessayer." };
+        if (isReprise && previousUserId.HasValue)
+        {
+            var prevUser = await _context.Users.FindAsync(new object[] { previousUserId.Value }, ct);
+            previousUserMatricule = prevUser?.Matricule ?? "";
+
+            var currentUser = await _context.Users.FindAsync(new object[] { userId }, ct);
+            var currentUserMatricule = currentUser?.Matricule ?? "";
+
+            await _context.SaveChangesAsync(ct);
+        }
     }
 
     private async Task<T> ExecuteWithConcurrencyRetryAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken)
@@ -233,16 +242,16 @@ public class BoxService : IBoxService
                 }
             }
         }
-        throw new InvalidOperationException("Conflit de concurrence. Veuillez réessayer.");
+        throw new InvalidOperationException("Concurrency conflict. Please try again.");
     }
 
-    public async Task<BoxDetailsDto> CancelBoxAsync(int boxId, string reason, int userId, CancellationToken ct = default)
+    public async Task<BoxDetailsDto> CancelBoxAsync(int boxId, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
         return await ExecuteWithConcurrencyRetryAsync(async () =>
         {
             var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, ct);
             if (box == null)
-                throw new KeyNotFoundException($"Box with ID {boxId} not found.");
+                throw new KeyNotFoundException($"Box with ID {boxId} was not found.");
 
             if (box.Status != BoxStatus.Open)
                 throw new InvalidOperationException("Only open boxes can be cancelled.");
@@ -250,123 +259,157 @@ public class BoxService : IBoxService
             box.Status = BoxStatus.Cancelled;
             box.ExceptionReason = reason;
             box.LastModifiedByUserId = userId;
-            box.UpdatedAt = DateTime.Now;
+            box.ModifiedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(ct);
 
             return await GetBoxByIdAsync(boxId, ct)
-                ?? throw new InvalidOperationException("Box was not persisted.");
+                ?? throw new InvalidOperationException("The box could not be saved.");
         }, ct);
     }
 
-    public async Task<BoxDetailsDto> ForceCloseBoxAsync(int boxId, string reason, int userId, CancellationToken ct = default)
+    public async Task<BoxDetailsDto> ForceCloseBoxAsync(int boxId, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
         return await ExecuteWithConcurrencyRetryAsync(async () =>
         {
             var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, ct);
             if (box == null)
-                throw new KeyNotFoundException($"Box with ID {boxId} not found.");
+                throw new KeyNotFoundException($"Box with ID {boxId} was not found.");
 
             if (box.Status != BoxStatus.Open)
                 throw new InvalidOperationException("Only open boxes can be force closed.");
 
+            var expectedQuantity = box.ExpectedQuantity;
+            var currentQuantity = box.CurrentQuantity;
+
             box.Status = BoxStatus.CompletedWithException;
             box.ExceptionReason = reason;
+            box.CompletionMode = "Forced";
             box.LastModifiedByUserId = userId;
-            box.UpdatedAt = DateTime.Now;
-            box.ClosedAt = DateTime.Now;
-            box.ClosedByUserId = userId;
+            box.ModifiedAt = DateTime.UtcNow;
+            box.CompletedAt = DateTime.UtcNow;
+            box.CompletedByUserId = userId;
 
             await _context.SaveChangesAsync(ct);
 
             return await GetBoxByIdAsync(boxId, ct)
-                ?? throw new InvalidOperationException("Box was not persisted.");
+                ?? throw new InvalidOperationException("The box could not be saved.");
         }, ct);
     }
 
-    public async Task<BoxDetailsDto> UpdateExpectedQuantityAsync(int boxId, int newQuantity, string reason, int userId, CancellationToken ct = default)
+    public async Task<BoxDetailsDto> UpdateExpectedQuantityAsync(int boxId, int newQuantity, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
         return await ExecuteWithConcurrencyRetryAsync(async () =>
         {
             var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, ct);
             if (box == null)
-                throw new KeyNotFoundException($"Box with ID {boxId} not found.");
+                throw new KeyNotFoundException($"Box with ID {boxId} was not found.");
 
             if (box.Status != BoxStatus.Open)
-                throw new InvalidOperationException("Expected quantity can only be updated for open boxes.");
+                throw new InvalidOperationException("Expected quantity can only be changed for open boxes.");
 
             if (newQuantity <= 0)
                 throw new ArgumentException("Expected quantity must be greater than zero.", nameof(newQuantity));
 
             if (newQuantity < box.CurrentQuantity)
-                throw new InvalidOperationException("Expected quantity cannot be less than the current quantity of packages in the box.");
+                throw new InvalidOperationException("Expected quantity cannot be lower than the current number of packages in the box.");
+
+            var oldQuantity = box.ExpectedQuantity;
 
             box.ExpectedQuantity = newQuantity;
             box.ExceptionReason = reason;
             box.LastModifiedByUserId = userId;
-            box.UpdatedAt = DateTime.Now;
+            box.ModifiedAt = DateTime.UtcNow;
 
             if (box.CurrentQuantity >= box.ExpectedQuantity)
             {
                 box.Status = BoxStatus.Completed;
-                box.ClosedAt = DateTime.Now;
-                box.ClosedByUserId = userId;
+                box.CompletionMode = "Automatic";
+                box.CompletedAt = DateTime.UtcNow;
+                box.CompletedByUserId = userId;
             }
 
             await _context.SaveChangesAsync(ct);
 
             return await GetBoxByIdAsync(boxId, ct)
-                ?? throw new InvalidOperationException("Box was not persisted.");
+                ?? throw new InvalidOperationException("The box could not be saved.");
         }, ct);
     }
 
-    public async Task<BoxDetailsDto> BlockBoxAsync(int boxId, string reason, int userId, CancellationToken ct = default)
+    public async Task<BoxDetailsDto> BlockBoxAsync(int boxId, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
         return await ExecuteWithConcurrencyRetryAsync(async () =>
         {
             var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, ct);
             if (box == null)
-                throw new KeyNotFoundException($"Box with ID {boxId} not found.");
+                throw new KeyNotFoundException($"Box with ID {boxId} was not found.");
 
             if (box.Status != BoxStatus.Open)
                 throw new InvalidOperationException("Only open boxes can be blocked.");
 
             box.Status = BoxStatus.Blocked;
-            box.ExceptionReason = reason;
+            box.BlockReason = reason;
+            box.BlockedByUserId = userId;
+            box.BlockedAt = DateTime.UtcNow;
             box.LastModifiedByUserId = userId;
-            box.UpdatedAt = DateTime.Now;
+            box.ModifiedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(ct);
 
             return await GetBoxByIdAsync(boxId, ct)
-                ?? throw new InvalidOperationException("Box was not persisted.");
+                ?? throw new InvalidOperationException("The box could not be saved.");
         }, ct);
     }
 
-    public async Task<BoxDetailsDto> UnblockBoxAsync(int boxId, string reason, int userId, CancellationToken ct = default)
+    public async Task<BoxDetailsDto> UnblockBoxAsync(int boxId, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
         return await ExecuteWithConcurrencyRetryAsync(async () =>
         {
             var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, ct);
             if (box == null)
-                throw new KeyNotFoundException($"Box with ID {boxId} not found.");
+                throw new KeyNotFoundException($"Box with ID {boxId} was not found.");
 
             if (box.Status != BoxStatus.Blocked)
                 throw new InvalidOperationException("Only blocked boxes can be unblocked.");
 
             box.Status = BoxStatus.Open;
-            box.ExceptionReason = reason;
+            box.BlockReason = null;
+            box.BlockedByUserId = null;
+            box.BlockedAt = null;
             box.LastModifiedByUserId = userId;
-            box.UpdatedAt = DateTime.Now;
+            box.ModifiedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(ct);
 
             return await GetBoxByIdAsync(boxId, ct)
-                ?? throw new InvalidOperationException("Box was not persisted.");
+                ?? throw new InvalidOperationException("The box could not be saved.");
         }, ct);
     }
 
-    public async Task<BoxDetailsDto> BlockPackageAsync(int packageId, string reason, int userId, CancellationToken ct = default)
+    public async Task<BoxDetailsDto> ArchiveBoxAsync(int boxId, string reason, int userId, string workstationName, CancellationToken ct = default)
+    {
+        return await ExecuteWithConcurrencyRetryAsync(async () =>
+        {
+            var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, ct);
+            if (box == null)
+                throw new KeyNotFoundException($"Box with ID {boxId} was not found.");
+
+            if (box.Status != BoxStatus.Completed && box.Status != BoxStatus.CompletedWithException)
+                throw new InvalidOperationException("Only completed boxes (Completed or CompletedWithException) can be archived.");
+
+            box.Status = BoxStatus.Archived;
+            box.ExceptionReason = string.IsNullOrEmpty(box.ExceptionReason) ? reason : box.ExceptionReason;
+            box.LastModifiedByUserId = userId;
+            box.ModifiedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync(ct);
+
+            return await GetBoxByIdAsync(boxId, ct)
+                ?? throw new InvalidOperationException("The box could not be saved.");
+        }, ct);
+    }
+
+    public async Task<BoxDetailsDto> BlockPackageAsync(int packageId, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
         return await ExecuteWithConcurrencyRetryAsync(async () =>
         {
@@ -375,24 +418,24 @@ public class BoxService : IBoxService
                 .FirstOrDefaultAsync(p => p.Id == packageId, ct);
 
             if (package == null)
-                throw new KeyNotFoundException($"Package with ID {packageId} not found.");
+                throw new KeyNotFoundException($"Package with ID {packageId} was not found.");
 
             if (package.Box.Status == BoxStatus.Cancelled || package.Box.Status == BoxStatus.Archived)
-                throw new InvalidOperationException("Cannot modify packages in a cancelled or archived box.");
+                throw new InvalidOperationException("Packages in a cancelled or archived box cannot be changed.");
 
             package.IsBlocked = true;
             package.BlockReason = reason;
-            package.Box.UpdatedAt = DateTime.Now;
+            package.Box.ModifiedAt = DateTime.UtcNow;
             package.Box.LastModifiedByUserId = userId;
 
             await _context.SaveChangesAsync(ct);
 
             return await GetBoxByIdAsync(package.BoxId, ct)
-                ?? throw new InvalidOperationException("Box was not persisted.");
+                ?? throw new InvalidOperationException("The box could not be saved.");
         }, ct);
     }
 
-    public async Task<BoxDetailsDto> UnblockPackageAsync(int packageId, string reason, int userId, CancellationToken ct = default)
+    public async Task<BoxDetailsDto> UnblockPackageAsync(int packageId, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
         return await ExecuteWithConcurrencyRetryAsync(async () =>
         {
@@ -401,24 +444,24 @@ public class BoxService : IBoxService
                 .FirstOrDefaultAsync(p => p.Id == packageId, ct);
 
             if (package == null)
-                throw new KeyNotFoundException($"Package with ID {packageId} not found.");
+                throw new KeyNotFoundException($"Package with ID {packageId} was not found.");
 
             if (package.Box.Status == BoxStatus.Cancelled || package.Box.Status == BoxStatus.Archived)
-                throw new InvalidOperationException("Cannot modify packages in a cancelled or archived box.");
+                throw new InvalidOperationException("Packages in a cancelled or archived box cannot be changed.");
 
             package.IsBlocked = false;
             package.BlockReason = reason;
-            package.Box.UpdatedAt = DateTime.Now;
+            package.Box.ModifiedAt = DateTime.UtcNow;
             package.Box.LastModifiedByUserId = userId;
 
             await _context.SaveChangesAsync(ct);
 
             return await GetBoxByIdAsync(package.BoxId, ct)
-                ?? throw new InvalidOperationException("Box was not persisted.");
+                ?? throw new InvalidOperationException("The box could not be saved.");
         }, ct);
     }
 
-    public async Task<BoxDetailsDto> TransferPackageAsync(int packageId, int destinationBoxId, string reason, int userId, CancellationToken ct = default)
+    public async Task<BoxDetailsDto> TransferPackageAsync(int packageId, int destinationBoxId, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
         return await ExecuteWithConcurrencyRetryAsync(async () =>
         {
@@ -426,12 +469,12 @@ public class BoxService : IBoxService
                 .FirstOrDefaultAsync(p => p.Id == packageId, ct);
 
             if (package == null)
-                throw new KeyNotFoundException($"Package with ID {packageId} not found.");
+                throw new KeyNotFoundException($"Package with ID {packageId} was not found.");
 
             int sourceBoxId = package.BoxId;
 
             if (sourceBoxId == destinationBoxId)
-                throw new InvalidOperationException("Source and destination boxes are the same.");
+                throw new InvalidOperationException("The source and destination boxes are the same.");
 
             var sourceBox = await _context.Boxes
                 .FirstOrDefaultAsync(b => b.Id == sourceBoxId, ct);
@@ -440,47 +483,49 @@ public class BoxService : IBoxService
                 .FirstOrDefaultAsync(b => b.Id == destinationBoxId, ct);
 
             if (sourceBox == null)
-                throw new KeyNotFoundException($"Source box with ID {sourceBoxId} not found.");
+                throw new KeyNotFoundException($"Source box with ID {sourceBoxId} was not found.");
 
             if (destinationBox == null)
-                throw new KeyNotFoundException($"Destination box with ID {destinationBoxId} not found.");
+                throw new KeyNotFoundException($"Destination box with ID {destinationBoxId} was not found.");
 
             if (sourceBox.Status != BoxStatus.Open)
-                throw new InvalidOperationException("Source box is not open.");
+                throw new InvalidOperationException("The source box is not open.");
 
             if (destinationBox.Status != BoxStatus.Open)
-                throw new InvalidOperationException("Destination box is not open.");
+                throw new InvalidOperationException("The destination box is not open.");
 
             if (destinationBox.CurrentQuantity >= destinationBox.ExpectedQuantity)
-                throw new InvalidOperationException("Destination box is full.");
+                throw new InvalidOperationException("The destination box is full.");
 
+            var packageBarcode = package.PackageBarcode;
             package.BoxId = destinationBoxId;
 
             sourceBox.CurrentQuantity--;
-            sourceBox.UpdatedAt = DateTime.Now;
+            sourceBox.ModifiedAt = DateTime.UtcNow;
             sourceBox.LastModifiedByUserId = userId;
             sourceBox.ExceptionReason = reason;
 
             destinationBox.CurrentQuantity++;
-            destinationBox.UpdatedAt = DateTime.Now;
+            destinationBox.ModifiedAt = DateTime.UtcNow;
             destinationBox.LastModifiedByUserId = userId;
             destinationBox.ExceptionReason = reason;
 
             if (destinationBox.CurrentQuantity >= destinationBox.ExpectedQuantity)
             {
                 destinationBox.Status = BoxStatus.Completed;
-                destinationBox.ClosedAt = DateTime.Now;
-                destinationBox.ClosedByUserId = userId;
+                destinationBox.CompletionMode = "Automatic";
+                destinationBox.CompletedAt = DateTime.UtcNow;
+                destinationBox.CompletedByUserId = userId;
             }
 
             await _context.SaveChangesAsync(ct);
 
             return await GetBoxByIdAsync(sourceBoxId, ct)
-                ?? throw new InvalidOperationException("Box was not persisted.");
+                ?? throw new InvalidOperationException("The box could not be saved.");
         }, ct);
     }
 
-    public async Task<BoxDetailsDto> RetraitPackageAsync(int packageId, string reason, int userId, CancellationToken ct = default)
+    public async Task<BoxDetailsDto> RetraitPackageAsync(int packageId, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
         return await ExecuteWithConcurrencyRetryAsync(async () =>
         {
@@ -489,55 +534,61 @@ public class BoxService : IBoxService
                 .FirstOrDefaultAsync(p => p.Id == packageId, ct);
 
             if (package == null)
-                throw new KeyNotFoundException($"Package with ID {packageId} not found.");
+                throw new KeyNotFoundException($"Package with ID {packageId} was not found.");
 
             var box = package.Box;
 
-            if (box.Status != BoxStatus.Open)
-                throw new InvalidOperationException("Cannot withdraw a package from a box that is not open.");
+            if (box.Status != BoxStatus.Open && box.Status != BoxStatus.Cancelled)
+                throw new InvalidOperationException("A package can only be removed from an open or cancelled box.");
+
+            var packageBarcode = package.PackageBarcode;
+            var sourceBoxId = box.Id;
 
             _context.BoxPackages.Remove(package);
 
             box.CurrentQuantity--;
-            box.UpdatedAt = DateTime.Now;
+            box.ModifiedAt = DateTime.UtcNow;
             box.LastModifiedByUserId = userId;
             box.ExceptionReason = reason;
 
             await _context.SaveChangesAsync(ct);
 
             return await GetBoxByIdAsync(box.Id, ct)
-                ?? throw new InvalidOperationException("Box was not persisted.");
+                ?? throw new InvalidOperationException("The box could not be saved.");
         }, ct);
     }
 
-    private static System.Linq.Expressions.Expression<System.Func<Box, BoxDetailsDto>> MapToDetailsDto()
+    public async Task<BoxDetailsDto> DisassociatePackageAsync(int packageId, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
-        return b => new BoxDetailsDto
+        return await ExecuteWithConcurrencyRetryAsync(async () =>
         {
-            Id = b.Id,
-            BoxNumber = b.BoxNumber,
-            BarcodeValue = b.BarcodeValue,
-            Type = b.Type,
-            Height = b.Height,
-            Width = b.Width,
-            Depth = b.Depth,
-            ExpectedQuantity = b.ExpectedQuantity,
-            CurrentQuantity = b.CurrentQuantity,
-            Status = b.Status,
-            CreatedByMatricule = b.CreatedBy.Matricule,
-            CreatedAt = b.CreatedAt,
-            UpdatedAt = b.UpdatedAt,
-            ClosedAt = b.ClosedAt,
-            ExceptionReason = b.ExceptionReason,
-            Packages = b.Packages.Select(p => new PackageItemDto
-            {
-                Id = p.Id,
-                PackageBarcode = p.PackageBarcode,
-                ScannedAt = p.ScannedAt,
-                ScannedByMatricule = p.ScannedBy.Matricule,
-                IsBlocked = p.IsBlocked,
-                BlockReason = p.BlockReason
-            }).ToList()
-        };
+            var package = await _context.BoxPackages
+                .Include(p => p.Box)
+                .FirstOrDefaultAsync(p => p.Id == packageId, ct);
+
+            if (package == null)
+                throw new KeyNotFoundException($"Package with ID {packageId} was not found.");
+
+            var box = package.Box;
+
+            if (box.Status != BoxStatus.Cancelled)
+                throw new InvalidOperationException("Disassociation is only allowed for packages in a cancelled box.");
+
+            var packageBarcode = package.PackageBarcode;
+            var sourceBoxId = box.Id;
+
+            _context.BoxPackages.Remove(package);
+
+            box.CurrentQuantity--;
+            box.ModifiedAt = DateTime.UtcNow;
+            box.LastModifiedByUserId = userId;
+            box.ExceptionReason = reason;
+
+            await _context.SaveChangesAsync(ct);
+
+            return await GetBoxByIdAsync(box.Id, ct)
+                ?? throw new InvalidOperationException("The box could not be saved.");
+        }, ct);
     }
+
 }

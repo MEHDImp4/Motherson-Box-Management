@@ -30,6 +30,10 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(b => b.BarcodeValue).IsUnique();
             entity.Property(b => b.RowVersion).IsRowVersion();
 
+            entity.Property(b => b.Height).HasColumnType("decimal(10,2)");
+            entity.Property(b => b.Width).HasColumnType("decimal(10,2)");
+            entity.Property(b => b.Depth).HasColumnType("decimal(10,2)");
+
             entity.HasOne(b => b.CreatedBy)
                 .WithMany(u => u.CreatedBoxes)
                 .HasForeignKey(b => b.CreatedByUserId)
@@ -40,9 +44,14 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(b => b.LastModifiedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne(b => b.ClosedBy)
+            entity.HasOne(b => b.CompletedBy)
                 .WithMany()
-                .HasForeignKey(b => b.ClosedByUserId)
+                .HasForeignKey(b => b.CompletedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(b => b.BlockedBy)
+                .WithMany()
+                .HasForeignKey(b => b.BlockedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -66,6 +75,11 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(al => al.Box)
                 .WithMany()
                 .HasForeignKey(al => al.BoxId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(al => al.RelatedBox)
+                .WithMany()
+                .HasForeignKey(al => al.RelatedBoxId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(al => al.User)

@@ -185,7 +185,7 @@ public class SupervisorExceptionsControllerTests : IClassFixture<CustomWebApplic
             var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
             var updatedBox = await boxService.GetBoxByIdAsync(box.Id);
             Assert.Equal(BoxStatus.Blocked, updatedBox!.Status);
-            Assert.Equal("Quality check hold", updatedBox.ExceptionReason);
+            Assert.Equal("Quality check hold", updatedBox.BlockReason);
         }
 
         // Act - Unblock
@@ -203,7 +203,7 @@ public class SupervisorExceptionsControllerTests : IClassFixture<CustomWebApplic
             var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
             var updatedBox = await boxService.GetBoxByIdAsync(box.Id);
             Assert.Equal(BoxStatus.Open, updatedBox!.Status);
-            Assert.Equal("Quality hold released", updatedBox.ExceptionReason);
+            Assert.Null(updatedBox.BlockReason);
         }
     }
 
@@ -397,7 +397,7 @@ public class SupervisorExceptionsControllerTests : IClassFixture<CustomWebApplic
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Journal d'Audit", content);
+        Assert.Contains("Audit Log", content);
     }
 
     [Fact]
@@ -490,7 +490,7 @@ public class SupervisorExceptionsControllerTests : IClassFixture<CustomWebApplic
             .ToListAsync();
 
         Assert.NotEmpty(auditLogs);
-        var insertLog = auditLogs.First(l => l.ActionType == "Insert");
+        var insertLog = auditLogs.First(l => l.ActionType == "BoxCreated");
         Assert.NotNull(insertLog.DetailsJson);
 
         // Assert JSON structure: should have ChangedProperties and not OriginalValues or CurrentValues in top level

@@ -5,59 +5,59 @@
 
 ## Table Stakes
 
-Features users expect. Missing = product feels incomplete.
+Features users expect. Missing them makes the product feel incomplete.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Matricule Login | Opérateurs must sign in to associate their actions to the audit trail. | Low | Custom cookie authentication using employee ID (matricule) and password. |
-| Box Creation | Needed to initiate the packaging process and establish expected quantities. | Low | Must prompt for type (Carton, Bois, Plastique), dimensions, and expected quantity. |
-| Barcode scanning input (USB Keyboard Wedge) | Primary input mode on the packaging workstation. | Medium | Javascript listener captures rapid keypress events and submits via Fetch API. |
-| Auto-Clôture (Auto-Completion) | Ensures operators don't have to manually click to finalize a box once it's full. | Low | Triggers when scanned count equals expected count. |
-| Box Search & Direct Barcode Scan | Rapid lookups on homepage via USB scanner. | Low | Single barcode search field routing directly to the box detail/preparation view. |
-| Virtual Barcode Scanner Simulator | Crucial for testing and development of wedge workflows without physical scanners. | Low | A simple, toggleable sidebar panel in UI to send mock scanned values. |
+| Matricule Login | Operators must sign in so their actions can be linked to the audit trail. | Low | Custom cookie authentication using employee ID (matricule) and password. |
+| Box Creation | Needed to start the packaging process and define expected quantities. | Low | Must prompt for type (Carton, Bois, Plastique), dimensions, and expected quantity. |
+| Barcode Scanning Input (USB Keyboard Wedge) | Primary input mode on the packaging workstation. | Medium | JavaScript listener captures rapid keypress events and submits them through the Fetch API. |
+| Auto-Completion | Ensures operators do not need to manually finalize a box once it is full. | Low | Triggers when the scanned count matches the expected count. |
+| Box Search & Direct Barcode Scan | Enables fast lookups from the home page via USB scanner. | Low | Single barcode search field routes directly to the box detail or preparation view. |
+| Virtual Barcode Scanner Simulator | Important for testing and development of wedge workflows without physical scanners. | Low | Simple toggleable sidebar panel in the UI to send mock scanned values. |
 
 ## Differentiators
 
-Features that set product apart. Not expected, but valued.
+Features that set the product apart. Not always expected, but valuable.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Completed with Exception (Forced Completion) | Handles real-world exceptions where a box must ship under-filled. | Medium | Superviseur role required; prompts for mandatory reason; registers deviation. |
-| Package Transfer, Retrait, and Disassociation | Corrects operator scanning errors without having to delete the entire box. | Medium | Recalculates remaining counts in a single database transaction. |
-| Box Block/Quarantine | Prevents scanning or modification of boxes flagged with defects. | Medium | Puts box in read-only quarantine state until explicitly unblocked. |
-| Structured Audit Trail | Essential for compliance. Track previous vs. new values for corrections. | High | EF Core interceptor automatically serializes old/new values to database on change. |
+| Completed with Exception (Forced Completion) | Handles real-world cases where a box must ship under-filled. | Medium | Supervisor role required; asks for a mandatory reason and records the deviation. |
+| Package Transfer, Removal, and Disassociation | Corrects operator scanning mistakes without deleting the entire box. | Medium | Recalculates remaining counts in a single database transaction. |
+| Box Block/Quarantine | Prevents scanning or modification of boxes flagged with defects. | Medium | Puts the box in a read-only quarantine state until it is explicitly unblocked. |
+| Structured Audit Trail | Essential for compliance. Tracks previous and new values for corrections. | High | EF Core interceptor automatically serializes old/new values to the database on change. |
 
 ## Anti-Features
 
-Features to explicitly NOT build.
+Features we explicitly do NOT want to build.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| External ERP/MES Connection | Out of scope for MVP; increases deployment complexity. | Run as an autonomous standalone system in SQL Server. |
-| Automated industrial label printing | Material/driver dependencies. | Generate standard browser-printable pages with HTML/CSS barcodes. |
-| Detailed Excel exports | Simple audit search screen is sufficient for MVP. | Rely on the audit log UI screen with status/date filters. |
+| External ERP/MES Connection | Out of scope for the MVP and increases deployment complexity. | Run as a standalone autonomous system on SQL Server. |
+| Automated industrial label printing | Adds material and driver dependencies. | Generate standard browser-printable pages with HTML/CSS barcodes. |
+| Detailed Excel exports | A simple audit search screen is enough for the MVP. | Rely on the audit log UI with status/date filters. |
 
 ## Feature Dependencies
 
-```
-Matricule Login & Role Setup → Box Creation
-Box Creation (Barcode Value) → Package Scanning
-Package Scanning (Unique Constraint) → Package Transfer & Retrait
+```text
+Matricule Login & Role Setup -> Box Creation
+Box Creation (Barcode Value) -> Package Scanning
+Package Scanning (Unique Constraint) -> Package Transfer & Removal
 ```
 
 ## MVP Recommendation
 
 Prioritize:
-1. **User Authentication & Role Mapping** (Matricule logins for Opérateur, Superviseur, Admin).
-2. **Box Creation & Direct Scan lookup** (Carton/Bois/Plastique with unique number/barcode).
-3. **Wedge Barcode Scan listener & Concurrency guard** (Fetch API scans protected by SQL unique constraint on PackageBarcode).
-4. **Audit Logs & Interceptor** (Immutable table tracking events, values, and reasons).
+1. **User Authentication & Role Mapping** (matricule logins for Operator, Supervisor, Admin).
+2. **Box Creation & Direct Scan Lookup** (Carton/Bois/Plastique with unique number/barcode).
+3. **Wedge Barcode Scan Listener & Concurrency Guard** (Fetch API scans protected by the SQL unique constraint on `PackageBarcode`).
+4. **Audit Logs & Interceptor** (immutable table tracking events, values, and reasons).
 5. **Virtual Scanner Simulator** (Bootstrap panel to test keyboard wedge behavior).
 
 Defer:
-- Excel exports: Defer, search filters on audit screen are enough for MVP verification.
-- Hardware printer integration: Defer, print via standard browser print commands.
+- Excel exports: defer, because audit screen search filters are enough for MVP verification.
+- Hardware printer integration: defer, because printing through standard browser print commands is enough for now.
 
 ## Sources
 
-- Motherson Box Management Functional Specification (Cahier des charges v1.3).
+- Motherson Box Management Functional Specification (v1.3).

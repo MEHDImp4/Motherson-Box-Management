@@ -5,22 +5,22 @@ namespace MothersonBoxManagement.ViewModels;
 
 public class CreateBoxViewModel
 {
-    [Required(ErrorMessage = "Le type de box est requis.")]
+    [Required(ErrorMessage = "Box type is required.")]
     public BoxType Type { get; set; }
 
-    [Required(ErrorMessage = "La hauteur est requise.")]
-    [Range(1, int.MaxValue, ErrorMessage = "La hauteur doit être supérieure à 0.")]
-    public int Height { get; set; }
+    [Required(ErrorMessage = "Height is required.")]
+    [Range(0.01, (double)decimal.MaxValue, ErrorMessage = "Height must be greater than 0.")]
+    public decimal Height { get; set; }
 
-    [Required(ErrorMessage = "La largeur est requise.")]
-    [Range(1, int.MaxValue, ErrorMessage = "La largeur doit être supérieure à 0.")]
-    public int Width { get; set; }
+    [Required(ErrorMessage = "Width is required.")]
+    [Range(0.01, (double)decimal.MaxValue, ErrorMessage = "Width must be greater than 0.")]
+    public decimal Width { get; set; }
 
-    [Required(ErrorMessage = "La profondeur est requise.")]
-    [Range(1, int.MaxValue, ErrorMessage = "La profondeur doit être supérieure à 0.")]
-    public int Depth { get; set; }
+    [Required(ErrorMessage = "Depth is required.")]
+    [Range(0.01, (double)decimal.MaxValue, ErrorMessage = "Depth must be greater than 0.")]
+    public decimal Depth { get; set; }
 
-    [Required(ErrorMessage = "La quantité attendue est requise.")]
-    [Range(1, int.MaxValue, ErrorMessage = "La quantité doit être au moins 1.")]
+    [Required(ErrorMessage = "Expected quantity is required.")]
+    [Range(1, int.MaxValue, ErrorMessage = "Quantity must be at least 1.")]
     public int ExpectedQuantity { get; set; }
 }

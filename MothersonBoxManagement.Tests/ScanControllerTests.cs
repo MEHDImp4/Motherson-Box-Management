@@ -111,7 +111,7 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
         var details2 = await client.GetAsync(redirectUrl!);
         var content = await details2.Content.ReadAsStringAsync();
         var decodedContent = System.Net.WebUtility.HtmlDecode(content);
-        Assert.Contains("déjà", decodedContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("already", decodedContent, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -216,7 +216,7 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
         var detailsResponse = await client.GetAsync(redirectUrl!);
         var content = await detailsResponse.Content.ReadAsStringAsync();
         var decodedContent = System.Net.WebUtility.HtmlDecode(content);
-        Assert.Contains("Le code-barres doit contenir au moins 3 caractères.", decodedContent);
+        Assert.Contains("The barcode must contain at least 3 characters.", decodedContent);
     }
 
     [Fact]
@@ -267,7 +267,7 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var content = await detailsResponse.Content.ReadAsStringAsync();
         var decodedContent = System.Net.WebUtility.HtmlDecode(content);
-        Assert.Contains("n'est pas ouverte aux scans", decodedContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not open for scanning", decodedContent, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -320,7 +320,7 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
         var messageVal = jsonDoc.RootElement.GetProperty("message").GetString();
 
         Assert.True(successVal);
-        Assert.Contains("Scan réussi", messageVal);
+        Assert.Contains("Scan successful", messageVal);
     }
 
     [Fact]
@@ -347,7 +347,7 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var log = await db.BoxAuditLogs
-            .FirstOrDefaultAsync(al => al.BoxId == box.Id && al.ActionType == "PackageScan");
+            .FirstOrDefaultAsync(al => al.BoxId == box.Id && al.ActionType == "PackageScanned");
 
         Assert.NotNull(log);
         Assert.Contains(barcode, log.DetailsJson);
@@ -410,7 +410,7 @@ public class ScanControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var content = await detailsResponse.Content.ReadAsStringAsync();
         var decodedContent = System.Net.WebUtility.HtmlDecode(content);
-        Assert.Contains("n'est pas ouverte aux scans", decodedContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not open for scanning", decodedContent, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

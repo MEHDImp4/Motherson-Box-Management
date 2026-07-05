@@ -1,50 +1,51 @@
-# AGENTS.md — Instructions pour l'Agent IA Codex
+# AGENTS.md - Instructions for the Codex AI Agent
 
-Ce fichier définit les directives et les règles de développement strictes que l'agent Codex doit suivre lors de ses interventions sur le projet **Motherson Box Management**.
+This file defines the strict development rules and guidance that the Codex agent must follow when working on the **Motherson Box Management** project.
 
-## 1. Conventions de code C# et ASP.NET Core MVC
-* **Style de nommage :**
-  * `PascalCase` pour les classes, méthodes, propriétés, enums, interfaces, structs.
-  * `camelCase` pour les variables locales et paramètres.
-  * `_camelCase` pour les champs privés en lecture seule (private readonly).
-* **Nullables :** Respecter l'activation des *Nullable Reference Types*. Aucun warning de nullable ne doit être laissé sans correction.
-* **Séparation des responsabilités :**
-  * Garder les contrôleurs MVC extrêmement minces (uniquement routage, liaison de ViewModels et validation d'état).
-  * Placer toute la logique métier, les calculs, les vérifications d'état et l'orchestration des données dans des services métier séparés et testables.
-  * Utiliser exclusivement des ViewModels dédiés pour le transfert de données vers et depuis les vues Razor. **Ne jamais exposer les entités EF Core directement aux formulaires ou contrats externes.**
-* **Asynchronisme :** Utiliser systématiquement `async` / `await` pour les opérations d'E/S (accès base de données, fichiers). Propager les objets `CancellationToken`. Interdiction stricte de bloquer le thread avec `.Result` ou `.Wait()`.
-* **Injection de Dépendances :** Utiliser l'injection de dépendances native par constructeur. Ne pas utiliser de Service Locator.
+## 1. C# and ASP.NET Core MVC Code Conventions
+* **Naming style:**
+  * `PascalCase` for classes, methods, properties, enums, interfaces, and structs.
+  * `camelCase` for local variables and parameters.
+  * `_camelCase` for private readonly fields.
+* **Nullables:** Respect *Nullable Reference Types*. No nullable warning should be left unresolved.
+* **Separation of responsibilities:**
+  * Keep MVC controllers extremely thin, limited to routing, ViewModel binding, and state validation.
+  * Put all business logic, calculations, state checks, and data orchestration into separate, testable business services.
+  * Use dedicated ViewModels only for data flowing to and from Razor views. **Never expose EF Core entities directly to forms or external contracts.**
+* **Asynchrony:** Always use `async` / `await` for I/O operations (database access, files). Pass through `CancellationToken`. Blocking the thread with `.Result` or `.Wait()` is strictly forbidden.
+* **Dependency Injection:** Use native constructor-based dependency injection. Do not use a Service Locator.
 
-## 2. Intégrité des données et EF Core
-* **Modifications de schéma :** Toute modification des entités ou des configurations d'entités doit faire l'objet d'une migration EF Core nommée explicitement.
-* **Migrations immuables :** Ne jamais modifier manuellement ou supprimer une migration qui a déjà été validée et partagée.
-* **Mise à jour documentaire :** Après chaque migration de base de données, mettre immédiatement à jour la section "État des migrations" dans `AGENT.md`.
-* **Garantie d'unicité SQL :** Maintenir la contrainte d'unicité globale de `BoxPackages.PackageBarcode` au niveau SQL Server (index unique configuré via EF Core Fluent API). Le contrôle applicatif seul ne suffit pas.
-* **Transactions SQL :** Envelopper les scans de packages, transferts et opérations complexes impliquant plusieurs tables ou lignes dans des transactions SQL explicites pour garantir l'atomicité.
-* **Concurrence optimiste :** Utiliser `RowVersion` (ou un jeton de concurrence) sur les boxes pour empêcher les écrasements simultanés par deux opérateurs.
-* **Pas de suppression physique :** Ne jamais supprimer physiquement de boxes ou d'enregistrements d'audit depuis l'interface utilisateur. Tout retrait ou désaffectation doit conserver une trace historique claire (audit append-only).
+## 2. Data Integrity and EF Core
+* **Schema changes:** Any change to entities or entity configuration must have an explicitly named EF Core migration.
+* **Immutable migrations:** Never manually edit or delete a migration that has already been validated and shared.
+* **Documentation update:** After every database migration, immediately update the "Migration Status" section in `AGENT.md`.
+* **SQL uniqueness guarantee:** Keep the global uniqueness constraint on `BoxPackages.PackageBarcode` at SQL Server level through EF Core Fluent API. Application checks alone are not enough.
+* **SQL transactions:** Wrap package scans, transfers, and complex multi-table or multi-row operations in explicit SQL transactions to guarantee atomicity.
+* **Optimistic concurrency:** Use `RowVersion` (or another concurrency token) on boxes to prevent simultaneous overwrites by two operators.
+* **No physical deletion:** Never physically delete boxes or audit records from the UI. Any removal or disassociation must keep a clear historical trace.
 
-## 3. Sécurité et autorisations
-* **Secrets et clés :** Interdiction absolue de commiter, d'afficher ou de consigner des secrets, mots de passe en clair ou chaînes de connexion réelles dans le code source ou dans les logs. Utiliser uniquement des placeholders standard (ex. `ConnectionStrings__DefaultConnection`).
-* **Mots de passe :** Stocker les mots de passe uniquement sous forme de hash cryptographique sécurisé (ex. en utilisant `IPasswordHasher` d'ASP.NET Core).
-* **Contrôles d'accès :** Appliquer des filtres d'autorisation par rôle (`[Authorize(Roles = "...")]`) sur toutes les actions MVC sensibles.
-* **Log sécurisé :** Ne pas loguer d'informations sensibles (mots de passe, données personnelles confidentielles) et ne jamais inclure de détails internes de base de données dans les messages d'erreur affichés aux utilisateurs.
+## 3. Security and Authorization
+* **Secrets and keys:** Never commit, display, or log secrets, plaintext passwords, or real connection strings in source code or logs. Use only standard placeholders (for example `ConnectionStrings__DefaultConnection`).
+* **Passwords:** Store passwords only as secure cryptographic hashes (for example with `IPasswordHasher` from ASP.NET Core).
+* **Access control:** Apply role-based authorization filters (`[Authorize(Roles = "...")]`) on all sensitive MVC actions.
+* **Safe logging:** Do not log sensitive information (passwords, confidential personal data), and never show internal database details in user-facing error messages.
+* **Security changes require documentation:** Any security-related change (authentication, authorization, rate limiting, headers, HTTPS, lockout, CSRF protection, etc.) **must** be immediately reflected in `AGENT.md` section 23 (Security Audit Status). This includes new security services, middleware, configuration, and architecture decisions.
 
-## 4. Cycle de travail obligatoire (GSD Core)
-Avant toute modification :
-1. Consulter les fichiers de planification GSD Core dans `.planning/` (`PROJECT.md`, `ROADMAP.md`) pour valider la phase active.
-2. Lire `AGENT.md` pour maîtriser les règles métier et techniques associées au périmètre.
-3. Repérer ou créer la tâche dans `TODO.md` et passer son statut à `En cours`.
-4. Examiner le code et les migrations existantes.
+## 4. Required Workflow (GSD Core)
+Before making any change:
+1. Check the GSD Core planning files in `.planning/` (`PROJECT.md`, `ROADMAP.md`) to confirm the active phase.
+2. Read `AGENT.md` to understand the business and technical rules for the current scope.
+3. Find or create the task in `TODO.md` and set its status to `In progress`.
+4. Review the existing code and migrations.
 
-Pendant le développement :
-1. Effectuer des modifications petites, ciblées et incrémentales.
-2. Implémenter la logique métier dans des services isolés et écrire les tests correspondants.
-3. Mettre à jour `TODO.md` à chaque étape majeure.
-4. Mettre à jour `AGENT.md` dès qu'une modification touche le modèle de données, le statut des migrations, les règles métier, les routes ou les dépendances NuGet.
+During development:
+1. Make small, targeted, incremental changes.
+2. Implement business logic in isolated services and write matching tests.
+3. Update `TODO.md` at each major step.
+4. Update `AGENT.md` whenever a change touches the data model, migration status, business rules, routes, or NuGet dependencies.
 
-Avant de considérer le travail terminé :
-1. Exécuter les commandes de validation obligatoires :
+Before considering the work complete:
+1. Run the required validation commands:
    ```bash
    dotnet restore
    ```
@@ -54,12 +55,12 @@ Avant de considérer le travail terminé :
    ```bash
    dotnet test
    ```
-2. S'assurer que le build et tous les tests passent sans warning majeur ni erreur.
-3. Vérifier que la documentation (`AGENT.md` et `TODO.md`) est à jour.
-4. Passer le statut de la tâche à `Terminé` dans `TODO.md`.
+2. Make sure the build and all tests pass without major warnings or errors.
+3. Verify that the documentation (`AGENT.md` and `TODO.md`) is up to date.
+4. Set the task status to `Completed` in `TODO.md`.
 
-## 5. Git et commits
-* Ne jamais commiter si le build ou les tests échouent.
-* Ne jamais utiliser `git add .` sans inspecter rigoureusement les fichiers inclus.
-* Rédiger les commits en respectant les **Conventional Commits** (ex. `feat(...)`, `fix(...)`, `db(migration)...`, `docs(agent)...`).
-* Si les droits locaux ou le workflow GSD Core empêchent le commit automatique, fournir la commande Git exacte à exécuter.
+## 5. Git and Commits
+* Never commit if the build or tests fail.
+* Never use `git add .` without carefully inspecting the included files.
+* Write commits using **Conventional Commits** (for example `feat(...)`, `fix(...)`, `db(migration)...`, `docs(agent)...`).
+* If local permissions or the GSD Core workflow prevent automatic commit creation, provide the exact Git command to run.

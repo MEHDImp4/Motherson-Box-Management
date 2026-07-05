@@ -34,15 +34,27 @@ namespace MothersonBoxManagement.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("BlockReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("BlockedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("BlockedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("BoxNumber")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime?>("ClosedAt")
+                    b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int?>("ClosedByUserId")
+                    b.Property<int?>("CompletedByUserId")
                         .HasColumnType("int");
+
+                    b.Property<string>("CompletionMode")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -53,8 +65,8 @@ namespace MothersonBoxManagement.Migrations
                     b.Property<int>("CurrentQuantity")
                         .HasColumnType("int");
 
-                    b.Property<int>("Depth")
-                        .HasColumnType("int");
+                    b.Property<decimal>("Depth")
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<string>("ExceptionReason")
                         .HasColumnType("nvarchar(max)");
@@ -62,11 +74,14 @@ namespace MothersonBoxManagement.Migrations
                     b.Property<int>("ExpectedQuantity")
                         .HasColumnType("int");
 
-                    b.Property<int>("Height")
-                        .HasColumnType("int");
+                    b.Property<decimal>("Height")
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<int?>("LastModifiedByUserId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -80,21 +95,20 @@ namespace MothersonBoxManagement.Migrations
                     b.Property<int>("Type")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Width")
-                        .HasColumnType("int");
+                    b.Property<decimal>("Width")
+                        .HasColumnType("decimal(10,2)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BarcodeValue")
                         .IsUnique();
 
+                    b.HasIndex("BlockedByUserId");
+
                     b.HasIndex("BoxNumber")
                         .IsUnique();
 
-                    b.HasIndex("ClosedByUserId");
+                    b.HasIndex("CompletedByUserId");
 
                     b.HasIndex("CreatedByUserId");
 
@@ -118,8 +132,26 @@ namespace MothersonBoxManagement.Migrations
                     b.Property<int?>("BoxId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("DetailsJson")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PackageBarcode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PreviousValue")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("RelatedBoxId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("datetime2");
@@ -133,6 +165,8 @@ namespace MothersonBoxManagement.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BoxId");
+
+                    b.HasIndex("RelatedBoxId");
 
                     b.HasIndex("UserId");
 
@@ -166,6 +200,9 @@ namespace MothersonBoxManagement.Migrations
                     b.Property<int>("ScannedByUserId")
                         .HasColumnType("int");
 
+                    b.Property<string>("WorkstationName")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BoxId");
@@ -186,6 +223,13 @@ namespace MothersonBoxManagement.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -201,6 +245,9 @@ namespace MothersonBoxManagement.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Matricule")
@@ -211,9 +258,14 @@ namespace MothersonBoxManagement.Migrations
 
             modelBuilder.Entity("MothersonBoxManagement.Entities.Box", b =>
                 {
-                    b.HasOne("MothersonBoxManagement.Entities.User", "ClosedBy")
+                    b.HasOne("MothersonBoxManagement.Entities.User", "BlockedBy")
                         .WithMany()
-                        .HasForeignKey("ClosedByUserId")
+                        .HasForeignKey("BlockedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MothersonBoxManagement.Entities.User", "CompletedBy")
+                        .WithMany()
+                        .HasForeignKey("CompletedByUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("MothersonBoxManagement.Entities.User", "CreatedBy")
@@ -227,7 +279,9 @@ namespace MothersonBoxManagement.Migrations
                         .HasForeignKey("LastModifiedByUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.Navigation("ClosedBy");
+                    b.Navigation("BlockedBy");
+
+                    b.Navigation("CompletedBy");
 
                     b.Navigation("CreatedBy");
 
@@ -241,6 +295,11 @@ namespace MothersonBoxManagement.Migrations
                         .HasForeignKey("BoxId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("MothersonBoxManagement.Entities.Box", "RelatedBox")
+                        .WithMany()
+                        .HasForeignKey("RelatedBoxId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("MothersonBoxManagement.Entities.User", "User")
                         .WithMany("AuditLogs")
                         .HasForeignKey("UserId")
@@ -248,6 +307,8 @@ namespace MothersonBoxManagement.Migrations
                         .IsRequired();
 
                     b.Navigation("Box");
+
+                    b.Navigation("RelatedBox");
 
                     b.Navigation("User");
                 });

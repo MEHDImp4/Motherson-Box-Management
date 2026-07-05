@@ -7,6 +7,7 @@ public class BoxPackage
     public string PackageBarcode { get; set; } = string.Empty;
     public int ScannedByUserId { get; set; }
     public DateTime ScannedAt { get; set; }
+    public string? WorkstationName { get; set; }
     public bool IsBlocked { get; set; } = false;
     public string? BlockReason { get; set; }
 

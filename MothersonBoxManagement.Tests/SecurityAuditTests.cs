@@ -130,8 +130,8 @@ public class SecurityAuditTests : IClassFixture<CustomWebApplicationFactory>
         var responseContent = await response.Content.ReadAsStringAsync();
         var decoded = System.Net.WebUtility.HtmlDecode(responseContent);
 
-        Assert.Contains("La hauteur doit être supérieure à 0.", decoded);
-        Assert.Contains("La largeur doit être supérieure à 0.", decoded);
+        Assert.Contains("Height must be greater than 0.", decoded);
+        Assert.Contains("Width must be greater than 0.", decoded);
         
         // Check that no box with these invalid dimensions was created in database
         using var scope = _factory.Services.CreateScope();
@@ -166,7 +166,7 @@ public class SecurityAuditTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, ajaxResponse.StatusCode);
         var responseJson = await ajaxResponse.Content.ReadAsStringAsync();
         
-        Assert.Contains("Le code-barres doit contenir au moins 3", responseJson);
+        Assert.Contains("The barcode must contain at least 3", responseJson);
     }
 
     [Fact]
@@ -194,7 +194,7 @@ public class SecurityAuditTests : IClassFixture<CustomWebApplicationFactory>
         var htmlContent = await response.Content.ReadAsStringAsync();
         var decoded = System.Net.WebUtility.HtmlDecode(htmlContent);
 
-        Assert.Contains("Une erreur inattendue s'est produite", decoded);
+        Assert.Contains("An error occurred", decoded);
         
         Assert.DoesNotContain("ConnectionString", htmlContent);
         Assert.DoesNotContain("SqlException", htmlContent);

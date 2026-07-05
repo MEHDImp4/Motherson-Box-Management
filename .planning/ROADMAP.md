@@ -1,5 +1,9 @@
 # Roadmap: Motherson Box Management
 
+## Milestone Status
+
+- [x] **v1.0 MVP** - Shipped and release-ready as of 2026-07-05
+
 ## Overview
 
 This roadmap lays out the path to build a standalone, secure web application for packaging box barcode tracking and auditing. We structure the project as a Vertical MVP slice-by-slice, starting with database and role-based authentication setups. Next, we build the box lifecycle management and dashboard, followed by barcode keyboard wedge scanning event listeners and a virtual test simulator. Finally, we implement supervisor exceptions (corrections, cancels, blocks, and transfers) with a robust EF Core audit trail interceptor.
@@ -30,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Success Criteria** (what must be TRUE):
 
   1. User can navigate to the application and view a login page.
-  2. User can log in with a seeded matricule (Opérateur, Superviseur, Admin) and be routed to their respective homepage.
+  2. User can log in with a seeded matricule (Operator, Supervisor, Admin) and be routed to their respective homepage.
   3. User session persists across browser refresh.
   4. Invalid credentials display a generic login error message.
 
@@ -137,3 +141,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Barcode Scan Integration | 3/3 | Complete   | 2026-07-03 |
 | 4. Supervisor Exceptions | 4/4 | Complete   | 2026-07-04 |
 | 5. Verification & Hardening | 1/1 | Complete    | 2026-07-04 |
+
+## Release Note
+
+The MVP milestone is complete. A final V1 release pass on 2026-07-05 added release metadata, Docker onboarding, and documentation hardening before GitHub publishing and tagging.

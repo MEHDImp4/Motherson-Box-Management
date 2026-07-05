@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Entities;
@@ -13,6 +14,8 @@ namespace MothersonBoxManagement.Tests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
+    private readonly string _dbName = Guid.NewGuid().ToString();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureServices(services =>
@@ -24,8 +27,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<ApplicationDbContext>((sp, options) =>
             {
-                options.UseInMemoryDatabase("TestDb");
-                options.AddInterceptors(sp.GetRequiredService<MothersonBoxManagement.Data.Interceptors.AuditSaveChangesInterceptor>());
+                options.UseInMemoryDatabase(_dbName);
+                options.AddInterceptors(
+                    sp.GetRequiredService<MothersonBoxManagement.Data.Interceptors.AuditSaveChangesInterceptor>(),
+                    new E2EUniqueConstraintSimulatingInterceptor()
+                );
             });
 
             services.AddSingleton<IAntiforgery, FakeAntiforgery>();
@@ -34,6 +40,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             db.Database.EnsureCreated();
+            E2EUniqueConstraintSimulatingInterceptor.ClearSeenBarcodes();
 
             var passwordHasher = new PasswordHasher<User>();
             const string password = "Motherson2026!";
@@ -80,5 +87,49 @@ public class FakeAntiforgery : IAntiforgery
 
     public void SetCookieTokenAndHeader(HttpContext httpContext)
     {
+    }
+}
+
+public class E2EUniqueConstraintSimulatingInterceptor : SaveChangesInterceptor
+{
+    private static readonly HashSet<string> _seenBarcodes = new();
+    private static readonly object _lock = new();
+
+    public static void ClearSeenBarcodes()
+    {
+        lock (_lock)
+        {
+            _seenBarcodes.Clear();
+        }
+    }
+
+    public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+        DbContextEventData eventData,
+        InterceptionResult<int> result,
+        CancellationToken cancellationToken = default)
+    {
+        if (eventData.Context is null)
+            return base.SavingChangesAsync(eventData, result, cancellationToken);
+
+        var newPackages = eventData.Context.ChangeTracker.Entries<BoxPackage>()
+            .Where(e => e.State == EntityState.Added)
+            .Select(e => e.Entity)
+            .ToList();
+
+        foreach (var pkg in newPackages)
+        {
+            lock (_lock)
+            {
+                var existsInDb = eventData.Context.Set<BoxPackage>().Any(p => p.PackageBarcode == pkg.PackageBarcode && p.Id != pkg.Id);
+                if (_seenBarcodes.Contains(pkg.PackageBarcode) || existsInDb)
+                {
+                    var inner = new Exception("IX_BoxPackages_PackageBarcode");
+                    throw new DbUpdateException("Duplicate package barcode unique index violation.", inner);
+                }
+                _seenBarcodes.Add(pkg.PackageBarcode);
+            }
+        }
+
+        return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 }

@@ -11,10 +11,12 @@ namespace MothersonBoxManagement.Controllers;
 public class AccountController : Controller
 {
     private readonly IUserAuthenticationService _authenticationService;
+    private readonly ILoginLockoutService _lockoutService;
 
-    public AccountController(IUserAuthenticationService authenticationService)
+    public AccountController(IUserAuthenticationService authenticationService, ILoginLockoutService lockoutService)
     {
         _authenticationService = authenticationService;
+        _lockoutService = lockoutService;
     }
 
     [HttpGet]
@@ -27,18 +29,33 @@ public class AccountController : Controller
     [HttpPost]
     [AllowAnonymous]
     [ValidateAntiForgeryToken]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("login")]
     public async Task<IActionResult> Login(LoginViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return View(model);
 
+        if (_lockoutService.IsLockedOut(model.Matricule))
+        {
+            var remaining = _lockoutService.GetRemainingAttempts(model.Matricule);
+            ModelState.AddModelError(string.Empty, "Account temporarily locked due to too many failed attempts. Please try again later.");
+            return View(model);
+        }
+
         var user = await _authenticationService.ValidateCredentialsAsync(model.Matricule, model.Password, cancellationToken);
 
         if (user is null)
         {
-            ModelState.AddModelError(string.Empty, "Matricule ou mot de passe incorrect.");
+            _lockoutService.RecordFailedAttempt(model.Matricule);
+            var remaining = _lockoutService.GetRemainingAttempts(model.Matricule);
+            if (remaining > 0)
+                ModelState.AddModelError(string.Empty, $"Incorrect matricule or password. {remaining} attempt(s) remaining before lockout.");
+            else
+                ModelState.AddModelError(string.Empty, "Account temporarily locked due to too many failed attempts. Please try again later.");
             return View(model);
         }
+
+        _lockoutService.ResetAttempts(model.Matricule);
 
         var claims = new List<Claim>
         {
@@ -59,10 +76,12 @@ public class AccountController : Controller
         if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             return Redirect(model.ReturnUrl);
 
-        return RedirectToAction("Index", "Home");
+        return RedirectToAction("Index", "Dashboard");
     }
 
-    [HttpGet]
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);

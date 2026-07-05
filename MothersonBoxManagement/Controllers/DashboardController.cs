@@ -12,15 +12,17 @@ using MothersonBoxManagement.ViewModels;
 namespace MothersonBoxManagement.Controllers;
 
 [Authorize]
-public class HomeController : Controller
+public class DashboardController : Controller
 {
-    private readonly ILogger<HomeController> _logger;
+    private readonly ILogger<DashboardController> _logger;
     private readonly IBoxService _boxService;
+    private readonly IBarcodeService _barcodeService;
 
-    public HomeController(ILogger<HomeController> logger, IBoxService boxService)
+    public DashboardController(ILogger<DashboardController> logger, IBoxService boxService, IBarcodeService barcodeService)
     {
         _logger = logger;
         _boxService = boxService;
+        _barcodeService = barcodeService;
     }
 
     [HttpGet]
@@ -56,11 +58,11 @@ public class HomeController : Controller
 
         if (string.IsNullOrWhiteSpace(barcode))
         {
-            model.Error = "Veuillez entrer un code-barres.";
+            model.Error = "Please enter a barcode.";
             return View(model);
         }
 
-        if (!barcode.StartsWith("BOX-", StringComparison.OrdinalIgnoreCase))
+        if (!_barcodeService.IsBoxBarcode(barcode))
         {
             model.Warning = "This is a package barcode, not a box barcode. Use the preparation screen to scan packages.";
             return View(model);
@@ -69,7 +71,7 @@ public class HomeController : Controller
         var box = await _boxService.GetBoxByBarcodeAsync(barcode, cancellationToken);
         if (box is null)
         {
-            model.Error = "No box found with this barcode.";
+            model.Error = "No box was found with this barcode. This code does not match a valid box.";
             return View(model);
         }
 

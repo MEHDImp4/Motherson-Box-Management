@@ -123,17 +123,17 @@ public class ConcurrencyTests
         db.Boxes.Add(box);
         await db.SaveChangesAsync();
 
-        var boxService = new BoxService(db);
+        var boxService = new PackageScanService(db, new BarcodeService(db), new AuditService(db));
 
         // Activate concurrency exception simulation for 1 save
         interceptor.FailuresCount = 1;
 
         // Act
-        var result = await boxService.ScanPackageAsync(box.Id, "PKG-CONC-001", user.Id);
+        var result = await boxService.ScanPackageAsync(box.Id, "PKG-CONC-001", user.Id, "TEST-STATION");
 
         // Assert
         Assert.True(result.Success);
-        Assert.Contains("1/5 paquets", result.Message);
+        Assert.Contains("1/5 packages", result.Message);
         
         var updatedBox = await db.Boxes.Include(b => b.Packages).FirstOrDefaultAsync(b => b.Id == box.Id);
         Assert.NotNull(updatedBox);
@@ -183,7 +183,7 @@ public class ConcurrencyTests
         db.Boxes.Add(box);
         await db.SaveChangesAsync();
 
-        var boxService = new BoxService(db);
+        var boxService = new PackageScanService(db, new BarcodeService(db), new AuditService(db));
         
         const string duplicateBarcode = "PKG-CONC-DUPLICATE";
         
@@ -197,8 +197,8 @@ public class ConcurrencyTests
                 // Each task needs its own DbContext and service instance to run concurrently
                 using var taskScope = serviceProvider.CreateScope();
                 var taskDb = taskScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var taskBoxService = new BoxService(taskDb);
-                return await taskBoxService.ScanPackageAsync(box.Id, duplicateBarcode, user.Id);
+                var taskBoxService = new PackageScanService(taskDb, new BarcodeService(taskDb), new AuditService(taskDb));
+                return await taskBoxService.ScanPackageAsync(box.Id, duplicateBarcode, user.Id, "TEST-STATION");
             }));
         }
 
@@ -213,7 +213,7 @@ public class ConcurrencyTests
 
         foreach (var failure in failedScans)
         {
-            Assert.Contains("Ce code-barres paquet a déjà été scanné.", failure.Message);
+            Assert.Contains("This package barcode has already been scanned.", failure.Message);
         }
     }
 }

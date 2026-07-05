@@ -12,8 +12,8 @@ public class BoxListItemDto
     public int CurrentQuantity { get; set; }
     public BoxStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
+    public DateTime? ModifiedAt { get; set; }
     public string CreatedByMatricule { get; set; } = string.Empty;
-    public DateTime LastUpdatedAt { get; set; }
+    public DateTime LastModifiedAt { get; set; }
     public string LastUserMatricule { get; set; } = string.Empty;
 }

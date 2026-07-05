@@ -13,9 +13,9 @@ public static class DbInitializer
 
         var users = new[]
         {
-            new User { Matricule = "OP001", Role = "Operator", IsActive = true },
-            new User { Matricule = "SP001", Role = "Supervisor", IsActive = true },
-            new User { Matricule = "AD001", Role = "Administrator", IsActive = true }
+            new User { Matricule = "OP001", FullName = "Test Operator", Role = "Operator", IsActive = true, CreatedAt = DateTime.UtcNow },
+            new User { Matricule = "SP001", FullName = "Test Supervisor", Role = "Supervisor", IsActive = true, CreatedAt = DateTime.UtcNow },
+            new User { Matricule = "AD001", FullName = "Test Administrator", Role = "Administrator", IsActive = true, CreatedAt = DateTime.UtcNow }
         };
 
         bool changesMade = false;

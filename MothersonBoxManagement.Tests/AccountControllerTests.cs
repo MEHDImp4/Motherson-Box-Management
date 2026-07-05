@@ -26,7 +26,7 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
         var content = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Se connecter", content);
+        Assert.Contains("Sign in", content);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
         var content = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Matricule ou mot de passe incorrect.", content);
+        Assert.Contains("Incorrect matricule or password.", content);
     }
 
     [Fact]
@@ -142,6 +142,6 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
         var content = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("doit contenir entre 3 et 20", content);
+        Assert.Contains("must contain 3 to 20", content);
     }
 }

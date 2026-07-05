@@ -110,7 +110,7 @@ async function submitScan(barcode) {
         }
     } catch (error) {
         console.error("Error during scan submission:", error);
-        showFeedback(false, "Une erreur est survenue lors de la communication avec le serveur.");
+        showFeedback(false, "An error occurred during communication with the server.");
         playBeep(false);
     }
 }
@@ -146,7 +146,11 @@ function addPackageRow(pkg) {
     const rowCount = tbody ? tbody.children.length : 0;
     const headerCount = document.getElementById('packageCountHeader');
     if (headerCount) {
-        headerCount.innerHTML = `Paquets (<span id="packageCount">${rowCount}</span>)`;
+        headerCount.innerHTML = `Packages (<span id="packageCount">${rowCount}</span>)`;
+    }
+    const pkgCount = document.getElementById('packageCount');
+    if (pkgCount) {
+        pkgCount.textContent = `${rowCount} scanned`;
     }
 }
 
@@ -174,6 +178,23 @@ function updateProgressBar(current, expected) {
             setTimeout(() => {
                 progressContainer.classList.remove('pulse-success');
             }, 1500);
+        }
+    }
+
+    // Update the "X / Y Packages" label above the progress bar
+    const fillingLabel = document.getElementById('fillingProgressLabel');
+    if (fillingLabel) {
+        fillingLabel.textContent = `${current} / ${expected} Packages`;
+    }
+
+    // Update the "N package(s) remaining" badge in the scan card
+    const remainingBadge = document.getElementById('remainingBadge');
+    if (remainingBadge) {
+        const remaining = expected - current;
+        if (remaining > 0) {
+            remainingBadge.textContent = `${remaining} package(s) remaining`;
+        } else {
+            remainingBadge.style.display = 'none';
         }
     }
 }
@@ -260,7 +281,7 @@ function disableScanInput() {
     const btn = document.getElementById('scanBtn');
     if (input) {
         input.disabled = true;
-        input.placeholder = "Box complétée";
+        input.placeholder = "Box completed";
         input.value = "";
     }
     if (btn) {

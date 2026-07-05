@@ -47,7 +47,7 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Créer une box", content);
+        Assert.Contains("Create a box", content);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("sup", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("greater than 0", content, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Bienvenue", content);
+        Assert.Contains("Welcome", content);
         Assert.Contains("Plastique", content);
     }
 
@@ -194,7 +194,7 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Préparation", content);
+        Assert.Contains("Preparation", content);
     }
 
     [Fact]
@@ -333,6 +333,7 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("This is a package barcode, not a box barcode", content);
+        Assert.Contains("value=\"PKG-123456\"", content);
+        Assert.Contains("alert-warning", content);
     }
 }

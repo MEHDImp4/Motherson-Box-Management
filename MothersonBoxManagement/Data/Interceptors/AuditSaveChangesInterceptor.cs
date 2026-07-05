@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.Configuration;
 using MothersonBoxManagement.Entities;
+using MothersonBoxManagement.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,12 +17,12 @@ namespace MothersonBoxManagement.Data.Interceptors;
 public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly IConfiguration _configuration;
+    private readonly IWorkstationResolver _workstationResolver;
 
-    public AuditSaveChangesInterceptor(IHttpContextAccessor httpContextAccessor, IConfiguration configuration)
+    public AuditSaveChangesInterceptor(IHttpContextAccessor httpContextAccessor, IWorkstationResolver workstationResolver)
     {
         _httpContextAccessor = httpContextAccessor;
-        _configuration = configuration;
+        _workstationResolver = workstationResolver;
     }
 
     private void AuditChanges(DbContext context)
@@ -62,10 +62,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             return;
         }
 
-        string? configuredWorkstation = _configuration["WorkstationName"];
-        string workstationName = (string.IsNullOrWhiteSpace(configuredWorkstation) || configuredWorkstation == "DEV-STATION-01" || configuredWorkstation == "DEFAULT-STATION")
-            ? Environment.MachineName
-            : configuredWorkstation;
+        string workstationName = _workstationResolver.Resolve();
 
         var entries = context.ChangeTracker.Entries()
             .Where(e => e.Entity is not BoxAuditLog &&
@@ -308,7 +305,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             {
                 ActionType = actionType,
                 UserId = userIdVal.Value,
-                Timestamp = DateTime.Now,
+                Timestamp = DateTime.UtcNow,
                 WorkstationName = workstationName,
                 PreviousValue = previousValue,
                 NewValue = newValue,

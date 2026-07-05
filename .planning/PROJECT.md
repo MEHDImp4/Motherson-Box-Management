@@ -47,9 +47,10 @@ The packaging operators in the P3 zone physical layout need a simple and reliabl
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Standard Bootstrap Layout | User requested standard corporate layout typical of internal portals. | — Pending |
-| Virtual Scanner Simulator | User selected virtual scanner panel to ease development and testing of barcode scanner workflows. | — Pending |
-| Seed Test Users | Pre-seed Operator, Supervisor, and Admin accounts in database initialization for verification. | — Pending |
+| Standard Bootstrap Layout | User requested standard corporate layout typical of internal portals. | ✓ Validated in v1 |
+| Virtual Scanner Simulator | User selected virtual scanner panel to ease development and testing of barcode scanner workflows. | ✓ Validated in v1 |
+| Seed Test Users | Pre-seed Operator, Supervisor, and Admin accounts in database initialization for verification. | ✓ Validated in v1 |
+| Docker Local Release Path | Provide a reproducible V1 startup path with app + SQL Server for demos and handoff. | ✓ Validated in v1 |
 
 ## Evolution
 
@@ -69,4 +70,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-04 after Phase 5 completion*
+*Last updated: 2026-07-05 after v1 release readiness pass*

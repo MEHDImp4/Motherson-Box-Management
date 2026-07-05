@@ -7,10 +7,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Entities;
+using MothersonBoxManagement.Security;
 
 namespace MothersonBoxManagement.Controllers;
 
-[Authorize(Roles = "Superviseur,Admin,Supervisor,Administrator")]
+[Authorize(Roles = $"{AppRoles.SupervisorFr},{AppRoles.AdminFr},{AppRoles.Supervisor},{AppRoles.Administrator}")]
 public class AuditController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -32,6 +33,7 @@ public class AuditController : Controller
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
 
         var query = _context.BoxAuditLogs
             .Include(l => l.Box)
