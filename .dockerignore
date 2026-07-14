@@ -6,6 +6,7 @@
 **/coverage/
 **/.git/
 **/.planning/tmp/
+artifacts/
 README.md
 docs/
 assets/

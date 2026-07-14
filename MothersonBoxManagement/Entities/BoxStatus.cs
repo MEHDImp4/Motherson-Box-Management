@@ -7,5 +7,6 @@ public enum BoxStatus
     CompletedWithException,
     Cancelled,
     Archived,
-    Blocked
+    Blocked,
+    Created
 }

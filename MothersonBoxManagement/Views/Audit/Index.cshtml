@@ -1,9 +1,7 @@
-@model List<MothersonBoxManagement.Entities.BoxAuditLog>
+@model MothersonBoxManagement.Models.AuditIndexViewModel
 @using System.Text.Json
 @{
     ViewData["Title"] = "Audit Log";
-    int currentPage = ViewBag.CurrentPage;
-    int totalPages = ViewBag.TotalPages;
 }
 
 @functions {
@@ -34,7 +32,6 @@
 
             var sb = new System.Text.StringBuilder();
 
-            // Try to extract EntityName and State
             string entityName = TryGetProp(root, "EntityName", out var entProp) ? entProp.GetString() ?? "" : "";
             string state = TryGetProp(root, "State", out var stateProp) ? stateProp.GetString() ?? "" : "";
 
@@ -57,7 +54,6 @@
                 sb.Append("</div>");
             }
 
-            // Check if ChangedProperties exists (Modified state)
             if (TryGetProp(root, "ChangedProperties", out var changedProps) && changedProps.ValueKind == JsonValueKind.Object)
             {
                 sb.Append("<table class=\"table table-sm mb-0 align-middle\" style=\"font-size: 11px; background: transparent;\">");
@@ -75,13 +71,9 @@
                     if (prop.Value.ValueKind == JsonValueKind.Object)
                     {
                         if (TryGetProp(prop.Value, "Old", out var oldProp))
-                        {
                             oldVal = oldProp.ValueKind == JsonValueKind.Null ? "-" : oldProp.ToString() ?? "-";
-                        }
                         if (TryGetProp(prop.Value, "New", out var newProp))
-                        {
                             newVal = newProp.ValueKind == JsonValueKind.Null ? "-" : newProp.ToString() ?? "-";
-                        }
                     }
 
                     sb.Append("<tr>");
@@ -92,7 +84,6 @@
                 }
                 sb.Append("</tbody></table>");
             }
-            // Check if Properties exists (Added state or general properties)
             else if (TryGetProp(root, "Properties", out var props) && props.ValueKind == JsonValueKind.Object)
             {
                 sb.Append("<table class=\"table table-sm mb-0 align-middle\" style=\"font-size: 11px; background: transparent;\">");
@@ -112,7 +103,6 @@
             }
             else
             {
-                // Fallback to formatted raw JSON if structure doesn't match
                 sb.Append("<pre style=\"background: var(--surface-container-low); padding: 8px; margin: 0; border-radius: var(--radius-md); font-size: 10px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; color: var(--on-surface); border: 1px solid var(--border);\">");
                 sb.Append(System.Text.Encodings.Web.HtmlEncoder.Default.Encode(
                     JsonSerializer.Serialize(JsonSerializer.Deserialize<object>(json), new JsonSerializerOptions { WriteIndented = true })
@@ -124,7 +114,6 @@
         }
         catch
         {
-            // Fallback to raw string if parsing fails
             return new Microsoft.AspNetCore.Html.HtmlString($"<span style=\"font-size: 11px; font-family: monospace; white-space: pre-wrap;\">{json}</span>");
         }
     }
@@ -137,7 +126,7 @@
             <h1 class="page-title" style="font-size: 24px; font-weight: 700;">Traceability Audit Log</h1>
             <p class="body-md text-muted mb-0">Review workstation history, package scans, and supervisor security overrides.</p>
         </div>
-        @if (ViewBag.BoxId != null)
+        @if (Model.Filter.BoxId != null)
         {
             <a asp-action="Index" class="btn btn-outline-custom btn-sm d-inline-flex align-items-center" style="min-height: 38px; padding: 0 16px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="margin-right: 6px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -156,28 +145,25 @@
                 <div class="row g-3 align-items-end">
                     <div class="col-md-2">
                         <label for="boxId" class="form-label">Box database ID</label>
-                        <input type="number" class="form-control" id="boxId" name="boxId" value="@ViewBag.BoxId" placeholder="e.g. 12" style="min-height: 40px;" />
+                        <input type="number" class="form-control" id="boxId" name="boxId" value="@Model.Filter.BoxId" placeholder="e.g. 12" style="min-height: 40px;" />
                     </div>
                     <div class="col-md-3">
                         <label for="actionType" class="form-label">Action Category</label>
                         <select class="form-select" id="actionType" name="actionType" style="min-height: 40px;">
                             <option value="">-- All Actions --</option>
-                            @if (ViewBag.ActionTypes != null)
+                            @foreach (var action in Model.ActionTypes)
                             {
-                                @foreach (var action in (List<string>)ViewBag.ActionTypes)
-                                {
-                                    <!option value="@action" @(ViewBag.ActionType == action ? "selected" : null)>@action</!option>
-                                }
+                                <!option value="@action" @(Model.Filter.ActionType == action ? "selected" : null)>@action</!option>
                             }
                         </select>
                     </div>
                     <div class="col-md-2">
                         <label for="fromDate" class="form-label">From Date</label>
-                        <input type="date" class="form-control" id="fromDate" name="fromDate" value="@ViewBag.FromDate" style="min-height: 40px;" />
+                        <input type="date" class="form-control" id="fromDate" name="fromDate" value="@(Model.Filter.FromDate?.ToString("yyyy-MM-dd"))" style="min-height: 40px;" />
                     </div>
                     <div class="col-md-2">
                         <label for="toDate" class="form-label">To Date</label>
-                        <input type="date" class="form-control" id="toDate" name="toDate" value="@ViewBag.ToDate" style="min-height: 40px;" />
+                        <input type="date" class="form-control" id="toDate" name="toDate" value="@(Model.Filter.ToDate?.ToString("yyyy-MM-dd"))" style="min-height: 40px;" />
                     </div>
                     <div class="col-md-3 d-flex gap-2">
                         <button type="submit" class="btn btn-secondary-custom btn-sm flex-grow-1" style="min-height: 40px; font-weight: 600;">Apply Filters</button>
@@ -192,10 +178,10 @@
     <div class="card" style="border: 1px solid var(--border); overflow: hidden;">
         <div class="card-header d-flex justify-content-between align-items-center" style="background-color: var(--surface-container-low); padding: 12px 20px;">
             <h2 class="section-title" style="margin: 0; font-size: 16px; font-weight: 700;">System Journal</h2>
-            <span class="badge-status archived" style="font-weight: 600;">@ViewBag.TotalItems record(s)</span>
+            <span class="badge-status archived" style="font-weight: 600;">@Model.TotalItems record(s)</span>
         </div>
 
-        @if (Model.Count == 0)
+        @if (Model.Items.Count == 0)
         {
             <div class="empty-state" style="padding: 48px var(--space-lg);">
                 <div class="empty-state-icon" style="margin-bottom: var(--space-sm); color: var(--secondary);">
@@ -221,7 +207,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var log in Model)
+                        @foreach (var log in Model.Items)
                         {
                             var badgeClass = log.ActionType switch
                             {
@@ -303,36 +289,36 @@
     </div>
 
     <!-- Pagination Section -->
-    @if (totalPages > 1)
+    @if (Model.TotalPages > 1)
     {
         <nav aria-label="Page navigation" class="mt-4">
             <ul class="pagination justify-content-center">
-                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                <li class="page-item @(Model.CurrentPage == 1 ? "disabled" : "")">
                     <a class="page-link" asp-action="Index"
-                       asp-route-boxId="@ViewBag.BoxId"
-                       asp-route-actionType="@ViewBag.ActionType"
-                       asp-route-fromDate="@ViewBag.FromDate"
-                       asp-route-toDate="@ViewBag.ToDate"
-                       asp-route-page="@(currentPage - 1)">Previous</a>
+                       asp-route-boxId="@Model.Filter.BoxId"
+                       asp-route-actionType="@Model.Filter.ActionType"
+                       asp-route-fromDate="@(Model.Filter.FromDate?.ToString("yyyy-MM-dd"))"
+                       asp-route-toDate="@(Model.Filter.ToDate?.ToString("yyyy-MM-dd"))"
+                       asp-route-page="@(Model.CurrentPage - 1)">Previous</a>
                 </li>
-                @for (int i = 1; i <= totalPages; i++)
+                @for (int i = 1; i <= Model.TotalPages; i++)
                 {
-                    <li class="page-item @(currentPage == i ? "active" : "")">
+                    <li class="page-item @(Model.CurrentPage == i ? "active" : "")">
                         <a class="page-link" asp-action="Index"
-                           asp-route-boxId="@ViewBag.BoxId"
-                           asp-route-actionType="@ViewBag.ActionType"
-                           asp-route-fromDate="@ViewBag.FromDate"
-                           asp-route-toDate="@ViewBag.ToDate"
+                           asp-route-boxId="@Model.Filter.BoxId"
+                           asp-route-actionType="@Model.Filter.ActionType"
+                           asp-route-fromDate="@(Model.Filter.FromDate?.ToString("yyyy-MM-dd"))"
+                           asp-route-toDate="@(Model.Filter.ToDate?.ToString("yyyy-MM-dd"))"
                            asp-route-page="@i">@i</a>
                     </li>
                 }
-                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                <li class="page-item @(Model.CurrentPage == Model.TotalPages ? "disabled" : "")">
                     <a class="page-link" asp-action="Index"
-                       asp-route-boxId="@ViewBag.BoxId"
-                       asp-route-actionType="@ViewBag.ActionType"
-                       asp-route-fromDate="@ViewBag.FromDate"
-                       asp-route-toDate="@ViewBag.ToDate"
-                       asp-route-page="@(currentPage + 1)">Next</a>
+                       asp-route-boxId="@Model.Filter.BoxId"
+                       asp-route-actionType="@Model.Filter.ActionType"
+                       asp-route-fromDate="@(Model.Filter.FromDate?.ToString("yyyy-MM-dd"))"
+                       asp-route-toDate="@(Model.Filter.ToDate?.ToString("yyyy-MM-dd"))"
+                       asp-route-page="@(Model.CurrentPage + 1)">Next</a>
                 </li>
             </ul>
         </nav>

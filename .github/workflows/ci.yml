@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Test
+        run: dotnet test --no-build -c Release --collect:"XPlat Code Coverage"
+
+      - name: NuGet vulnerability gate
+        run: dotnet list package --vulnerable --include-transitive
+
+      - name: Publish application
+        run: dotnet publish MothersonBoxManagement/MothersonBoxManagement.csproj -c Release --no-build -o artifacts/app
+
+      - name: Docker Build
+        if: matrix.os == 'ubuntu-latest'
+        run: docker build -t motherson-box-management:test .
+
+  sql-integration:
+    runs-on: ubuntu-latest
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2022-CU15-ubuntu-22.04
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_SQL_PASSWORD }}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -C"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    env:
+      MOTHERSON_TEST_SQL_CONNECTION: Server=localhost,1433;Database=master;User Id=sa;Password=${{ secrets.CI_SQL_PASSWORD }};TrustServerCertificate=True
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet test MothersonBoxManagement.Tests/MothersonBoxManagement.Tests.csproj -c Release --filter FullyQualifiedName~SqlServerIntegrationTests
+
+  package-print-agent:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build-test]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish self-contained agent
+        shell: pwsh
+        run: ./ops/deploy/build-print-agent.ps1
+      - name: Publish web app with agent
+        run: dotnet publish MothersonBoxManagement/MothersonBoxManagement.csproj -c Release -o artifacts/app-with-agent
+      - name: Verify embedded agent artifact
+        shell: pwsh
+        run: |
+          $source = "MothersonBoxManagement/App_Data/Downloads/MothersonPrintAgentSetup.exe"
+          $exe = "artifacts/app-with-agent/App_Data/Downloads/MothersonPrintAgentSetup.exe"
+          if (!(Test-Path $exe)) { throw "Print agent is missing from web publish." }
+          if ((Get-FileHash -Algorithm SHA256 $source).Hash -ne (Get-FileHash -Algorithm SHA256 $exe).Hash) { throw "Embedded agent hash mismatch." }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: motherson-app-with-print-agent
+          path: artifacts/app-with-agent

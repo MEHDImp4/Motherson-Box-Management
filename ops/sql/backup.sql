@@ -1,0 +1,6 @@
+:on error exit
+DECLARE @BackupFile nvarchar(4000) = N'$(BackupFile)';
+BACKUP DATABASE [$(DatabaseName)]
+TO DISK = @BackupFile
+WITH COPY_ONLY, CHECKSUM, COMPRESSION, INIT, STATS = 10;
+RESTORE VERIFYONLY FROM DISK = @BackupFile WITH CHECKSUM;

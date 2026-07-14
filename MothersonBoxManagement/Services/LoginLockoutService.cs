@@ -1,77 +1,144 @@
+using Microsoft.EntityFrameworkCore;
+using MothersonBoxManagement.Data;
+using MothersonBoxManagement.Entities;
 using System.Collections.Concurrent;
+using System.Data;
 
 namespace MothersonBoxManagement.Services;
 
 public interface ILoginLockoutService
 {
-    bool IsLockedOut(string matricule);
-    void RecordFailedAttempt(string matricule);
-    void ResetAttempts(string matricule);
-    int GetRemainingAttempts(string matricule);
+    Task<bool> IsLockedOutAsync(string matricule, CancellationToken cancellationToken = default);
+    Task RecordFailedAttemptAsync(string matricule, CancellationToken cancellationToken = default);
+    Task ResetAttemptsAsync(string matricule, CancellationToken cancellationToken = default);
+    Task<int> GetRemainingAttemptsAsync(string matricule, CancellationToken cancellationToken = default);
+    Task CleanupExpiredEntriesAsync(CancellationToken cancellationToken = default);
 }
 
 public class LoginLockoutService : ILoginLockoutService
 {
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> MatriculeGates =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly IServiceProvider _serviceProvider;
     private readonly int _maxAttempts;
     private readonly TimeSpan _lockoutDuration;
-    private static readonly ConcurrentDictionary<string, LoginAttemptInfo> _attempts = new();
 
-    public LoginLockoutService(IConfiguration configuration)
+    public LoginLockoutService(IServiceProvider serviceProvider, IConfiguration configuration)
     {
+        _serviceProvider = serviceProvider;
         _maxAttempts = configuration.GetValue("Security:LoginLockout:MaxAttempts", 5);
         _lockoutDuration = TimeSpan.FromMinutes(configuration.GetValue("Security:LoginLockout:LockoutMinutes", 15));
     }
 
-    public bool IsLockedOut(string matricule)
+    private ApplicationDbContext CreateDbContext()
     {
-        if (!_attempts.TryGetValue(matricule, out var info))
+        var scope = _serviceProvider.CreateScope();
+        return scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    }
+
+    public async Task<bool> IsLockedOutAsync(string matricule, CancellationToken cancellationToken = default)
+    {
+        matricule = matricule.Trim().ToUpperInvariant();
+        using var db = CreateDbContext();
+        var attempt = await db.LoginAttempts.FirstOrDefaultAsync(la => la.Matricule == matricule, cancellationToken);
+
+        if (attempt is null)
             return false;
 
-        if (info.LockoutEnd.HasValue && info.LockoutEnd.Value > DateTime.UtcNow)
+        if (attempt.LockoutEnd.HasValue && attempt.LockoutEnd.Value > DateTime.UtcNow)
             return true;
 
-        if (info.LockoutEnd.HasValue && info.LockoutEnd.Value <= DateTime.UtcNow)
+        if (attempt.LockoutEnd.HasValue && attempt.LockoutEnd.Value <= DateTime.UtcNow)
         {
-            info.FailedAttempts = 0;
-            info.LockoutEnd = null;
+            db.LoginAttempts.Remove(attempt);
+            await db.SaveChangesAsync(cancellationToken);
         }
 
         return false;
     }
 
-    public void RecordFailedAttempt(string matricule)
+    public async Task RecordFailedAttemptAsync(string matricule, CancellationToken cancellationToken = default)
     {
-        var info = _attempts.GetOrAdd(matricule, _ => new LoginAttemptInfo());
-
-        info.FailedAttempts++;
-        info.LastAttempt = DateTime.UtcNow;
-
-        if (info.FailedAttempts >= _maxAttempts)
+        var normalized = matricule.Trim().ToUpperInvariant();
+        var gate = MatriculeGates.GetOrAdd(normalized, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
         {
-            info.LockoutEnd = DateTime.UtcNow.Add(_lockoutDuration);
+            using var db = CreateDbContext();
+            await using var transaction = db.Database.IsRelational()
+                ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+                : null;
+            var attempt = await db.LoginAttempts
+                .FirstOrDefaultAsync(la => la.Matricule == normalized, cancellationToken);
+
+            if (attempt is null)
+            {
+                attempt = new LoginAttempt
+                {
+                    Matricule = normalized,
+                    FailedAttempts = 1,
+                    LastAttemptAt = DateTime.UtcNow
+                };
+                db.LoginAttempts.Add(attempt);
+            }
+            else
+            {
+                attempt.FailedAttempts++;
+                attempt.LastAttemptAt = DateTime.UtcNow;
+            }
+
+            if (attempt.FailedAttempts >= _maxAttempts)
+                attempt.LockoutEnd = DateTime.UtcNow.Add(_lockoutDuration);
+
+            await db.SaveChangesAsync(cancellationToken);
+            if (transaction is not null)
+                await transaction.CommitAsync(cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
         }
     }
 
-    public void ResetAttempts(string matricule)
+    public async Task ResetAttemptsAsync(string matricule, CancellationToken cancellationToken = default)
     {
-        _attempts.TryRemove(matricule, out _);
+        matricule = matricule.Trim().ToUpperInvariant();
+        using var db = CreateDbContext();
+        var attempt = await db.LoginAttempts.FirstOrDefaultAsync(la => la.Matricule == matricule, cancellationToken);
+        if (attempt is not null)
+        {
+            db.LoginAttempts.Remove(attempt);
+            await db.SaveChangesAsync(cancellationToken);
+        }
     }
 
-    public int GetRemainingAttempts(string matricule)
+    public async Task<int> GetRemainingAttemptsAsync(string matricule, CancellationToken cancellationToken = default)
     {
-        if (!_attempts.TryGetValue(matricule, out var info))
+        matricule = matricule.Trim().ToUpperInvariant();
+        using var db = CreateDbContext();
+        var attempt = await db.LoginAttempts.FirstOrDefaultAsync(la => la.Matricule == matricule, cancellationToken);
+
+        if (attempt is null)
             return _maxAttempts;
 
-        if (info.LockoutEnd.HasValue && info.LockoutEnd.Value > DateTime.UtcNow)
+        if (attempt.LockoutEnd.HasValue && attempt.LockoutEnd.Value > DateTime.UtcNow)
             return 0;
 
-        return Math.Max(0, _maxAttempts - info.FailedAttempts);
+        return Math.Max(0, _maxAttempts - attempt.FailedAttempts);
     }
 
-    private class LoginAttemptInfo
+    public async Task CleanupExpiredEntriesAsync(CancellationToken cancellationToken = default)
     {
-        public int FailedAttempts { get; set; }
-        public DateTime LastAttempt { get; set; }
-        public DateTime? LockoutEnd { get; set; }
+        using var db = CreateDbContext();
+        var expiryThreshold = DateTime.UtcNow.AddHours(-1);
+        var expired = await db.LoginAttempts
+            .Where(la => la.LockoutEnd.HasValue && la.LockoutEnd.Value < expiryThreshold)
+            .ToListAsync(cancellationToken);
+
+        if (expired.Count > 0)
+        {
+            db.LoginAttempts.RemoveRange(expired);
+            await db.SaveChangesAsync(cancellationToken);
+        }
     }
 }

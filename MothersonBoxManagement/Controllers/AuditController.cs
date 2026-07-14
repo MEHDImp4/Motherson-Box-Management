@@ -1,24 +1,19 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using MothersonBoxManagement.Data;
-using MothersonBoxManagement.Entities;
+using MothersonBoxManagement.Dtos;
 using MothersonBoxManagement.Security;
+using MothersonBoxManagement.Services;
 
 namespace MothersonBoxManagement.Controllers;
 
 [Authorize(Roles = $"{AppRoles.SupervisorFr},{AppRoles.AdminFr},{AppRoles.Supervisor},{AppRoles.Administrator}")]
 public class AuditController : Controller
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IAuditService _auditService;
 
-    public AuditController(ApplicationDbContext context)
+    public AuditController(IAuditService auditService)
     {
-        _context = context;
+        _auditService = auditService;
     }
 
     [HttpGet]
@@ -31,60 +26,17 @@ public class AuditController : Controller
         int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        if (page < 1) page = 1;
-        if (pageSize < 1) pageSize = 20;
-        if (pageSize > 100) pageSize = 100;
-
-        var query = _context.BoxAuditLogs
-            .Include(l => l.Box)
-            .Include(l => l.User)
-            .AsQueryable();
-
-        if (boxId.HasValue)
+        var filter = new AuditFilterDto
         {
-            query = query.Where(l => l.BoxId == boxId.Value);
-        }
+            BoxId = boxId,
+            ActionType = actionType,
+            FromDate = fromDate,
+            ToDate = toDate,
+            Page = page,
+            PageSize = pageSize
+        };
 
-        if (!string.IsNullOrWhiteSpace(actionType))
-        {
-            query = query.Where(l => l.ActionType == actionType);
-        }
-
-        if (fromDate.HasValue)
-        {
-            query = query.Where(l => l.Timestamp >= fromDate.Value);
-        }
-
-        if (toDate.HasValue)
-        {
-            var endOfDay = toDate.Value.Date.AddDays(1).AddTicks(-1);
-            query = query.Where(l => l.Timestamp <= endOfDay);
-        }
-
-        var totalItems = await query.CountAsync(cancellationToken);
-        var totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
-
-        var items = await query
-            .OrderByDescending(l => l.Timestamp)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        // Fetch distinct action types for the filter dropdown
-        ViewBag.ActionTypes = await _context.BoxAuditLogs
-            .Select(l => l.ActionType)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        ViewBag.BoxId = boxId;
-        ViewBag.ActionType = actionType;
-        ViewBag.FromDate = fromDate?.ToString("yyyy-MM-dd");
-        ViewBag.ToDate = toDate?.ToString("yyyy-MM-dd");
-        ViewBag.CurrentPage = page;
-        ViewBag.TotalPages = totalPages;
-        ViewBag.TotalItems = totalItems;
-        ViewBag.PageSize = pageSize;
-
-        return View(items);
+        var model = await _auditService.GetAuditLogsAsync(filter, cancellationToken);
+        return View(model);
     }
 }

@@ -1,50 +1,59 @@
-@model MothersonBoxManagement.ViewModels.HomeViewModel
+@model MothersonBoxManagement.Models.HomeViewModel
 @{
     ViewData["Title"] = "Dashboard";
+    var canOpenNewBox = Model.Role == "Operator"
+        || Model.Role == "Supervisor"
+        || Model.Role == "Superviseur"
+        || Model.Role == "Administrator"
+        || Model.Role == "Admin";
+    var canManageTemplates = Model.Role == "Supervisor"
+        || Model.Role == "Superviseur"
+        || Model.Role == "Administrator"
+        || Model.Role == "Admin";
 }
 
 <div class="container" style="padding-top: var(--space-md);">
     <!-- Welcome Header / User Profile summary -->
     <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2" style="background-color: var(--surface-container-lowest); border: 1px solid var(--border); padding: 16px 24px; border-radius: var(--radius-lg);">
         <div>
-            <h1 class="headline-md mb-1" style="color: var(--on-surface); margin: 0;">Welcome, <strong style="color: var(--primary);">@Model.Matricule</strong></h1>
-            <span class="label-md">Station Terminal: @Environment.MachineName</span>
+            <h1 class="headline-md mb-1" style="color: var(--on-surface); margin: 0;">Welcome, <strong style="color: var(--primary);">@Model.FullName</strong></h1>
+            <span class="label-md">Station Terminal: <strong data-station-terminal>Not configured</strong></span>
         </div>
-        <span class="badge-status @(Model.Role == "Administrator" ? "cancelled" : Model.Role == "Supervisor" ? "blocked" : "open")" style="font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: var(--radius-md);">
-            Role: @Model.Role
-        </span>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            @if (canOpenNewBox)
+            {
+                <a asp-controller="Dashboard"
+                   asp-action="Templates"
+                   class="btn btn-primary-custom btn-sm"
+                   style="min-height: 34px; padding: 0 14px; font-size: 12px; font-weight: 700;">
+                    Open New Box
+                </a>
+            }
+            @if (canManageTemplates)
+            {
+            <a asp-controller="BoxTemplate" asp-action="Index" class="btn btn-outline-custom btn-sm" style="min-height: 34px; padding: 0 14px; font-size: 12px; font-weight: 700;">
+                Manage Templates
+            </a>
+            }
+            <span class="badge-status @(Model.Role == "Administrator" || Model.Role == "Admin" ? "cancelled" : Model.Role == "Supervisor" || Model.Role == "Superviseur" ? "blocked" : "open")" style="font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: var(--radius-md);">
+                Role: @Model.Role
+            </span>
+        </div>
     </div>
 
-    <!-- Main Entry Actions (Create Box vs Scan Box Lookup) -->
+    <!-- Scan Box Lookup -->
     <div class="row g-4 mb-4">
-        <!-- 1/3 Hero for Add Box -->
-        <div class="col-lg-4 col-md-5">
-            <div class="card h-100 text-center" style="border: 2px solid var(--border); background-color: var(--surface-container-lowest);">
-                <div class="card-body d-flex flex-column align-items-center justify-content-center" style="padding: 32px 24px;">
-                    <a asp-controller="Box" asp-action="Create" class="btn btn-primary-custom" 
-                       style="width: 84px; height: 84px; border-radius: 50%; font-size: 32px; padding: 0; min-height: auto; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; border: none; background-color: var(--primary); transition: transform 0.2s;"
-                       onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"
-                       aria-label="Create new box">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    </a>
-                    <h3 class="headline-md" style="margin-bottom: 8px; font-size: 18px; font-weight: 700;">Create Box</h3>
-                    <p class="body-md text-muted" style="margin: 0; max-width: 220px; line-height: 1.4;">Open a new packaging box for cable package scanning</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- 2/3 Hero for Scan Box lookup -->
-        <div class="col-lg-8 col-md-7">
+        <div class="col-12">
             <div class="card h-100" style="border: 1px solid var(--border);">
                 <div class="card-body d-flex flex-column justify-content-center" style="padding: 32px 24px;">
                     <h3 class="headline-md" style="margin-bottom: 8px; font-size: 18px; font-weight: 700;">Scan an Existing Box</h3>
-                    <p class="body-md text-muted" style="margin-bottom: 16px;">Scan a box barcode (format: <code>BOX-YYYYMMDD-XXXXXX</code>) to continue preparation or view details</p>
+                    <p class="body-md text-muted" style="margin-bottom: 16px;">Scan a box barcode to continue preparation or view details</p>
                     
                     <form asp-action="Index" method="post">
                         <div class="scan-input-wrapper">
                             <div class="input-group">
                                 <input asp-for="Barcode" type="text" class="form-control" id="barcodeInput"
-                                       placeholder="Scan box barcode or enter manually..." autofocus
+                                       placeholder="Scan box barcode or enter manually..."
                                        style="font-size: 16px; min-height: 52px; border-right: none;" />
                                 <button type="submit" class="btn btn-secondary-custom" style="min-height: 52px; padding: 0 28px; border-top-left-radius: 0; border-bottom-left-radius: 0;">
                                     Search Box
@@ -70,13 +79,121 @@
         </div>
     </div>
 
+    @if (Model.ScannedBox != null)
+    {
+        <div class="card mb-4" style="border: 2px solid var(--status-blocked); background-color: var(--surface-container-lowest);">
+            <div class="card-header" style="background-color: var(--status-blocked-bg); font-weight: 700; color: var(--status-blocked);">
+                Blocked Box — Quarantine
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="info-row">
+                            <span class="info-row-label">Box Number</span>
+                            <span class="info-row-value"><strong>@Model.ScannedBox.BoxNumber</strong></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-row">
+                            <span class="info-row-label">Status</span>
+                            <span class="info-row-value"><span class="badge-status blocked">Blocked</span></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-row">
+                            <span class="info-row-label">Fill Status</span>
+                            <span class="info-row-value">@Model.ScannedBox.CurrentQuantity / @Model.ScannedBox.ExpectedQuantity packages</span>
+                        </div>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.ScannedBox.BlockReason))
+                {
+                    <div class="alert alert-danger mt-3 mb-0" style="padding: 10px 16px; border-radius: var(--radius-md); font-size: 13px;">
+                        <strong>Quarantine Reason:</strong> @Model.ScannedBox.BlockReason
+                    </div>
+                }
+                <div class="mt-3">
+                    <a asp-controller="Box" asp-action="Details" asp-route-barcode="@Model.ScannedBox.BarcodeValue"
+                       class="btn btn-outline-custom btn-sm" style="min-height: 36px; padding: 0 16px; font-size: 13px;">
+                        View Box Details
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Pending Boxes (Created, waiting to be opened) -->
+    @if (Model.CreatedBoxes.Count > 0)
+    {
+        <div class="d-flex align-items-center justify-content-between mb-3 mt-5">
+            <h2 class="section-title" style="margin-bottom: 0; font-size: 18px; font-weight: 700;">Pending Boxes — To Open</h2>
+            <span class="badge-status open" style="font-weight: 600;">@Model.CreatedBoxes.Count pending</span>
+        </div>
+
+        <div class="card mb-4" style="border: 1px solid var(--border); overflow: hidden;">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Box Number</th>
+                            <th>Type</th>
+                            <th>Dimensions</th>
+                            <th>Expected Qty</th>
+                            <th>Created</th>
+                            <th class="text-end" style="padding-right: var(--space-lg);">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var box in Model.CreatedBoxes)
+                        {
+                            <tr>
+                                <td>
+                                    <strong style="font-size: 13px; color: var(--on-surface);">@box.BoxNumber</strong>
+                                </td>
+                                <td>
+                                    <span class="label-md" style="font-weight: 600; text-transform: uppercase;">@box.Type</span>
+                                </td>
+                                <td>
+                                    <span style="font-size: 13px; color: var(--secondary);">—</span>
+                                </td>
+                                <td>
+                                    <span style="font-weight: 700; color: var(--on-surface);">@box.ExpectedQuantity</span>
+                                </td>
+                                <td>
+                                    <span style="font-size: 13px; color: var(--secondary);">@box.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                </td>
+                                <td class="text-end" style="padding-right: var(--space-lg);">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <form asp-controller="Box" asp-action="Open" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="boxId" value="@box.Id" />
+                                            <input type="hidden" name="boxBarcode" value="@box.BarcodeValue" />
+                                            <button type="submit" class="btn btn-primary-custom btn-sm"
+                                                    style="min-height: 36px; padding: 0 16px; font-size: 13px;">
+                                                Open & Print QR
+                                            </button>
+                                        </form>
+                                        <a asp-controller="Box" asp-action="Details" asp-route-barcode="@box.BarcodeValue"
+                                           class="btn btn-outline-custom btn-sm" style="min-height: 36px; padding: 0 16px; font-size: 13px;">
+                                            Details
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
     <!-- Active Open Boxes list -->
     <div class="d-flex align-items-center justify-content-between mb-3 mt-5">
         <h2 class="section-title" style="margin-bottom: 0; font-size: 18px; font-weight: 700;">Active Open Boxes</h2>
-        <span class="badge-status archived" style="font-weight: 600;">@Model.OpenBoxes.Count active box(es)</span>
+        <span class="badge-status archived" style="font-weight: 600;">@Model.TotalOpenBoxesCount active box(es)</span>
     </div>
 
-    @if (Model.OpenBoxes.Count == 0)
+    @if (Model.TotalOpenBoxesCount == 0)
     {
         <div class="card" style="border: 1px solid var(--border);">
             <div class="empty-state" style="padding: var(--space-xl) var(--space-lg);">
@@ -84,8 +201,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="12" y1="12" x2="12" y2="21"/></svg>
                 </div>
                 <h3 class="empty-state-title">No Active Boxes</h3>
-                <p class="empty-state-text">There are currently no open boxes in the workspace. Create a box above to start preparation.</p>
-                <a asp-controller="Box" asp-action="Create" class="btn btn-primary-custom" style="min-height: 44px; padding: 0 24px;">Create Box</a>
+                <p class="empty-state-text">Use the Open New Box page to choose a template and start a new box for preparation.</p>
             </div>
         </div>
     }
@@ -151,12 +267,8 @@
                                 </td>
                                 <td class="text-end" style="padding-right: var(--space-lg);">
                                     <div class="d-flex gap-2 justify-content-end">
-                                        <a asp-controller="Box" asp-action="Prepare" asp-route-barcode="@box.BarcodeValue"
-                                           class="btn btn-primary-custom btn-sm" style="min-height: 36px; padding: 0 16px; font-size: 13px;">
-                                            Prepare
-                                        </a>
                                         <a asp-controller="Box" asp-action="Details" asp-route-barcode="@box.BarcodeValue"
-                                           class="btn btn-outline-custom btn-sm" style="min-height: 36px; padding: 0 16px; font-size: 13px;">
+                                           class="btn btn-primary-custom btn-sm" style="min-height: 36px; padding: 0 16px; font-size: 13px;">
                                             Details
                                         </a>
                                     </div>
@@ -166,19 +278,97 @@
                     </tbody>
                 </table>
             </div>
+
+            @if (Model.OpenBoxesTotalPages > 1)
+            {
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3"
+                     style="padding: 16px 24px; border-top: 1px solid var(--border); background-color: var(--surface-container-lowest);">
+                    <div class="label-md" style="font-weight: 600;">
+                        Showing @Model.OpenBoxesRangeStart-@Model.OpenBoxesRangeEnd of @Model.TotalOpenBoxesCount open boxes
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap justify-content-md-end">
+                        @if (Model.HasPreviousOpenBoxesPage)
+                        {
+                            <a asp-action="Index" asp-route-page="@(Model.CurrentOpenBoxesPage - 1)"
+                               class="btn btn-outline-custom btn-sm"
+                               style="min-height: 36px; padding: 0 14px; font-size: 13px;">
+                                Previous
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="btn btn-outline-custom btn-sm disabled"
+                                  aria-disabled="true"
+                                  style="min-height: 36px; padding: 0 14px; font-size: 13px; opacity: 0.55; pointer-events: none;">
+                                Previous
+                            </span>
+                        }
+
+                        <span class="badge-status archived" style="font-weight: 700;">
+                            Page @Model.CurrentOpenBoxesPage / @Model.OpenBoxesTotalPages
+                        </span>
+
+                        @if (Model.HasNextOpenBoxesPage)
+                        {
+                            <a asp-action="Index" asp-route-page="@(Model.CurrentOpenBoxesPage + 1)"
+                               class="btn btn-outline-custom btn-sm"
+                               style="min-height: 36px; padding: 0 14px; font-size: 13px;">
+                                Next
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="btn btn-outline-custom btn-sm disabled"
+                                  aria-disabled="true"
+                                  style="min-height: 36px; padding: 0 14px; font-size: 13px; opacity: 0.55; pointer-events: none;">
+                                Next
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
         </div>
     }
 </div>
 
-@section Scripts {
-    <script>
-        // Automatic refresh script to keep terminal updated, runs if user is idle
-        setInterval(function () {
-            var activeElement = document.activeElement;
-            var barcodeInput = document.getElementById("barcodeInput");
-            if (activeElement !== barcodeInput || (barcodeInput && barcodeInput.value === "")) {
-                location.reload();
-            }
-        }, 30000);
-    </script>
-}
+<!-- Scan Simulator (no hardware) -->
+<div id="simToggleBtn" onclick="toggleSimulator()" style="position:fixed;bottom:16px;right:16px;z-index:9998;background:var(--primary);color:#fff;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;font-weight:700;box-shadow:0 2px 12px rgba(0,0,0,0.3);user-select:none;" title="Scan Simulator">
+    &#9992;
+</div>
+<div id="simPanel" style="display:none;position:fixed;bottom:72px;right:16px;z-index:9999;width:300px;background:var(--surface-container-lowest);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.2);padding:14px;">
+    <div style="font-weight:700;font-size:13px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+        Scan Simulator
+        <span onclick="toggleSimulator()" style="cursor:pointer;font-size:18px;line-height:1;">&times;</span>
+    </div>
+    <input type="text" id="simBarcodeInput" class="form-control" placeholder="Enter barcode..." style="min-height:40px;font-size:13px;margin-bottom:8px;" />
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-primary-custom btn-sm flex-grow-1" onclick="injectSimScan()" style="font-size:12px;">Scan</button>
+        <select id="simPreset" class="form-select form-select-sm" onchange="document.getElementById('simBarcodeInput').value=this.value;" style="font-size:11px;width:auto;">
+            <option value="">--</option>
+            <option value="PKG-TEST-SIM-001">Test package 1</option>
+            <option value="PKG-TEST-SIM-002">Test package 2</option>
+        </select>
+    </div>
+</div>
+
+<script>
+    function toggleSimulator() {
+        var el = document.getElementById('simPanel');
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+    function injectSimScan() {
+        var bc = document.getElementById('simBarcodeInput').value.trim();
+        if (bc && window.simulateScan) {
+            window.simulateScan(bc);
+        }
+        document.getElementById('simBarcodeInput').value = '';
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        var simInput = document.getElementById('simBarcodeInput');
+        if (simInput) {
+            simInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); injectSimScan(); }
+            });
+        }
+    });
+</script>

@@ -58,8 +58,8 @@ Open [http://localhost:8080](http://localhost:8080), or the port you configured 
 On startup, the app:
 
 - connects to SQL Server
-- applies EF Core migrations
-- seeds test users through `DbInitializer.SeedAsync()`
+- applies EF Core migrations in `Development`
+- seeds local test users through `DbInitializer.SeedAsync()` in `Development`
 
 ## Option 2: Run locally without Docker
 
@@ -115,15 +115,15 @@ Open the URL shown in the terminal, commonly [http://localhost:5169](http://loca
 
 ## Seeded development accounts
 
-The application creates these local accounts on first startup:
+The application creates these local accounts on first startup in `Development`:
 
-| Matricule | Role | Password |
-| --- | --- | --- |
-| `OP001` | Operator | `Motherson2026!` |
-| `SP001` | Supervisor | `Motherson2026!` |
-| `AD001` | Administrator | `Motherson2026!` |
+| Matricule | Role |
+| --- | --- |
+| `OP001` | Operator |
+| `SP001` | Supervisor |
+| `AD001` | Administrator |
 
-Existing users are not overwritten if they are already present in the database.
+Existing users are not overwritten if they are already present in the database. Development seed credentials are local/test-only and must not be enabled in production.
 
 ## First verification checklist
 
@@ -157,7 +157,7 @@ dotnet ef database update --project MothersonBoxManagement --startup-project Mot
 
 ### Test accounts do not appear
 
-`DbInitializer.SeedAsync()` only inserts missing accounts. If users already exist, the seed step will skip them.
+`DbInitializer.SeedAsync()` only runs in `Development` or when `SeedDemoUsers=true`, and only inserts missing accounts. If users already exist, the seed step will skip them.
 
 ## Project layout
 

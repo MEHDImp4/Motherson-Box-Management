@@ -1,0 +1,9 @@
+@model int
+<a class="sidebar-link" asp-controller="Users" asp-action="PasswordResetRequests" title="Password reset requests">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="sidebar-link-icon"><path d="M12 1v4m0 14v4M4.22 4.22l2.83 2.83m9.9 9.9 2.83 2.83M1 12h4m14 0h4M4.22 19.78l2.83-2.83m9.9-9.9 2.83-2.83"/><circle cx="12" cy="12" r="4"/></svg>
+    <span>Password resets</span>
+    @if (Model > 0)
+    {
+        <span class="badge bg-danger ms-auto" aria-label="@Model pending password reset request(s)">@Model</span>
+    }
+</a>

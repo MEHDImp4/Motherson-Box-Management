@@ -1,0 +1,20 @@
+{
+  "doc_path": "docs/TESTING.md",
+  "claims_checked": 35,
+  "claims_passed": 33,
+  "claims_failed": 2,
+  "failures": [
+    {
+      "line": 64,
+      "claim": "Test project tree listing is complete — missing HomeControllerTests.cs which exists in the repo",
+      "expected": "Tree listing at lines 64-78 to include all .cs files in MothersonBoxManagement.Tests/",
+      "actual": "HomeControllerTests.cs exists in the test project but is omitted from the tree structure"
+    },
+    {
+      "line": 218,
+      "claim": "Hashage de mot de passe : 9 cas de test vérifiant PasswordHasher<User>",
+      "expected": "9 InlineData entries for PasswordHashing_Theories",
+      "actual": "10 InlineData entries found in AdditionalTests.cs (lines 95-104): Motherson2026!/Motherson2026!, Motherson2026!/motherson2026!, Password123/Password123, Password123/WrongPassword, AdminPassword/AdminPassword, AdminPassword/empty, empty/empty, spaces/spaces, Short/Short, SuperLongPassword.../SuperLongPassword..."
+    }
+  ]
+}

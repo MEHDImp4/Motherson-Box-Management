@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using MothersonBoxManagement.Data;
-using MothersonBoxManagement.Data.Dtos;
+using MothersonBoxManagement.Dtos;
 using MothersonBoxManagement.Entities;
 using MothersonBoxManagement.Services;
 using Xunit;
@@ -69,7 +69,9 @@ public class UniqueConstraintSimulatingInterceptor : SaveChangesInterceptor
                 if (_seenBarcodes.Contains(pkg.PackageBarcode))
                 {
                     var inner = new Exception("IX_BoxPackages_PackageBarcode");
-                    throw new DbUpdateException("Duplicate package barcode unique index violation.", inner);
+                    var exception = new DbUpdateException("Duplicate package barcode unique index violation.", inner);
+                    exception.Data[PackageScanService.SqlServerErrorNumberDataKey] = 2601;
+                    throw exception;
                 }
                 _seenBarcodes.Add(pkg.PackageBarcode);
             }
@@ -81,6 +83,22 @@ public class UniqueConstraintSimulatingInterceptor : SaveChangesInterceptor
 
 public class ConcurrencyTests
 {
+    [Theory]
+    [InlineData(2601, true)]
+    [InlineData(2627, true)]
+    [InlineData(1205, false)]
+    [InlineData(0, false)]
+    public void UniqueConstraintClassification_UsesSqlServerErrorNumbers(int errorNumber, bool expected)
+    {
+        Assert.Equal(expected, PackageScanService.IsUniqueConstraintViolationNumber(errorNumber));
+    }
+
+    private static PackageScanService CreatePackageScanService(ApplicationDbContext db)
+    {
+        var barcodeService = new BarcodeService(db);
+        return new PackageScanService(db, barcodeService, new AuditService(db), new BoxService(db, barcodeService));
+    }
+
     [Fact]
     public async Task ScanPackage_RetryOnConcurrencyConflict_Succeeds()
     {
@@ -110,7 +128,7 @@ public class ConcurrencyTests
         {
             BoxNumber = "BOX-CONCURRENCY-001",
             BarcodeValue = "BOX-CONCURRENCY-001",
-            Type = BoxType.Carton,
+            Type = BoxType.Cardboard,
             Height = 10,
             Width = 10,
             Depth = 10,
@@ -123,7 +141,7 @@ public class ConcurrencyTests
         db.Boxes.Add(box);
         await db.SaveChangesAsync();
 
-        var boxService = new PackageScanService(db, new BarcodeService(db), new AuditService(db));
+        var boxService = CreatePackageScanService(db);
 
         // Activate concurrency exception simulation for 1 save
         interceptor.FailuresCount = 1;
@@ -133,7 +151,7 @@ public class ConcurrencyTests
 
         // Assert
         Assert.True(result.Success);
-        Assert.Contains("1/5 packages", result.Message);
+        Assert.Contains("Package successfully added", result.Message);
         
         var updatedBox = await db.Boxes.Include(b => b.Packages).FirstOrDefaultAsync(b => b.Id == box.Id);
         Assert.NotNull(updatedBox);
@@ -170,7 +188,7 @@ public class ConcurrencyTests
         {
             BoxNumber = "BOX-CONCURRENCY-002",
             BarcodeValue = "BOX-CONCURRENCY-002",
-            Type = BoxType.Carton,
+            Type = BoxType.Cardboard,
             Height = 10,
             Width = 10,
             Depth = 10,
@@ -183,7 +201,7 @@ public class ConcurrencyTests
         db.Boxes.Add(box);
         await db.SaveChangesAsync();
 
-        var boxService = new PackageScanService(db, new BarcodeService(db), new AuditService(db));
+        var boxService = CreatePackageScanService(db);
         
         const string duplicateBarcode = "PKG-CONC-DUPLICATE";
         
@@ -197,7 +215,7 @@ public class ConcurrencyTests
                 // Each task needs its own DbContext and service instance to run concurrently
                 using var taskScope = serviceProvider.CreateScope();
                 var taskDb = taskScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var taskBoxService = new PackageScanService(taskDb, new BarcodeService(taskDb), new AuditService(taskDb));
+                var taskBoxService = CreatePackageScanService(taskDb);
                 return await taskBoxService.ScanPackageAsync(box.Id, duplicateBarcode, user.Id, "TEST-STATION");
             }));
         }
@@ -213,7 +231,7 @@ public class ConcurrencyTests
 
         foreach (var failure in failedScans)
         {
-            Assert.Contains("This package barcode has already been scanned.", failure.Message);
+            Assert.Contains("This package is already associated", failure.Message);
         }
     }
 }

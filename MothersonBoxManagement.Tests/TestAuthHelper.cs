@@ -32,10 +32,4 @@ public static class TestAuthHelper
 
         return client;
     }
-
-    public static StringContent ToJsonContent<T>(this T obj)
-    {
-        var json = System.Text.Json.JsonSerializer.Serialize(obj);
-        return new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-    }
 }

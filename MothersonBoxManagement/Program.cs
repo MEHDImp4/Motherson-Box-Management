@@ -1,27 +1,46 @@
-using System.IO.Compression;
-using System.Security.Claims;
-using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Console;
+using MothersonBoxManagement.Configuration;
 using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Entities;
 using MothersonBoxManagement.Security;
 using MothersonBoxManagement.Services;
+using System.Security.Cryptography.X509Certificates;
+using Microsoft.AspNetCore.DataProtection;
+using MothersonBoxManagement.Printing;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.ValidateProductionConfiguration();
+
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.ColorBehavior = LoggerColorBehavior.Enabled;
+    options.SingleLine = true;
+    options.TimestampFormat = "HH:mm:ss ";
+    options.UseUtcTimestamp = true;
+});
 
 builder.Services.AddControllersWithViews();
+var keyPath = builder.Configuration["DataProtection:KeyPath"];
+if (!string.IsNullOrWhiteSpace(keyPath))
+{
+    var dataProtection = builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(keyPath))
+        .SetApplicationName("MothersonBoxManagement");
+    if (builder.Environment.IsProduction())
+    {
+        dataProtection.ProtectKeysWithCertificate(new X509Certificate2(
+            builder.Configuration["DataProtection:CertificatePath"]!,
+            builder.Configuration["DataProtection:CertificatePassword"]!));
+    }
+}
 builder.Services.AddAntiforgery(options => { options.HeaderName = "X-CSRF-TOKEN"; });
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy(AppRoles.PolicyNames.SupervisorOrAdmin, policy =>
-        policy.RequireRole(
-            AppRoles.SupervisorFr, AppRoles.AdminFr,
-            AppRoles.Supervisor, AppRoles.Administrator));
+    options.AddPolicy("SupervisorOrAdministrator", policy =>
+        policy.RequireRole(AppRoles.Supervisor, AppRoles.SupervisorFr, AppRoles.Administrator, AppRoles.AdminFr));
 });
 
 builder.Services.AddHttpContextAccessor();
@@ -38,61 +57,22 @@ builder.Services.AddScoped<IBarcodeService, BarcodeService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IPackageScanService, PackageScanService>();
 builder.Services.AddScoped<IBoxService, BoxService>();
+builder.Services.AddScoped<IBoxQueryService>(sp => (BoxService)sp.GetRequiredService<IBoxService>());
+builder.Services.AddScoped<IBoxLifecycleService>(sp => (BoxService)sp.GetRequiredService<IBoxService>());
+builder.Services.AddScoped<IBoxPackageService>(sp => (BoxService)sp.GetRequiredService<IBoxService>());
+builder.Services.AddScoped<IBoxTemplateService, BoxTemplateService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 builder.Services.AddScoped<IWorkstationResolver, WorkstationResolver>();
-builder.Services.AddScoped<ILoginLockoutService, LoginLockoutService>();
+builder.Services.AddSingleton<ILoginLockoutService, LoginLockoutService>();
+builder.Services.AddHostedService<LoginLockoutCleanupService>();
+builder.Services.AddScoped<IQrCodeService, QrCodeService>();
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<IPrintAgentService, PrintAgentService>();
 
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
-    options.AddPolicy("login", httpContext =>
-    {
-        var matricule = httpContext.Request.Form["Matricule"].FirstOrDefault() ?? "unknown";
-        return RateLimitPartition.GetTokenBucketLimiter(matricule, _ => new TokenBucketRateLimiterOptions
-        {
-            TokenLimit = 5,
-            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-            QueueLimit = 0,
-            ReplenishmentPeriod = TimeSpan.FromMinutes(1),
-            TokensPerPeriod = 5,
-            AutoReplenishment = true
-        });
-    });
-
-    options.AddPolicy("scan", httpContext =>
-    {
-        var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
-        return RateLimitPartition.GetFixedWindowLimiter(userId, _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 60,
-            Window = TimeSpan.FromMinutes(1)
-        });
-    });
-
-    options.AddPolicy("global", _ =>
-        RateLimitPartition.GetFixedWindowLimiter("global", _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 200,
-            Window = TimeSpan.FromMinutes(1)
-        }));
-});
-
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.Cookie.Name = "Motherson.BoxManagement.Auth";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
-    ? CookieSecurePolicy.SameAsRequest
-    : CookieSecurePolicy.Always;
-        options.SlidingExpiration = true;
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
-        options.LoginPath = "/Account/Login";
-        options.AccessDeniedPath = "/Account/Login";
-    });
+builder.Services.AddAppRateLimiting();
+builder.Services.AddAppAuthentication(builder.Environment);
 
 var app = builder.Build();
 
@@ -113,19 +93,23 @@ app.UseStatusCodePagesWithReExecute("/Dashboard/Error/{0}");
 
 app.UseRateLimiter();
 
-app.Use(async (context, next) =>
-{
-    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Append("X-Frame-Options", "DENY");
-    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-    context.Response.Headers.Append("X-XSS-Protection", "0");
-    context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-    await next();
-});
+app.UseSecurityHeaders();
 
 app.UseRouting();
 
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    if (context.User.Identity?.IsAuthenticated == true &&
+        context.User.HasClaim("MustChangePassword", "true") &&
+        !context.Request.Path.StartsWithSegments("/Account/ChangePassword") &&
+        !context.Request.Path.StartsWithSegments("/Account/Logout"))
+    {
+        context.Response.Redirect("/Account/ChangePassword");
+        return;
+    }
+    await next();
+});
 app.UseAuthorization();
 
 app.MapControllerRoute(
@@ -133,15 +117,24 @@ app.MapControllerRoute(
     pattern: "{controller=Dashboard}/{action=Index}/{id?}")
     .RequireRateLimiting("global");
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    if (db.Database.IsRelational())
-        await db.Database.MigrateAsync();
-    else
-        await db.Database.EnsureCreatedAsync();
+app.MapGet("/health/live", () => Results.Ok(new { status = "Healthy" })).AllowAnonymous();
 
-    await DbInitializer.SeedAsync(db);
+async Task<IResult> Readiness(ApplicationDbContext db, CancellationToken cancellationToken)
+{
+    if (!db.Database.IsRelational())
+        return Results.Ok(new { status = "Healthy" });
+
+    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+    timeout.CancelAfter(TimeSpan.FromSeconds(3));
+    var canConnect = await db.Database.CanConnectAsync(timeout.Token);
+    return canConnect
+        ? Results.Ok(new { status = "Healthy" })
+        : Results.Problem("Database is unavailable.", statusCode: StatusCodes.Status503ServiceUnavailable);
 }
+
+app.MapGet("/health", Readiness).AllowAnonymous();
+app.MapGet("/health/ready", Readiness).AllowAnonymous();
+
+await app.InitializeDatabaseAsync();
 
 app.Run();

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MothersonBoxManagement.Data;
-using MothersonBoxManagement.Data.Dtos;
+using MothersonBoxManagement.Dtos;
 using MothersonBoxManagement.Entities;
 using MothersonBoxManagement.Services;
 using System;
@@ -43,24 +43,26 @@ public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactor
         // Create Source Box
         var sourceBoxDto = new CreateBoxDto
         {
-            Type = BoxType.Carton,
+            Type = BoxType.Cardboard,
             Height = 10,
             Width = 10,
             Depth = 10,
             ExpectedQuantity = 5
         };
         var sourceBox = await boxService.CreateBoxAsync(sourceBoxDto, opUser.Id);
+        await boxService.OpenBoxAsync(sourceBox.Id, opUser.Id, "TEST-STATION");
 
         // Create Destination Box
         var destBoxDto = new CreateBoxDto
         {
-            Type = BoxType.Plastique,
+            Type = BoxType.Plastic,
             Height = 10,
             Width = 10,
             Depth = 10,
             ExpectedQuantity = 5
         };
         var destBox = await boxService.CreateBoxAsync(destBoxDto, opUser.Id);
+        await boxService.OpenBoxAsync(destBox.Id, opUser.Id, "TEST-STATION");
 
         // Scan package in source box
         var scanResult = await packageScanService.ScanPackageAsync(sourceBox.Id, "PKG-TRANSFER-TEST-001", opUser.Id, "TEST-STATION");
@@ -86,12 +88,19 @@ public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactor
         Assert.Equal("Transfer testing reason", sourceBoxDetailsAfter.ExceptionReason);
         Assert.Equal("Transfer testing reason", destBoxDetailsAfter.ExceptionReason);
 
-        // Assert - Audit Log triggers
-        var auditLogs = db.BoxAuditLogs.ToList();
-        Assert.NotEmpty(auditLogs);
-        
-        var transferLogs = auditLogs.Where(l => l.DetailsJson != null && l.DetailsJson.Contains("PKG-TRANSFER-TEST-001")).ToList();
-        Assert.NotEmpty(transferLogs);
+        // Assert - exactly one dedicated transfer event contains the full business context.
+        var transferLog = await db.BoxAuditLogs
+            .SingleAsync(log => log.ActionType == "PackageTransferred");
+
+        Assert.Equal(sourceBox.Id, transferLog.BoxId);
+        Assert.Equal("PKG-TRANSFER-TEST-001", transferLog.PackageBarcode);
+        Assert.Equal(spUser.Id, transferLog.UserId);
+        Assert.Equal("TEST-STATION", transferLog.WorkstationName);
+        Assert.Equal("Transfer testing reason", transferLog.Reason);
+        Assert.Equal(sourceBox.Id.ToString(), transferLog.PreviousValue);
+        Assert.Equal(destBox.Id.ToString(), transferLog.NewValue);
+        Assert.Contains(sourceBox.BoxNumber, transferLog.DetailsJson);
+        Assert.Contains(destBox.BoxNumber, transferLog.DetailsJson);
     }
     
     [Fact]
@@ -110,7 +119,7 @@ public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactor
 
         var boxDto = new CreateBoxDto
         {
-            Type = BoxType.Carton,
+            Type = BoxType.Cardboard,
             Height = 10,
             Width = 10,
             Depth = 10,
@@ -144,8 +153,9 @@ public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactor
         var opUser = db.Users.First(u => u.Matricule == "OP001");
         var spUser = db.Users.First(u => u.Matricule == "SP001");
 
-        var boxDto = new CreateBoxDto { Type = BoxType.Carton, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 5 };
+        var boxDto = new CreateBoxDto { Type = BoxType.Cardboard, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 5 };
         var box = await boxService.CreateBoxAsync(boxDto, opUser.Id);
+        await boxService.OpenBoxAsync(box.Id, opUser.Id, "TEST-STATION");
 
         // Act - Block Box
         var blockedBox = await boxService.BlockBoxAsync(box.Id, "Investigating contents", spUser.Id, "TEST-STATION");
@@ -156,6 +166,54 @@ public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactor
         var unblockedBox = await boxService.UnblockBoxAsync(box.Id, "Investigation complete", spUser.Id, "TEST-STATION");
         Assert.Equal(BoxStatus.Open, unblockedBox.Status);
         Assert.Null(unblockedBox.BlockReason);
+    }
+
+    [Fact]
+    public async Task BlockPackage_ExcludesItFromValidQuantity_AndUnblockRestoresCompletion()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var packageScanService = scope.ServiceProvider.GetRequiredService<IPackageScanService>();
+
+        db.BoxPackages.RemoveRange(db.BoxPackages);
+        db.Boxes.RemoveRange(db.Boxes);
+        await db.SaveChangesAsync();
+
+        var operatorUser = db.Users.First(user => user.Matricule == "OP001");
+        var supervisor = db.Users.First(user => user.Matricule == "SP001");
+        var box = await boxService.CreateBoxAsync(new CreateBoxDto
+        {
+            Type = BoxType.Cardboard,
+            Height = 10,
+            Width = 10,
+            Depth = 10,
+            ExpectedQuantity = 1
+        }, operatorUser.Id);
+        await boxService.OpenBoxAsync(box.Id, operatorUser.Id, "TEST-STATION");
+        var scan = await packageScanService.ScanPackageAsync(
+            box.Id, "PKG-QUARANTINE-001", operatorUser.Id, "TEST-STATION");
+        Assert.True(scan.Success);
+        Assert.Equal(BoxStatus.Completed, scan.Box!.Status);
+
+        var package = await db.BoxPackages.SingleAsync(p => p.PackageBarcode == "PKG-QUARANTINE-001");
+        var blocked = await boxService.BlockPackageAsync(
+            package.Id, "Quality hold", supervisor.Id, "QA-STATION");
+
+        Assert.Equal(0, blocked.CurrentQuantity);
+        Assert.Equal(BoxStatus.Open, blocked.Status);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            boxService.BlockPackageAsync(package.Id, "Repeated hold", supervisor.Id, "QA-STATION"));
+
+        var unblocked = await boxService.UnblockPackageAsync(
+            package.Id, "Quality approved", supervisor.Id, "QA-STATION");
+
+        Assert.Equal(1, unblocked.CurrentQuantity);
+        Assert.Equal(BoxStatus.Completed, unblocked.Status);
+        var completedBox = await db.Boxes.AsNoTracking().SingleAsync(candidate => candidate.Id == box.Id);
+        Assert.Equal(supervisor.Id, completedBox.CompletedByUserId);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            boxService.UnblockPackageAsync(package.Id, "Repeated approval", supervisor.Id, "QA-STATION"));
     }
 
     [Fact]
@@ -171,8 +229,9 @@ public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactor
 
         var opUser = db.Users.First(u => u.Matricule == "OP001");
 
-        var box1 = await boxService.CreateBoxAsync(new CreateBoxDto { Type = BoxType.Carton, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 5 }, opUser.Id);
-        var box2 = await boxService.CreateBoxAsync(new CreateBoxDto { Type = BoxType.Bois, Height = 12, Width = 12, Depth = 12, ExpectedQuantity = 10 }, opUser.Id);
+        var box1 = await boxService.CreateBoxAsync(new CreateBoxDto { Type = BoxType.Cardboard, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 5 }, opUser.Id);
+        await boxService.OpenBoxAsync(box1.Id, opUser.Id, "TEST-STATION");
+        var box2 = await boxService.CreateBoxAsync(new CreateBoxDto { Type = BoxType.Wood, Height = 12, Width = 12, Depth = 12, ExpectedQuantity = 10 }, opUser.Id);
 
         // Cancel box2 to have different statuses
         await boxService.CancelBoxAsync(box2.Id, "Cancel test", opUser.Id, "TEST-STATION");
@@ -207,8 +266,9 @@ public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactor
         var opUser = db.Users.First(u => u.Matricule == "OP001");
 
         // Create box and scan package
-        var boxDto = new CreateBoxDto { Type = BoxType.Carton, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 5 };
+        var boxDto = new CreateBoxDto { Type = BoxType.Cardboard, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 5 };
         var box = await boxService.CreateBoxAsync(boxDto, opUser.Id);
+        await boxService.OpenBoxAsync(box.Id, opUser.Id, "TEST-STATION");
         var scanResult = await packageScanService.ScanPackageAsync(box.Id, "PKG-CANCEL-RET-001", opUser.Id, "TEST-STATION");
         Assert.True(scanResult.Success);
 
@@ -227,9 +287,99 @@ public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactor
         Assert.Equal(0, resultBox.CurrentQuantity);
         Assert.Empty(resultBox.Packages);
 
-        // Verify it is removed from db
+        // Verify traceability is retained in db
         var dbPkg = await db.BoxPackages.FirstOrDefaultAsync(p => p.Id == pkg.Id);
-        Assert.Null(dbPkg);
+        Assert.NotNull(dbPkg);
+        Assert.True(dbPkg.IsRemoved);
+        Assert.Equal("Withdrawing from cancelled box", dbPkg.RemovalReason);
+        Assert.NotNull(dbPkg.RemovedAt);
+        Assert.Equal(opUser.Id, dbPkg.RemovedByUserId);
+    }
+
+    [Fact]
+    public async Task DisassociatePackage_FromCancelledBox_RetainsPackageHistory()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var packageScanService = scope.ServiceProvider.GetRequiredService<IPackageScanService>();
+
+        db.BoxPackages.RemoveRange(db.BoxPackages);
+        db.Boxes.RemoveRange(db.Boxes);
+        await db.SaveChangesAsync();
+
+        var opUser = db.Users.First(u => u.Matricule == "OP001");
+
+        var boxDto = new CreateBoxDto { Type = BoxType.Cardboard, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 5 };
+        var box = await boxService.CreateBoxAsync(boxDto, opUser.Id);
+        await boxService.OpenBoxAsync(box.Id, opUser.Id, "TEST-STATION");
+        var scanResult = await packageScanService.ScanPackageAsync(box.Id, "PKG-CANCEL-DIS-001", opUser.Id, "TEST-STATION");
+        Assert.True(scanResult.Success);
+
+        await boxService.CancelBoxAsync(box.Id, "Cancel testing disassociation", opUser.Id, "TEST-STATION");
+
+        var details = await boxService.GetBoxByIdAsync(box.Id);
+        var pkg = details!.Packages.First();
+
+        var resultBox = await boxService.DisassociatePackageAsync(pkg.Id, "Release package from cancelled box", opUser.Id, "TEST-STATION");
+
+        Assert.Equal(0, resultBox.CurrentQuantity);
+        Assert.Empty(resultBox.Packages);
+
+        var dbPkg = await db.BoxPackages.FirstOrDefaultAsync(p => p.Id == pkg.Id);
+        Assert.NotNull(dbPkg);
+        Assert.True(dbPkg.IsRemoved);
+        Assert.Equal("Release package from cancelled box", dbPkg.RemovalReason);
+        Assert.NotNull(dbPkg.RemovedAt);
+        Assert.Equal(opUser.Id, dbPkg.RemovedByUserId);
+    }
+
+    [Fact]
+    public async Task DisassociatedPackage_CanBeReassociatedWhileRetainingHistory()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var packageScanService = scope.ServiceProvider.GetRequiredService<IPackageScanService>();
+
+        db.BoxPackages.RemoveRange(db.BoxPackages);
+        db.Boxes.RemoveRange(db.Boxes);
+        await db.SaveChangesAsync();
+
+        var user = db.Users.First(candidate => candidate.Matricule == "OP001");
+        var source = await boxService.CreateBoxAsync(new CreateBoxDto
+        {
+            Type = BoxType.Cardboard, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 2
+        }, user.Id);
+        await boxService.OpenBoxAsync(source.Id, user.Id, "SOURCE-STATION");
+        Assert.True((await packageScanService.ScanPackageAsync(
+            source.Id, "PKG-REASSOCIATE-001", user.Id, "SOURCE-STATION")).Success);
+
+        await boxService.CancelBoxAsync(source.Id, "Source box cancelled", user.Id, "SOURCE-STATION");
+        var originalPackage = await db.BoxPackages.SingleAsync(
+            package => package.PackageBarcode == "PKG-REASSOCIATE-001");
+        await boxService.DisassociatePackageAsync(
+            originalPackage.Id, "Approved reassociation", user.Id, "SOURCE-STATION");
+
+        var destination = await boxService.CreateBoxAsync(new CreateBoxDto
+        {
+            Type = BoxType.Plastic, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 2
+        }, user.Id);
+        await boxService.OpenBoxAsync(destination.Id, user.Id, "DESTINATION-STATION");
+
+        var reassociation = await packageScanService.ScanPackageAsync(
+            destination.Id, "PKG-REASSOCIATE-001", user.Id, "DESTINATION-STATION");
+
+        Assert.True(reassociation.Success);
+        var history = await db.BoxPackages
+            .Where(package => package.PackageBarcode == "PKG-REASSOCIATE-001")
+            .OrderBy(package => package.Id)
+            .ToListAsync();
+        Assert.Equal(2, history.Count);
+        Assert.True(history[0].IsRemoved);
+        Assert.Equal(source.Id, history[0].BoxId);
+        Assert.False(history[1].IsRemoved);
+        Assert.Equal(destination.Id, history[1].BoxId);
     }
 
     [Fact]
@@ -247,8 +397,9 @@ public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactor
 
         var opUser = db.Users.First(u => u.Matricule == "OP001");
 
-        var boxDto = new CreateBoxDto { Type = BoxType.Carton, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 1 };
+        var boxDto = new CreateBoxDto { Type = BoxType.Cardboard, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 1 };
         var box = await boxService.CreateBoxAsync(boxDto, opUser.Id);
+        await boxService.OpenBoxAsync(box.Id, opUser.Id, "TEST-STATION");
 
         // Try scanning a box barcode as a package (should fail)
         var scanResult1 = await packageScanService.ScanPackageAsync(box.Id, "BOX-INVALID-SCAN", opUser.Id, "TEST-STATION");
@@ -273,33 +424,34 @@ public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
-    public async Task LogBoxResumedIfNeeded_Reprise_DoesNotGenerateExplicitAuditLog()
+    public async Task ScanPackageAsync_ReplayedRequestId_ReturnsOriginalSuccessWithoutDuplicate()
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
-
+        var boxes = scope.ServiceProvider.GetRequiredService<IBoxService>();
+        var scanner = scope.ServiceProvider.GetRequiredService<IPackageScanService>();
         db.BoxPackages.RemoveRange(db.BoxPackages);
         db.Boxes.RemoveRange(db.Boxes);
-        db.BoxAuditLogs.RemoveRange(db.BoxAuditLogs);
         await db.SaveChangesAsync();
 
-        var opUser = db.Users.First(u => u.Matricule == "OP001");
-        var spUser = db.Users.First(u => u.Matricule == "SP001");
+        var user = db.Users.First(candidate => candidate.Matricule == "OP001");
+        var box = await boxes.CreateBoxAsync(new CreateBoxDto
+        {
+            Type = BoxType.Cardboard, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 3
+        }, user.Id);
+        await boxes.OpenBoxAsync(box.Id, user.Id, "IDEMPOTENCY-STATION");
+        const string requestId = "scan-request-replay-001";
 
-        // opUser creates the box
-        var boxDto = new CreateBoxDto { Type = BoxType.Carton, Height = 10, Width = 10, Depth = 10, ExpectedQuantity = 5 };
-        var box = await boxService.CreateBoxAsync(boxDto, opUser.Id);
+        var first = await scanner.ScanPackageAsync(
+            box.Id, "PKG-IDEMPOTENT-001", user.Id, "IDEMPOTENCY-STATION", requestId: requestId);
+        var replay = await scanner.ScanPackageAsync(
+            box.Id, "PKG-IDEMPOTENT-001", user.Id, "IDEMPOTENCY-STATION", requestId: requestId);
 
-        // opUser resumes -> should NOT log since opUser created it and was the last modifier
-        await boxService.LogBoxResumedIfNeededAsync(box.Id, opUser.Id, "TEST-STATION");
-        var resumeLogs1 = await db.BoxAuditLogs.Where(l => l.ActionType == "BoxResumed").ToListAsync();
-        Assert.Empty(resumeLogs1);
-
-        // spUser resumes -> audit logging is now handled by the interceptor, not explicit calls
-        await boxService.LogBoxResumedIfNeededAsync(box.Id, spUser.Id, "TEST-STATION");
-        // The interceptor does not generate "BoxResumed" action type; this is now a no-op audit-wise
-        var resumeLogs2 = await db.BoxAuditLogs.Where(l => l.ActionType == "BoxResumed").ToListAsync();
-        Assert.Empty(resumeLogs2);
+        Assert.True(first.Success);
+        Assert.True(replay.Success);
+        Assert.Contains("already recorded", replay.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, replay.Box!.CurrentQuantity);
+        Assert.Equal(1, await db.BoxPackages.CountAsync(package => package.ScanRequestId == requestId));
     }
+
 }

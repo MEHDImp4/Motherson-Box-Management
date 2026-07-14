@@ -41,7 +41,7 @@ MothersonBoxManagement/
 
 ## Database workflow
 
-The application migrates the database automatically on startup. You can also run:
+The application migrates the database automatically on startup in `Development`. Outside `Development`, startup migration requires `Database__AutoMigrate=true`; otherwise run migrations explicitly:
 
 ```powershell
 dotnet ef database update --project MothersonBoxManagement --startup-project MothersonBoxManagement

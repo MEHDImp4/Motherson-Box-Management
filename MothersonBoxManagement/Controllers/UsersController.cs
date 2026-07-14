@@ -1,11 +1,9 @@
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MothersonBoxManagement.Security;
 using MothersonBoxManagement.Services;
-using MothersonBoxManagement.ViewModels;
+using MothersonBoxManagement.Models;
 
 namespace MothersonBoxManagement.Controllers;
 
@@ -13,10 +11,12 @@ namespace MothersonBoxManagement.Controllers;
 public class UsersController : Controller
 {
     private readonly IUserService _userService;
+    private readonly IPasswordRecoveryService _passwordRecoveryService;
 
-    public UsersController(IUserService userService)
+    public UsersController(IUserService userService, IPasswordRecoveryService passwordRecoveryService)
     {
         _userService = userService;
+        _passwordRecoveryService = passwordRecoveryService;
     }
 
     private int GetCurrentUserId()
@@ -138,6 +138,33 @@ public class UsersController : Controller
         {
             return NotFound();
         }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> PasswordResetRequests(CancellationToken cancellationToken)
+    {
+        return View(await _passwordRecoveryService.GetPendingAsync(cancellationToken));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApprovePasswordReset(int requestId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _passwordRecoveryService.ApproveAsync(requestId, GetCurrentUserId(), cancellationToken);
+            TempData["Success"] = "Password reset approved. The employee has 15 minutes to continue without a password.";
+        }
+        catch (KeyNotFoundException)
+        {
+            TempData["Error"] = "Password reset request was not found.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(PasswordResetRequests));
     }
 
     [HttpPost]

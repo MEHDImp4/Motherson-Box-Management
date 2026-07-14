@@ -1,0 +1,32 @@
+{
+  "doc_path": "docs/ARCHITECTURE.md",
+  "claims_checked": 68,
+  "claims_passed": 64,
+  "claims_failed": 4,
+  "failures": [
+    {
+      "line": 73,
+      "claim": "/Box/Prepare/{id}",
+      "expected": "route pattern /Box/Prepare/{barcode} in BoxController (parameter named 'barcode')",
+      "actual": "doc says '{id}' but actual route parameter is '{barcode}' — BoxController.cs line 69: [Route(\"Box/Prepare/{barcode}\")]"
+    },
+    {
+      "line": 74,
+      "claim": "/Box/Details/{id}",
+      "expected": "route pattern /Box/Details/{barcode} in BoxController (parameter named 'barcode')",
+      "actual": "doc says '{id}' but actual route parameter is '{barcode}' — BoxController.cs line 52: [Route(\"Box/Details/{barcode}\")]"
+    },
+    {
+      "line": 78,
+      "claim": "/Box/Prepare/{id}",
+      "expected": "route pattern /Box/Prepare/{barcode} in BoxController (parameter named 'barcode')",
+      "actual": "doc says '{id}' but actual route parameter is '{barcode}' — BoxController.cs line 69: [Route(\"Box/Prepare/{barcode}\")]"
+    },
+    {
+      "line": 281,
+      "claim": "Microsoft.EntityFrameworkCore.Tools",
+      "expected": "NuGet package in MothersonBoxManagement.csproj dependencies",
+      "actual": "package not found in .csproj — only Microsoft.EntityFrameworkCore.SqlServer and Microsoft.EntityFrameworkCore.Design are declared"
+    }
+  ]
+}

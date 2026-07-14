@@ -1,0 +1,106 @@
+@model MothersonBoxManagement.Models.TemplateSelectionViewModel
+@{
+    ViewData["Title"] = "Select Box Template";
+    var canManageTemplates = Model.Role == "Supervisor"
+        || Model.Role == "Superviseur"
+        || Model.Role == "Administrator"
+        || Model.Role == "Admin";
+}
+
+<div class="container" style="padding-top: var(--space-md);">
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="headline-lg" style="font-weight: 700; margin-bottom: 4px;">Select a Box Template</h1>
+            <p class="body-md text-muted mb-0;">Choose an approved template to create and open a new box.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-custom" style="min-height: 40px; padding: 0 16px; font-weight: 600;">
+                Back to Dashboard
+            </a>
+            @if (canManageTemplates)
+            {
+                <a asp-controller="BoxTemplate" asp-action="Index" class="btn btn-primary-custom" style="min-height: 40px; padding: 0 16px; font-weight: 600;">
+                    Manage Templates
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (Model.Templates.Count == 0)
+    {
+        <div class="card" style="border: 1px solid var(--border);">
+            <div class="empty-state" style="padding: var(--space-xl) var(--space-lg);">
+                <div class="empty-state-icon" style="margin-bottom: var(--space-sm); color: var(--secondary);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                </div>
+                <h2 class="empty-state-title">No Templates Available</h2>
+                <p class="empty-state-text">@(Model.Role == "Operator" ? "A supervisor must create box templates before you can prepare boxes." : "Create templates to allow operators to start preparing boxes.")</p>
+                @if (canManageTemplates)
+                {
+                    <div class="d-flex gap-2 justify-content-center flex-wrap">
+                        <a asp-controller="BoxTemplate" asp-action="Create" class="btn btn-primary-custom" style="min-height: 44px; padding: 0 24px;">Create First Template</a>
+                        <a asp-controller="BoxTemplate" asp-action="Index" class="btn btn-outline-custom" style="min-height: 44px; padding: 0 24px;">Manage Templates</a>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="section-title" style="margin-bottom: 0; font-size: 18px; font-weight: 700;">Available Templates</h2>
+            <span class="badge-status open" style="font-weight: 600;">@Model.Templates.Count template(s) available</span>
+        </div>
+
+        <div class="row g-3">
+            @foreach (var template in Model.Templates)
+            {
+                var typeClass = template.Type switch
+                {
+                    MothersonBoxManagement.Entities.BoxType.Wood => "wood",
+                    MothersonBoxManagement.Entities.BoxType.Plastic => "plastic",
+                    _ => "cardboard"
+                };
+
+                <div class="col-lg-4 col-md-6">
+                    <div class="card h-100 template-card" style="border: 1px solid var(--border); transition: all 0.15s ease-in-out;"
+                         onmouseover="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 1px var(--primary)'"
+                         onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+                        <div class="card-body d-flex flex-column" style="padding: 20px;">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="badge-status @typeClass" style="font-size: 10px; font-weight: 700; text-transform: uppercase;">@template.Type</span>
+                            </div>
+                            <h3 style="font-size: 15px; font-weight: 700; color: var(--on-surface); margin: 0 0 4px 0;">@template.Name</h3>
+                            @if (!string.IsNullOrEmpty(template.Description))
+                            {
+                                <p style="font-size: 12px; color: var(--secondary); margin: 0 0 12px 0; line-height: 1.4;">@template.Description</p>
+                            }
+                            else
+                            {
+                                <div style="margin-bottom: 12px;"></div>
+                            }
+                            <div class="d-flex flex-column gap-1 mb-3" style="font-size: 12px; color: var(--secondary);">
+                                <span>Dimensions: <strong style="color: var(--on-surface);">@($"{template.Height:F0} × {template.Width:F0} × {template.Depth:F0} cm")</strong></span>
+                                <span>Target: <strong style="color: var(--on-surface);">@template.ExpectedQuantity packages</strong></span>
+                            </div>
+                            <form asp-controller="Box" asp-action="CreateFromTemplate" method="post" class="mt-auto">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="templateId" value="@template.Id" />
+                                <button type="submit" class="btn btn-primary-custom w-100" style="min-height: 40px; font-size: 13px; font-weight: 700;">
+                                    Create Box
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .badge-status.wood { background-color: var(--status-blocked-bg); color: var(--status-blocked); }
+    .badge-status.plastic { background-color: var(--status-completed-bg); color: var(--status-completed); }
+    .badge-status.cardboard { background-color: var(--status-open-bg); color: var(--status-open); }
+    .template-card:hover { transform: translateY(-1px); }
+</style>

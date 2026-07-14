@@ -1,0 +1,146 @@
+@model MothersonBoxManagement.Models.PrintLabelViewModel
+@{
+    Layout = null;
+    ViewData["Title"] = $"Print Label - {Model.BoxNumber}";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Print Label - @Model.BoxNumber</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: #f5f5f5;
+        }
+        .label-container {
+            background: white;
+            border: 2px solid #333;
+            padding: 24px;
+            text-align: center;
+            width: 400px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .label-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #1a1a1a;
+        }
+        .label-box-number {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #333;
+        }
+        .qr-code {
+            margin: 16px auto;
+        }
+        .qr-code img {
+            width: 250px;
+            height: 250px;
+        }
+        .barcode-text {
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 12px;
+            color: #1a1a1a;
+            letter-spacing: 1px;
+        }
+        .print-actions {
+            margin-top: 24px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-print {
+            background: #1976d2;
+            color: white;
+        }
+        .btn-print:hover { background: #1565c0; }
+        .btn-back {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .btn-back:hover { background: #d0d0d0; }
+        @@media print {
+            body { background: white; }
+            .print-actions { display: none !important; }
+            .label-container { border: 1px solid #000; box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="label-container">
+        <div class="label-title">MOTHERSON BOX</div>
+        <div class="label-box-number">@Model.BoxNumber</div>
+        <div class="qr-code">
+            <img src="data:image/png;base64,@Model.QrCodeBase64" alt="QR Code for @Model.BarcodeValue" />
+        </div>
+        <div class="barcode-text">@Model.BarcodeValue</div>
+    </div>
+
+    <div class="print-actions">
+        <button class="btn btn-print" onclick="window.print()">Print</button>
+        @if (!string.IsNullOrWhiteSpace(Model.ReturnUrl))
+        {
+            <a href="@Model.ReturnUrl" class="btn btn-back">Back</a>
+        }
+        else
+        {
+            <a href="javascript:window.close()" class="btn btn-back">Close</a>
+        }
+    </div>
+
+    @if (Model.AutoPrint)
+    {
+    <script>
+        (function () {
+            var redirected = false;
+            var returnUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ReturnUrl));
+
+            function goBack() {
+                if (redirected || !returnUrl) {
+                    return;
+                }
+
+                redirected = true;
+                window.location.replace(returnUrl);
+            }
+
+            window.addEventListener("load", function () {
+                setTimeout(function () {
+                    window.print();
+                }, 150);
+            });
+
+            window.addEventListener("afterprint", function () {
+                setTimeout(goBack, 150);
+            });
+
+            setTimeout(goBack, 4000);
+        })();
+    </script>
+    }
+
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "doc_path": "docs/CONFIGURATION.md",
+  "claims_checked": 48,
+  "claims_passed": 42,
+  "claims_failed": 6,
+  "failures": [
+    {
+      "line": 19,
+      "claim": "Authentication__CookieName env var can override Cookie.Name",
+      "expected": "Code reads Cookie.Name from IConfiguration via Authentication:CookieName key",
+      "actual": "Program.cs hardcodes Cookie.Name to 'Motherson.BoxManagement.Auth' (line 30) without reading from configuration; env var has no effect"
+    },
+    {
+      "line": 20,
+      "claim": "Authentication__ExpireTimeSpanMinutes env var can override ExpireTimeSpan",
+      "expected": "Code reads ExpireTimeSpan from IConfiguration via Authentication:ExpireTimeSpanMinutes key",
+      "actual": "Program.cs hardcodes ExpireTimeSpan to TimeSpan.FromMinutes(60) (line 35) without reading from configuration; env var has no effect"
+    },
+    {
+      "line": 112,
+      "claim": "Authentication parameters can be overridden via env vars with prefix Authentication__",
+      "expected": "Authentication settings are read from IConfiguration, allowing env var overrides",
+      "actual": "All 6 authentication settings (Cookie.Name, HttpOnly, SameSite, SecurePolicy, SlidingExpiration, ExpireTimeSpan, LoginPath, AccessDeniedPath) are hardcoded in Program.cs (lines 30-37) and cannot be overridden via env vars"
+    },
+    {
+      "line": 216,
+      "claim": "dotnet user-secrets set 'Authentication:CookieName' 'Motherson.BoxManagement.Auth'",
+      "expected": "Application reads Cookie.Name from configuration key Authentication:CookieName",
+      "actual": "Program.cs hardcodes Cookie.Name; user-secrets key would have no effect"
+    },
+    {
+      "line": 222,
+      "claim": "dotnet user-secrets set 'Authentication:ExpireTimeSpanMinutes' '60'",
+      "expected": "Application reads ExpireTimeSpan from configuration key Authentication:ExpireTimeSpanMinutes",
+      "actual": "Program.cs hardcodes ExpireTimeSpan; user-secrets key would have no effect"
+    },
+    {
+      "line": 234,
+      "claim": "Authentication__CookieName and Authentication__ExpireTimeSpanMinutes env vars for production",
+      "expected": "Application reads these values from IConfiguration to configure authentication",
+      "actual": "Authentication config is hardcoded in Program.cs; these env vars have no effect on application behavior"
+    }
+  ]
+}

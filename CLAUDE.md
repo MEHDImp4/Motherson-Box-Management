@@ -2,6 +2,9 @@
 
 This file defines the strict development rules and guidance that the Claude agent must follow when working on the **Motherson Box Management** project.
 
+## 0. Language Requirement
+* **Everything must be in English.** All code, comments, commit messages, documentation, variable names, method names, class names, UI labels, error messages, log messages, and any other written content must be written in English. This applies to all agents working on this project without exception, including Codex, Gemini, Claude, and any other AI agent.
+
 ## 1. C# and ASP.NET Core MVC Code Conventions
 * **Naming style:**
   * `PascalCase` for classes, methods, properties, enums, interfaces, and structs.

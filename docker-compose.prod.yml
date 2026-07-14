@@ -1,0 +1,32 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: https://+:8443
+      AllowedHosts: ${MOTHERSON_ALLOWED_HOSTS:?MOTHERSON_ALLOWED_HOSTS is required}
+      Database__AutoMigrate: "false"
+      SeedDemoUsers: "false"
+      Kestrel__Certificates__Default__Path: /https/tls.pfx
+      Kestrel__Certificates__Default__Password: ${MOTHERSON_TLS_CERT_PASSWORD:?MOTHERSON_TLS_CERT_PASSWORD is required}
+      DataProtection__KeyPath: /keys
+      DataProtection__CertificatePath: /data-protection/key-encryption.pfx
+      DataProtection__CertificatePassword: ${MOTHERSON_DP_CERT_PASSWORD:?MOTHERSON_DP_CERT_PASSWORD is required}
+      ConnectionStrings__DefaultConnection: Server=${MOTHERSON_DB_HOST:?MOTHERSON_DB_HOST is required},${MOTHERSON_DB_PORT:-1433};Database=${MOTHERSON_DB_NAME:?MOTHERSON_DB_NAME is required};User Id=${MOTHERSON_DB_APP_USER:?MOTHERSON_DB_APP_USER is required};Password=${MOTHERSON_DB_APP_PASSWORD:?MOTHERSON_DB_APP_PASSWORD is required};TrustServerCertificate=${MOTHERSON_DB_TRUST_CERTIFICATE:-False};
+    volumes:
+      - "${MOTHERSON_TLS_CERT_PATH:?MOTHERSON_TLS_CERT_PATH is required}:/https/tls.pfx:ro"
+      - "${MOTHERSON_DP_CERT_PATH:?MOTHERSON_DP_CERT_PATH is required}:/data-protection/key-encryption.pfx:ro"
+      - data-protection-keys:/keys
+    ports:
+      - "${MOTHERSON_HTTPS_PORT:-443}:8443"
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  data-protection-keys:

@@ -1,0 +1,118 @@
+@model MothersonBoxManagement.Dtos.BoxDetailsDto?
+@{
+    ViewData["Title"] = "Package Search";
+    var error = ViewBag.Error as string;
+    var found = ViewBag.Found as bool? == true;
+    var searchedBarcode = ViewBag.SearchedBarcode as string;
+}
+
+<div class="container" style="padding-top: var(--space-md);">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <a asp-action="Index" asp-controller="Dashboard" class="back-link d-inline-flex align-items-center" style="margin-bottom: 0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="margin-right: 6px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Back to Dashboard
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card" style="border: 2px solid var(--primary); background-color: var(--surface-container-lowest);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-sm">
+                        <h3 class="headline-md" style="margin: 0; font-size: 18px; font-weight: 700;">Package Search</h3>
+                        <span class="badge-status open" style="font-size: 11px; font-weight: 600;">Scan</span>
+                    </div>
+                    <p class="body-md text-muted mb-md">Scan the QR code or barcode of a package to find which box contains it.</p>
+
+                    @if (!string.IsNullOrEmpty(error))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <strong>Error:</strong> @error
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    }
+
+                    <form asp-action="SearchPackage" method="post">
+                        @Html.AntiForgeryToken()
+                        <div class="input-group">
+                            <input type="text" name="barcode" id="barcodeInput" class="form-control"
+                                   placeholder="Scan the package barcode (PKG-...)..." autofocus
+                                   minlength="3" autocomplete="off"
+                                   style="font-size: 16px; min-height: 52px; font-weight: 600; border-right: none;" />
+                            <button type="submit" class="btn btn-primary-custom"
+                                    style="min-height: 52px; padding: 0 32px; font-weight: 700; border-top-left-radius: 0; border-bottom-left-radius: 0;">
+                                Search
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            @if (found && Model != null)
+            {
+                <div class="card" style="border: 1px solid var(--border);">
+                    <div class="card-header" style="background-color: var(--status-open-bg); font-weight: 700; color: var(--on-surface);">
+                        Package Found
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-success mb-3" role="alert" style="border-radius: var(--radius-md); font-size: 13px;">
+                            Package <strong><code>@searchedBarcode</code></strong> is located in box <strong>@Model.BoxNumber</strong>.
+                        </div>
+
+                        <div class="info-row">
+                            <span class="info-row-label">Box</span>
+                            <span class="info-row-value"><strong>@Model.BoxNumber</strong></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-row-label">Box barcode</span>
+                            <span class="info-row-value"><code>@Model.BarcodeValue</code></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-row-label">Status</span>
+                            <span class="info-row-value">
+                                <span class="badge-status @(Model.Status.ToString().ToLower())" style="font-size: 11px; font-weight: 600;">@Model.Status</span>
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-row-label">Progress</span>
+                            <span class="info-row-value">@Model.CurrentQuantity / @Model.ExpectedQuantity packages</span>
+                        </div>
+                        <div class="mt-3">
+                            <a asp-action="Details" asp-controller="Box" asp-route-barcode="@Model.BarcodeValue"
+                               class="btn btn-primary-custom btn-sm" style="min-height: 36px; padding: 0 20px;">
+                                View Box
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (found && Model == null)
+            {
+                <div class="card" style="border: 1px solid var(--border);">
+                    <div class="card-header" style="background-color: var(--error-container); font-weight: 700; color: var(--on-error-container);">
+                        Package Not Found
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning mb-0" role="alert">
+                            Package <code>@searchedBarcode</code> is not associated with any box in the system.
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="card" style="border: 1px solid var(--border);">
+                    <div class="card-body empty-state" style="padding: 32px 16px;">
+                        <div class="empty-state-icon d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; margin-bottom: 8px; color: var(--secondary);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </div>
+                        <h3 class="empty-state-title" style="font-size: 15px; font-weight: 700; margin-bottom: 4px;">Package Search</h3>
+                        <p class="empty-state-text" style="font-size: 13px; margin: 0;">Scan a package barcode to find the box that contains it.</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>

@@ -1,28 +1,33 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Data.SqlClient;
 using MothersonBoxManagement.Data;
-using MothersonBoxManagement.Data.Dtos;
+using MothersonBoxManagement.Dtos;
 using MothersonBoxManagement.Entities;
 
 namespace MothersonBoxManagement.Services;
 
 public class PackageScanService : IPackageScanService
 {
+    internal const string SqlServerErrorNumberDataKey = "SqlServerErrorNumber";
     private readonly ApplicationDbContext _context;
     private readonly IBarcodeService _barcodeService;
     private readonly IAuditService _auditService;
+    private readonly IBoxService _boxService;
 
     public PackageScanService(
         ApplicationDbContext context,
         IBarcodeService barcodeService,
-        IAuditService auditService)
+        IAuditService auditService,
+        IBoxService boxService)
     {
         _context = context;
         _barcodeService = barcodeService;
         _auditService = auditService;
+        _boxService = boxService;
     }
 
-    public async Task<ScanResult> ScanPackageAsync(int boxId, string barcode, int userId, string workstationName, CancellationToken cancellationToken = default)
+    public async Task<ScanResult> ScanPackageAsync(int boxId, string barcode, int userId, string workstationName, CancellationToken cancellationToken = default, string? requestId = null)
     {
         barcode = barcode.Trim();
 
@@ -40,26 +45,69 @@ public class PackageScanService : IPackageScanService
             IDbContextTransaction? transaction = null;
             try
             {
-                var isDuplicate = await _context.BoxPackages
-                    .AnyAsync(bp => bp.PackageBarcode == barcode, cancellationToken);
+                transaction = _context.Database.IsRelational() && _context.Database.CurrentTransaction is null
+                    ? await _context.Database.BeginTransactionAsync(cancellationToken)
+                    : null;
 
-                if (isDuplicate)
+                var existingPackage = await _context.BoxPackages
+                    .FirstOrDefaultAsync(
+                        bp => bp.PackageBarcode == barcode && !bp.IsRemoved,
+                        cancellationToken);
+
+                if (existingPackage != null)
                 {
-                    return await RejectScanAsync(
+                    if (!string.IsNullOrWhiteSpace(requestId) &&
+                        existingPackage.BoxId == boxId &&
+                        string.Equals(existingPackage.ScanRequestId, requestId, StringComparison.Ordinal))
+                    {
+                        var replayedBox = await _boxService.GetBoxByIdAsync(boxId, cancellationToken);
+                        if (transaction is not null)
+                            await transaction.CommitAsync(cancellationToken);
+                        return new ScanResult
+                        {
+                            Success = true,
+                            Message = "Scan already recorded; previous result restored.",
+                            Box = replayedBox
+                        };
+                    }
+
+                    if (existingPackage.IsBlocked)
+                    {
+                        var blockedResult = await RejectScanAsync(
+                            boxId,
+                            barcode,
+                            $"Package barcode {barcode} is blocked/quarantined (reason: {existingPackage.BlockReason}).",
+                            "This package is blocked and cannot be scanned. Contact a supervisor.",
+                            userId,
+                            workstationName,
+                            cancellationToken);
+                        if (transaction is not null)
+                        {
+                            await transaction.CommitAsync(cancellationToken);
+                        }
+                        return blockedResult;
+                    }
+
+                    var duplicateResult = await RejectScanAsync(
                         boxId,
                         barcode,
-                        "This package barcode has already been scanned (duplicate).",
-                        "This package barcode has already been scanned.",
+                        "Duplicate package barcode detected.",
+                        "This package is already associated with a box.",
                         userId,
                         workstationName,
                         cancellationToken);
+                    if (transaction is not null)
+                    {
+                        await transaction.CommitAsync(cancellationToken);
+                    }
+                    return duplicateResult;
                 }
 
                 var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, cancellationToken);
 
                 if (box is null)
                 {
-                    return await RejectScanAsync(
+                    var missingBoxResult = await RejectScanAsync(
                         null,
                         barcode,
                         "Box not found.",
@@ -67,43 +115,72 @@ public class PackageScanService : IPackageScanService
                         userId,
                         workstationName,
                         cancellationToken);
+                    if (transaction is not null)
+                    {
+                        await transaction.CommitAsync(cancellationToken);
+                    }
+                    return missingBoxResult;
                 }
 
                 if (box.Status != BoxStatus.Open)
                 {
-                    return await RejectScanAsync(
+                    var closedBoxResult = await RejectScanAsync(
                         boxId,
                         barcode,
                         $"Box is not open (Status: {box.Status}).",
-                        "This box is not open for scanning.",
+                        "This box cannot receive packages (closed, cancelled, or blocked).",
                         userId,
                         workstationName,
                         cancellationToken);
+                    if (transaction is not null)
+                    {
+                        await transaction.CommitAsync(cancellationToken);
+                    }
+                    return closedBoxResult;
+                }
+
+                var persistedValidQuantity = await _context.BoxPackages.CountAsync(
+                    package => package.BoxId == boxId && !package.IsRemoved && !package.IsBlocked,
+                    cancellationToken);
+                if (persistedValidQuantity != box.CurrentQuantity)
+                {
+                    var inconsistentResult = await RejectScanAsync(
+                        boxId,
+                        barcode,
+                        $"Quantity integrity mismatch: counter={box.CurrentQuantity}, packages={persistedValidQuantity}.",
+                        "This box has a data consistency problem. Scanning is blocked; contact a supervisor.",
+                        userId,
+                        workstationName,
+                        cancellationToken);
+                    if (transaction is not null)
+                        await transaction.CommitAsync(cancellationToken);
+                    return inconsistentResult;
                 }
 
                 if (box.CurrentQuantity >= box.ExpectedQuantity)
                 {
-                    return await RejectScanAsync(
+                    var fullBoxResult = await RejectScanAsync(
                         boxId,
                         barcode,
                         "Expected quantity already reached.",
-                        "The expected quantity has already been reached.",
+                        "The expected quantity has already been reached. This box cannot receive any more packages.",
                         userId,
                         workstationName,
                         cancellationToken);
+                    if (transaction is not null)
+                    {
+                        await transaction.CommitAsync(cancellationToken);
+                    }
+                    return fullBoxResult;
                 }
-
-                transaction = _context.Database.IsRelational()
-                    ? await _context.Database.BeginTransactionAsync(cancellationToken)
-                    : null;
-
                 var package = new BoxPackage
                 {
                     BoxId = boxId,
                     PackageBarcode = barcode,
                     ScannedByUserId = userId,
                     ScannedAt = DateTime.UtcNow,
-                    WorkstationName = workstationName
+                    WorkstationName = workstationName,
+                    ScanRequestId = string.IsNullOrWhiteSpace(requestId) ? null : requestId
                 };
 
                 _context.BoxPackages.Add(package);
@@ -114,7 +191,7 @@ public class PackageScanService : IPackageScanService
                 if (box.CurrentQuantity >= box.ExpectedQuantity)
                 {
                     box.Status = BoxStatus.Completed;
-                    box.CompletionMode = "Automatic";
+                    box.CompletionMode = BoxService.CompletionModeAutomatic;
                     box.CompletedAt = DateTime.UtcNow;
                     box.CompletedByUserId = userId;
                 }
@@ -126,18 +203,23 @@ public class PackageScanService : IPackageScanService
                     await transaction.CommitAsync(cancellationToken);
                 }
 
-                var updatedBox = await GetBoxByIdAsync(boxId, cancellationToken);
+                var updatedBox = await _boxService.GetBoxByIdAsync(boxId, cancellationToken);
                 var msg = box.Status == BoxStatus.Completed
-                    ? "Scan successful! Box completed automatically."
-                    : $"Scan successful! {box.CurrentQuantity}/{box.ExpectedQuantity} packages.";
+                    ? "Scan successful! Box automatically completed."
+                    : $"Package successfully added to box {box.BoxNumber}. {box.CurrentQuantity}/{box.ExpectedQuantity} packages.";
 
                 return new ScanResult { Success = true, Message = msg, Box = updatedBox };
             }
             catch (DbUpdateConcurrencyException)
             {
-                _context.ChangeTracker.Entries().ToList().ForEach(e => e.Reload());
+                if (transaction is not null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                }
+                foreach (var entry in _context.ChangeTracker.Entries().ToList())
+                    await entry.ReloadAsync(cancellationToken);
             }
-            catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_BoxPackages_PackageBarcode") == true)
+            catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
             {
                 if (transaction is not null)
                 {
@@ -147,8 +229,8 @@ public class PackageScanService : IPackageScanService
                 return await RejectScanAsync(
                     boxId,
                     barcode,
-                    "Unique concurrency conflict.",
-                    "This package barcode has already been scanned.",
+                    "Unique constraint concurrency conflict.",
+                    "This package is already associated with a box (concurrency conflict).",
                     userId,
                     workstationName,
                     cancellationToken);
@@ -163,6 +245,29 @@ public class PackageScanService : IPackageScanService
         }
 
         return new ScanResult { Success = false, Message = "Concurrency conflict. Please try again." };
+    }
+
+    internal static bool IsUniqueConstraintViolationNumber(int errorNumber)
+        => errorNumber is 2601 or 2627;
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is SqlException sqlException &&
+                IsUniqueConstraintViolationNumber(sqlException.Number))
+            {
+                return true;
+            }
+
+            if (current.Data[SqlServerErrorNumberDataKey] is int simulatedNumber &&
+                IsUniqueConstraintViolationNumber(simulatedNumber))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private async Task<ScanResult> RejectScanAsync(
@@ -180,16 +285,5 @@ public class PackageScanService : IPackageScanService
             Success = false,
             Message = message
         };
-    }
-
-    private async Task<BoxDetailsDto?> GetBoxByIdAsync(int id, CancellationToken ct)
-    {
-        return await _context.Boxes
-            .Include(b => b.CreatedBy)
-            .Include(b => b.Packages)
-                .ThenInclude(p => p.ScannedBy)
-            .Where(b => b.Id == id)
-            .Select(BoxMapper.ToDetailsDto())
-            .FirstOrDefaultAsync(ct);
     }
 }

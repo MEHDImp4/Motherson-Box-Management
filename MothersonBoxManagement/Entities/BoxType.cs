@@ -2,7 +2,7 @@ namespace MothersonBoxManagement.Entities;
 
 public enum BoxType
 {
-    Carton,
-    Bois,
-    Plastique
+    Cardboard,
+    Wood,
+    Plastic
 }

@@ -1,9 +1,9 @@
-@model List<MothersonBoxManagement.Data.Dtos.BoxListItemDto>
+@model List<MothersonBoxManagement.Dtos.BoxListItemDto>
 @using MothersonBoxManagement.Entities
 @{
     ViewData["Title"] = "Search Boxes";
-    var filter = ViewBag.Filter as MothersonBoxManagement.Data.Dtos.BoxSearchFilterDto;
-    var users = ViewBag.Users as List<MothersonBoxManagement.Data.Dtos.UserListItemDto>;
+    var filter = ViewBag.Filter as MothersonBoxManagement.Dtos.BoxSearchFilterDto;
+    var users = ViewBag.Users as List<MothersonBoxManagement.Dtos.UserListItemDto>;
 }
 
 <div class="container" style="padding-top: var(--space-md);">
@@ -12,7 +12,16 @@
             <h1 class="page-title" style="font-size: 24px; font-weight: 700;">Box Search &amp; Tracking</h1>
             <p class="body-md text-muted mb-0">Search the global box database, track filling progress, and perform operational lookups.</p>
         </div>
-        <a asp-action="Create" class="btn btn-primary-custom" style="font-weight: 600;">+ New Box</a>
+        @if (User.IsInRole("Operator") || User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
+        {
+        <div class="d-flex align-items-center gap-2">
+            <a asp-controller="Dashboard" asp-action="Templates" class="btn btn-primary-custom" style="font-weight: 600;">Open New Box</a>
+            @if (User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
+            {
+            <a asp-controller="BoxTemplate" asp-action="Index" class="btn btn-outline-custom" style="font-weight: 600;">Manage Templates</a>
+            }
+        </div>
+        }
     </div>
 
     <!-- Filters Section -->
@@ -25,7 +34,7 @@
                 <div class="row g-3">
                     <div class="col-lg-3 col-md-6">
                         <label for="BoxNumber" class="form-label">Barcode / Box Number</label>
-                        <input type="text" id="BoxNumber" name="BoxNumber" class="form-control" value="@filter?.BoxNumber" placeholder="BOX-..." />
+                        <input type="text" id="BoxNumber" name="BoxNumber" class="form-control" value="@filter?.BoxNumber" placeholder="Enter box number..." />
                     </div>
                     <div class="col-lg-3 col-md-6">
                         <label for="Status" class="form-label">Status</label>
@@ -164,7 +173,7 @@
                                         </a>
                                         @if (box.Status == BoxStatus.Open)
                                         {
-                                            <a asp-action="Prepare" asp-route-barcode="@box.BarcodeValue"
+                                            <a asp-action="Details" asp-route-barcode="@box.BarcodeValue"
                                                class="btn btn-primary-custom btn-sm" style="min-height: 36px; padding: 0 16px; font-size: 13px;">
                                                 Scan
                                             </a>

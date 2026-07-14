@@ -1,9 +1,12 @@
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject MothersonBoxManagement.Data.ApplicationDbContext DbContext
 @using System.Reflection
 @{
     var releaseVersion = Assembly.GetEntryAssembly()?
-        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-        .InformationalVersion ?? "v1";
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+    var requireStationName = ViewData["RequireStationName"] as bool? == true;
+    var barcodeConfig = DbContext.BarcodeConfigurations.FirstOrDefault(bc => bc.Id == 1);
+    var boxPrefix = barcodeConfig?.BoxPrefix ?? "BOX-";
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -12,11 +15,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Motherson Box Management</title>
     <meta name="RequestVerificationToken" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body>
+<body data-require-station-name="@requireStationName.ToString().ToLowerInvariant()" data-box-prefix="@boxPrefix">
     <script>
         if (localStorage.getItem('sidebar-collapsed') === 'true') {
             document.body.classList.add('sidebar-collapsed');
@@ -37,7 +39,7 @@
             <aside class="sidebar" role="navigation" aria-label="Sidebar navigation">
                 <div class="sidebar-header d-flex align-items-center justify-content-between">
                     <a class="sidebar-brand" asp-controller="Dashboard" asp-action="Index">
-                        <img src="~/images/mothersson-logo.png" alt="Motherson" class="sidebar-logo" />
+                        <img src="~/images/motherson-logo.png" alt="Motherson" class="sidebar-logo" />
                         <span class="sidebar-brand-text">Box Management</span>
                     </a>
                     <button class="sidebar-collapse-btn d-none d-xl-flex" aria-label="Collapse sidebar" type="button">
@@ -55,10 +57,23 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         <span>Search Boxes</span>
                     </a>
-                    <a class="sidebar-link @(activeController == "Box" && activeAction == "Create" ? "active" : "")" asp-controller="Box" asp-action="Create" title="Create Box">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="12" y1="12" x2="12" y2="21"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                        <span>Create Box</span>
+                    <a class="sidebar-link @(activeController == "Box" && activeAction == "SearchPackage" ? "active" : "")" asp-controller="Box" asp-action="SearchPackage" title="Search Package">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>
+                        <span>Search Package</span>
                     </a>
+
+                    <span class="sidebar-menu-title">Configuration</span>
+                    <a class="sidebar-link @(activeController == "Box" && activeAction == "Settings" ? "active" : "")" asp-controller="Box" asp-action="Settings" title="Settings">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        <span>Settings</span>
+                    </a>
+                    @if (User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
+                    {
+                    <a class="sidebar-link @(activeController == "BoxTemplate" ? "active" : "")" asp-controller="BoxTemplate" asp-action="Index" title="Box Templates">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="12" y1="12" x2="12" y2="21"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                        <span>Box Templates</span>
+                    </a>
+                    }
                     
                     @if (User.IsInRole("Superviseur") || User.IsInRole("Admin") || User.IsInRole("Supervisor") || User.IsInRole("Administrator"))
                     {
@@ -76,14 +91,26 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="sidebar-link-icon"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                             <span>User Accounts</span>
                         </a>
+                        @await Component.InvokeAsync("PasswordResetNotification")
                     }
                 </nav>
                 
                 <div class="sidebar-footer">
+                    <div id="scannerStatus" class="sidebar-scanner-status" data-state="starting" role="status" aria-live="polite" title="Scanner status">
+                        <span class="sidebar-scanner-dot" aria-hidden="true"></span>
+                        <span class="sidebar-scanner-label">Scanner starting…</span>
+                    </div>
                     <div class="sidebar-user">
-                        <span class="sidebar-user-matricule">@User.FindFirst("Matricule")?.Value</span>
+                        @{
+                            var sidebarUserName = User.FindFirst("FullName")?.Value;
+                            if (string.IsNullOrWhiteSpace(sidebarUserName))
+                            {
+                                sidebarUserName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? User.Identity?.Name;
+                            }
+                        }
+                        <span class="sidebar-user-name">@sidebarUserName</span>
                         <span class="sidebar-user-role">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
-                        <span style="margin-top: 0.35rem; font-size: 0.72rem; opacity: 0.6;">Release @releaseVersion</span>
+                        <span style="margin-top: 0.35rem; font-size: 0.72rem; opacity: 0.6;"></span>
                     </div>
                     <form asp-controller="Account" asp-action="Logout" method="post" style="width: 100%;">
                         @Html.AntiForgeryToken()
@@ -103,7 +130,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                     </button>
                     <a class="sidebar-brand" asp-controller="Dashboard" asp-action="Index">
-                        <img src="~/images/mothersson-logo.png" alt="Motherson" class="sidebar-logo" />
+                        <img src="~/images/motherson-logo.png" alt="Motherson" class="sidebar-logo" />
                         <span class="sidebar-brand-text">Box Management</span>
                     </a>
                     <div style="width: 44px; font-size: 0.68rem; opacity: 0.6; text-align: right;">@releaseVersion</div>
@@ -124,7 +151,12 @@
         </main>
     }
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+    <script src="~/js/station-terminal.js" asp-append-version="true"></script>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+    <script src="~/js/scanner.js" asp-append-version="true"></script>
+    }
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const toggle = document.querySelector('.mobile-menu-toggle');

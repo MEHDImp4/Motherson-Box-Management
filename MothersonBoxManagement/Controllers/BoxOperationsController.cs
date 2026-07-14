@@ -1,8 +1,7 @@
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MothersonBoxManagement.Dtos;
 using MothersonBoxManagement.Security;
 using MothersonBoxManagement.Services;
 
@@ -14,11 +13,13 @@ public class BoxOperationsController : Controller
 {
     private readonly IBoxService _boxService;
     private readonly IWorkstationResolver _workstationResolver;
+    private readonly ILogger<BoxOperationsController> _logger;
 
-    public BoxOperationsController(IBoxService boxService, IWorkstationResolver workstationResolver)
+    public BoxOperationsController(IBoxService boxService, IWorkstationResolver workstationResolver, ILogger<BoxOperationsController> logger)
     {
         _boxService = boxService;
         _workstationResolver = workstationResolver;
+        _logger = logger;
     }
 
     private int GetUserId()
@@ -28,301 +29,204 @@ public class BoxOperationsController : Controller
         return int.Parse(claim.Value);
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [Route("Box/CancelBox")]
-    public async Task<IActionResult> CancelBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    private string ResolveWorkstation(string? workstationName)
     {
-        if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return _workstationResolver.Resolve(workstationName);
+    }
 
+    private async Task<IActionResult> ExecuteBoxOperationAsync(
+        string boxBarcode,
+        string errorLogMessage,
+        Func<int, string, CancellationToken, Task<BoxDetailsDto>> operation,
+        string successMessage,
+        string? workstationName,
+        CancellationToken cancellationToken)
+    {
         try
         {
             var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.CancelBoxAsync(boxId, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Box cancelled successfully.";
+            var resolvedWorkstationName = ResolveWorkstation(workstationName);
+            var box = await operation(userId, resolvedWorkstationName, cancellationToken);
+            TempData["ScanSuccess"] = successMessage;
             return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            TempData["Error"] = "An error occurred while cancelling the box. Please try again.";
+            _logger.LogError(ex, "{ErrorMessage}", errorLogMessage);
+            TempData["Error"] = "An error occurred. Please try again.";
             return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
         }
+    }
+
+    private IActionResult RequireReason(string boxBarcode)
+    {
+        TempData["Error"] = "A reason is required.";
+        return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Route("Box/CancelBox")]
+    public Task<IActionResult> CancelBox(int boxId, string boxBarcode, string reason, string? workstationName, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return Task.FromResult(RequireReason(boxBarcode));
+
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error cancelling box {boxId}",
+            (userId, ws, ct) => _boxService.CancelBoxAsync(boxId, reason, userId, ws, ct),
+            "Box cancelled successfully.", workstationName, ct);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Route("Box/ForceCloseBox")]
-    public async Task<IActionResult> ForceCloseBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    public Task<IActionResult> ForceCloseBox(int boxId, string boxBarcode, string reason, string? workstationName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+            return Task.FromResult(RequireReason(boxBarcode));
 
-        try
-        {
-            var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.ForceCloseBoxAsync(boxId, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Box closed successfully.";
-            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-        }
-        catch (Exception)
-        {
-            TempData["Error"] = "An error occurred while force closing the box. Please try again.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error force closing box {boxId}",
+            (userId, ws, ct) => _boxService.ForceCloseBoxAsync(boxId, reason, userId, ws, ct),
+            "Box closed successfully.", workstationName, ct);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Route("Box/ModifyExpectedQuantity")]
-    public async Task<IActionResult> ModifyExpectedQuantity(int boxId, string boxBarcode, int expectedQuantity, string reason, CancellationToken cancellationToken)
+    public Task<IActionResult> ModifyExpectedQuantity(int boxId, string boxBarcode, int expectedQuantity, string reason, string? workstationName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+            return Task.FromResult(RequireReason(boxBarcode));
 
         if (expectedQuantity <= 0)
         {
             TempData["Error"] = "Expected quantity must be greater than 0.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
+            return Task.FromResult<IActionResult>(RedirectToAction("Details", "Box", new { barcode = boxBarcode }));
         }
 
-        try
-        {
-            var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.UpdateExpectedQuantityAsync(boxId, expectedQuantity, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Expected quantity updated successfully.";
-            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-        }
-        catch (Exception)
-        {
-            TempData["Error"] = "An error occurred while updating the quantity. Please try again.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error updating quantity for box {boxId}",
+            (userId, ws, ct) => _boxService.UpdateExpectedQuantityAsync(boxId, expectedQuantity, reason, userId, ws, ct),
+            "Expected quantity updated successfully.", workstationName, ct);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Route("Box/BlockBox")]
-    public async Task<IActionResult> BlockBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    public Task<IActionResult> BlockBox(int boxId, string boxBarcode, string reason, string? workstationName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+            return Task.FromResult(RequireReason(boxBarcode));
 
-        try
-        {
-            var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.BlockBoxAsync(boxId, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Box blocked successfully.";
-            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-        }
-        catch (Exception)
-        {
-            TempData["Error"] = "An error occurred while blocking the box. Please try again.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error blocking box {boxId}",
+            (userId, ws, ct) => _boxService.BlockBoxAsync(boxId, reason, userId, ws, ct),
+            "Box blocked successfully.", workstationName, ct);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Route("Box/UnblockBox")]
-    public async Task<IActionResult> UnblockBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    public Task<IActionResult> UnblockBox(int boxId, string boxBarcode, string reason, string? workstationName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+            return Task.FromResult(RequireReason(boxBarcode));
 
-        try
-        {
-            var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.UnblockBoxAsync(boxId, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Box unblocked successfully.";
-            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-        }
-        catch (Exception)
-        {
-            TempData["Error"] = "An error occurred while unblocking the box. Please try again.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error unblocking box {boxId}",
+            (userId, ws, ct) => _boxService.UnblockBoxAsync(boxId, reason, userId, ws, ct),
+            "Box unblocked successfully.", workstationName, ct);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Route("Box/ArchiveBox")]
-    public async Task<IActionResult> ArchiveBox(int boxId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    public Task<IActionResult> ArchiveBox(int boxId, string boxBarcode, string reason, string? workstationName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+            return Task.FromResult(RequireReason(boxBarcode));
 
-        try
-        {
-            var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.ArchiveBoxAsync(boxId, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Box archived successfully.";
-            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-        }
-        catch (Exception)
-        {
-            TempData["Error"] = "An error occurred while archiving the box. Please try again.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error archiving box {boxId}",
+            (userId, ws, ct) => _boxService.ArchiveBoxAsync(boxId, reason, userId, ws, ct),
+            "Box archived successfully.", workstationName, ct);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Route("Box/BlockPackage")]
-    public async Task<IActionResult> BlockPackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    public Task<IActionResult> BlockPackage(int packageId, string boxBarcode, string reason, string? workstationName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+            return Task.FromResult(RequireReason(boxBarcode));
 
-        try
-        {
-            var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.BlockPackageAsync(packageId, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Package blocked successfully.";
-            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-        }
-        catch (Exception)
-        {
-            TempData["Error"] = "An error occurred while blocking the package. Please try again.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error blocking package {packageId}",
+            (userId, ws, ct) => _boxService.BlockPackageAsync(packageId, reason, userId, ws, ct),
+            "Package blocked successfully.", workstationName, ct);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Route("Box/UnblockPackage")]
-    public async Task<IActionResult> UnblockPackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    public Task<IActionResult> UnblockPackage(int packageId, string boxBarcode, string reason, string? workstationName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+            return Task.FromResult(RequireReason(boxBarcode));
 
-        try
-        {
-            var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.UnblockPackageAsync(packageId, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Package unblocked successfully.";
-            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-        }
-        catch (Exception)
-        {
-            TempData["Error"] = "An error occurred while unblocking the package. Please try again.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error unblocking package {packageId}",
+            (userId, ws, ct) => _boxService.UnblockPackageAsync(packageId, reason, userId, ws, ct),
+            "Package unblocked successfully.", workstationName, ct);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Route("Box/TransferPackage")]
-    public async Task<IActionResult> TransferPackage(int packageId, string boxBarcode, int destinationBoxId, string reason, CancellationToken cancellationToken)
+    public Task<IActionResult> TransferPackage(int packageId, string boxBarcode, int destinationBoxId, string reason, string? workstationName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+            return Task.FromResult(RequireReason(boxBarcode));
 
         if (destinationBoxId <= 0)
         {
             TempData["Error"] = "The destination box is invalid.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
+            return Task.FromResult<IActionResult>(RedirectToAction("Details", "Box", new { barcode = boxBarcode }));
         }
 
-        try
-        {
-            var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.TransferPackageAsync(packageId, destinationBoxId, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Package transferred successfully.";
-            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-        }
-        catch (Exception)
-        {
-            TempData["Error"] = "An error occurred while transferring the package. Please try again.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error transferring package {packageId}",
+            (userId, ws, ct) => _boxService.TransferPackageAsync(packageId, destinationBoxId, reason, userId, ws, ct),
+            "Package transferred successfully.", workstationName, ct);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Route("Box/RetraitPackage")]
-    public async Task<IActionResult> RetraitPackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    public Task<IActionResult> RetraitPackage(int packageId, string boxBarcode, string reason, string? workstationName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+            return Task.FromResult(RequireReason(boxBarcode));
 
-        try
-        {
-            var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.RetraitPackageAsync(packageId, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Package removed successfully.";
-            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-        }
-        catch (Exception)
-        {
-            TempData["Error"] = "An error occurred while removing the package. Please try again.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error removing package {packageId}",
+            (userId, ws, ct) => _boxService.RetraitPackageAsync(packageId, reason, userId, ws, ct),
+            "Package removed successfully.", workstationName, ct);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Route("Box/DisassociatePackage")]
-    public async Task<IActionResult> DisassociatePackage(int packageId, string boxBarcode, string reason, CancellationToken cancellationToken)
+    public Task<IActionResult> DisassociatePackage(int packageId, string boxBarcode, string reason, string? workstationName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reason))
-        {
-            TempData["Error"] = "A reason is required.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+            return Task.FromResult(RequireReason(boxBarcode));
 
-        try
-        {
-            var userId = GetUserId();
-            var workstationName = _workstationResolver.Resolve();
-            var box = await _boxService.DisassociatePackageAsync(packageId, reason, userId, workstationName, cancellationToken);
-            TempData["ScanSuccess"] = "Package disassociated successfully.";
-            return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-        }
-        catch (Exception)
-        {
-            TempData["Error"] = "An error occurred while disassociating the package. Please try again.";
-            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
-        }
+        return ExecuteBoxOperationAsync(boxBarcode,
+            $"Error disassociating package {packageId}",
+            (userId, ws, ct) => _boxService.DisassociatePackageAsync(packageId, reason, userId, ws, ct),
+            "Package disassociated successfully.", workstationName, ct);
     }
 }

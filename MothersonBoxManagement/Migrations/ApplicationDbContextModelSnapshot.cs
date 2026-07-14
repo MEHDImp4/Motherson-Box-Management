@@ -22,6 +22,56 @@ namespace MothersonBoxManagement.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("MothersonBoxManagement.Entities.BarcodeConfiguration", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BoxDatePattern")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("BoxPrefix")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("BoxRandomLength")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PackageMinLength")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PackagePrefix")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BarcodeConfigurations");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            BoxDatePattern = "yyyyMMdd",
+                            BoxPrefix = "BOX-",
+                            BoxRandomLength = 6,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PackageMinLength = 3
+                        });
+                });
+
             modelBuilder.Entity("MothersonBoxManagement.Entities.Box", b =>
                 {
                     b.Property<int>("Id")
@@ -32,10 +82,12 @@ namespace MothersonBoxManagement.Migrations
 
                     b.Property<string>("BarcodeValue")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("BlockReason")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<DateTime?>("BlockedAt")
                         .HasColumnType("datetime2");
@@ -45,7 +97,8 @@ namespace MothersonBoxManagement.Migrations
 
                     b.Property<string>("BoxNumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("datetime2");
@@ -54,7 +107,8 @@ namespace MothersonBoxManagement.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("CompletionMode")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -69,7 +123,8 @@ namespace MothersonBoxManagement.Migrations
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<string>("ExceptionReason")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<int>("ExpectedQuantity")
                         .HasColumnType("int");
@@ -114,7 +169,14 @@ namespace MothersonBoxManagement.Migrations
 
                     b.HasIndex("LastModifiedByUserId");
 
-                    b.ToTable("Boxes");
+                    b.ToTable("Boxes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Boxes_CurrentQuantity_Range", "[CurrentQuantity] >= 0 AND [CurrentQuantity] <= [ExpectedQuantity]");
+
+                            t.HasCheckConstraint("CK_Boxes_Dimensions_Positive", "[Height] > 0 AND [Width] > 0 AND [Depth] > 0");
+
+                            t.HasCheckConstraint("CK_Boxes_ExpectedQuantity_Positive", "[ExpectedQuantity] > 0");
+                        });
                 });
 
             modelBuilder.Entity("MothersonBoxManagement.Entities.BoxAuditLog", b =>
@@ -127,31 +189,34 @@ namespace MothersonBoxManagement.Migrations
 
                     b.Property<string>("ActionType")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<int?>("BoxId")
                         .HasColumnType("int");
 
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("DetailsJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("NewValue")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("PackageBarcode")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("PreviousValue")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("Reason")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("RelatedBoxId")
-                        .HasColumnType("int");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("datetime2");
@@ -160,13 +225,12 @@ namespace MothersonBoxManagement.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("WorkstationName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BoxId");
-
-                    b.HasIndex("RelatedBoxId");
 
                     b.HasIndex("UserId");
 
@@ -182,7 +246,8 @@ namespace MothersonBoxManagement.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("BlockReason")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<int>("BoxId")
                         .HasColumnType("int");
@@ -190,9 +255,27 @@ namespace MothersonBoxManagement.Migrations
                     b.Property<bool>("IsBlocked")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsRemoved")
+                        .HasColumnType("bit");
+
                     b.Property<string>("PackageBarcode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("RemovalReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("RemovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RemovedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ScanRequestId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTime>("ScannedAt")
                         .HasColumnType("datetime2");
@@ -201,18 +284,336 @@ namespace MothersonBoxManagement.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("WorkstationName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BoxId");
 
                     b.HasIndex("PackageBarcode")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsRemoved] = 0");
+
+                    b.HasIndex("RemovedByUserId");
+
+                    b.HasIndex("ScanRequestId")
+                        .IsUnique()
+                        .HasFilter("[ScanRequestId] IS NOT NULL");
 
                     b.HasIndex("ScannedByUserId");
 
                     b.ToTable("BoxPackages");
+                });
+
+            modelBuilder.Entity("MothersonBoxManagement.Entities.BoxPrintJob", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BoxId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("FailedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LeaseExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LeaseTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("NextAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Payload")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PayloadType")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("PayloadVersion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PrintedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PrinterName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PrinterUncPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReprintReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RequestedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("WorkstationId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoxId");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.HasIndex("WorkstationId");
+
+                    b.ToTable("BoxPrintJobs");
+                });
+
+            modelBuilder.Entity("MothersonBoxManagement.Entities.BoxTemplate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Depth")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ExpectedQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Height")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PackagePrefixPattern")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Width")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("PackagePrefixPattern")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1 AND [PackagePrefixPattern] IS NOT NULL");
+
+                    b.ToTable("BoxTemplates");
+                });
+
+            modelBuilder.Entity("MothersonBoxManagement.Entities.LoginAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LockoutEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Matricule")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Matricule")
+                        .IsUnique();
+
+                    b.ToTable("LoginAttempts");
+                });
+
+            modelBuilder.Entity("MothersonBoxManagement.Entities.PasswordResetRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ApprovedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RequestedFromIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("UserId", "Status");
+
+                    b.ToTable("PasswordResetRequests");
+                });
+
+            modelBuilder.Entity("MothersonBoxManagement.Entities.PrintAgentPairingCode", b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("int");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    b.Property<string>("CodeHash").IsRequired().HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.Property<DateTime?>("ConsumedAt").HasColumnType("datetime2");
+                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
+                    b.Property<DateTime>("ExpiresAt").HasColumnType("datetime2");
+                    b.Property<int>("WorkstationId").HasColumnType("int");
+                    b.HasKey("Id");
+                    b.HasIndex("CodeHash").IsUnique();
+                    b.HasIndex("WorkstationId");
+                    b.ToTable("PrintAgentPairingCodes");
+                });
+
+            modelBuilder.Entity("MothersonBoxManagement.Entities.PrinterConfiguration", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AgentTokenHash").HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.Property<string>("AgentVersion").HasMaxLength(40).HasColumnType("nvarchar(40)");
+                    b.Property<string>("AvailablePrintersJson").IsRequired().HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastSeenAt").HasColumnType("datetime2");
+                    b.Property<string>("MachineName").HasMaxLength(100).HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PcName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PrinterName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PrinterUncPath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PrintMode").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
+                    b.Property<DateTime?>("RevokedAt").HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("AgentTokenHash").IsUnique().HasFilter("[AgentTokenHash] IS NOT NULL");
+
+                    b.ToTable("PrinterConfigurations");
                 });
 
             modelBuilder.Entity("MothersonBoxManagement.Entities.User", b =>
@@ -228,14 +629,16 @@ namespace MothersonBoxManagement.Migrations
 
                     b.Property<string>("FullName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
                     b.Property<string>("Matricule")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -243,7 +646,13 @@ namespace MothersonBoxManagement.Migrations
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("SecurityStamp")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -254,6 +663,19 @@ namespace MothersonBoxManagement.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            FullName = "Application System",
+                            IsActive = false,
+                            Matricule = "SYSTEM",
+                            PasswordHash = "LOGIN-DISABLED",
+                            Role = "System",
+                            SecurityStamp = "SYSTEM-PRINCIPAL"
+                        });
                 });
 
             modelBuilder.Entity("MothersonBoxManagement.Entities.Box", b =>
@@ -295,11 +717,6 @@ namespace MothersonBoxManagement.Migrations
                         .HasForeignKey("BoxId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("MothersonBoxManagement.Entities.Box", "RelatedBox")
-                        .WithMany()
-                        .HasForeignKey("RelatedBoxId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("MothersonBoxManagement.Entities.User", "User")
                         .WithMany("AuditLogs")
                         .HasForeignKey("UserId")
@@ -307,8 +724,6 @@ namespace MothersonBoxManagement.Migrations
                         .IsRequired();
 
                     b.Navigation("Box");
-
-                    b.Navigation("RelatedBox");
 
                     b.Navigation("User");
                 });
@@ -321,6 +736,11 @@ namespace MothersonBoxManagement.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("MothersonBoxManagement.Entities.User", "RemovedBy")
+                        .WithMany()
+                        .HasForeignKey("RemovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("MothersonBoxManagement.Entities.User", "ScannedBy")
                         .WithMany("ScannedPackages")
                         .HasForeignKey("ScannedByUserId")
@@ -329,7 +749,74 @@ namespace MothersonBoxManagement.Migrations
 
                     b.Navigation("Box");
 
+                    b.Navigation("RemovedBy");
+
                     b.Navigation("ScannedBy");
+                });
+
+            modelBuilder.Entity("MothersonBoxManagement.Entities.BoxPrintJob", b =>
+                {
+                    b.HasOne("MothersonBoxManagement.Entities.Box", "Box")
+                        .WithMany()
+                        .HasForeignKey("BoxId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MothersonBoxManagement.Entities.User", "RequestedBy")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MothersonBoxManagement.Entities.PrinterConfiguration", "Workstation")
+                        .WithMany()
+                        .HasForeignKey("WorkstationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Box");
+
+                    b.Navigation("RequestedBy");
+
+                    b.Navigation("Workstation");
+                });
+
+            modelBuilder.Entity("MothersonBoxManagement.Entities.BoxTemplate", b =>
+                {
+                    b.HasOne("MothersonBoxManagement.Entities.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+                });
+
+            modelBuilder.Entity("MothersonBoxManagement.Entities.PasswordResetRequest", b =>
+                {
+                    b.HasOne("MothersonBoxManagement.Entities.User", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MothersonBoxManagement.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MothersonBoxManagement.Entities.PrintAgentPairingCode", b =>
+                {
+                    b.HasOne("MothersonBoxManagement.Entities.PrinterConfiguration", "Workstation")
+                        .WithMany()
+                        .HasForeignKey("WorkstationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                    b.Navigation("Workstation");
                 });
 
             modelBuilder.Entity("MothersonBoxManagement.Entities.Box", b =>

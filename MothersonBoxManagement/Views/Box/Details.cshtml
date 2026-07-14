@@ -1,4 +1,4 @@
-@model MothersonBoxManagement.Data.Dtos.BoxDetailsDto
+@model MothersonBoxManagement.Dtos.BoxDetailsDto
 @{
     ViewData["Title"] = $"Box {Model.BoxNumber}";
     var progress = Model.ExpectedQuantity > 0 ? (int)((double)Model.CurrentQuantity / Model.ExpectedQuantity * 100) : 0;
@@ -23,11 +23,30 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="margin-right: 6px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             Back to Dashboard
         </a>
+        @if (Model.Status == MothersonBoxManagement.Entities.BoxStatus.Created)
+        {
+            <form asp-action="Open" asp-controller="Box" method="post" class="d-inline">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="boxId" value="@Model.Id" />
+                <input type="hidden" name="boxBarcode" value="@Model.BarcodeValue" />
+                <button type="submit" class="btn btn-primary-custom btn-sm d-inline-flex align-items-center" style="min-height: 36px; padding: 0 20px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="margin-right: 6px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    Open & Print QR
+                </button>
+            </form>
+        }
         @if (Model.Status == MothersonBoxManagement.Entities.BoxStatus.Open)
         {
-            <a asp-action="Prepare" asp-controller="Box" asp-route-barcode="@Model.BarcodeValue" class="btn btn-primary-custom btn-sm d-inline-flex align-items-center" style="min-height: 36px; padding: 0 20px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="margin-right: 6px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                Resume Scanning
+            <!-- Scanning is global: scan package first from anywhere, then scan box -->
+        }
+        @if (Model.Status == MothersonBoxManagement.Entities.BoxStatus.Open || Model.Status == MothersonBoxManagement.Entities.BoxStatus.Created)
+        {
+            <form asp-action="Queue" asp-controller="Print" asp-route-barcode="@Model.BarcodeValue" method="post" class="d-inline">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary-custom btn-sm" style="min-height: 36px;">Print on workstation</button>
+            </form>
+            <a asp-action="PrintClient" asp-controller="Print" asp-route-barcode="@Model.BarcodeValue" target="_blank" class="btn btn-outline-custom btn-sm d-inline-flex align-items-center" style="min-height: 36px; padding: 0 16px;">
+                Browser print
             </a>
         }
     </div>
@@ -95,6 +114,20 @@
                         <span class="info-row-label">Created By</span>
                         <span class="info-row-value">@Model.CreatedByMatricule on @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
                     </div>
+                    @if (Model.CompletionMode != null)
+                    {
+                    <div class="info-row">
+                        <span class="info-row-label">Completion</span>
+                        <span class="info-row-value">@Model.CompletionMode on @(Model.CompletedAt?.ToString("dd/MM/yyyy HH:mm") ?? "N/A")</span>
+                    </div>
+                    }
+                    @if (Model.BlockedAt.HasValue)
+                    {
+                    <div class="info-row">
+                        <span class="info-row-label">Blocked At</span>
+                        <span class="info-row-value">@Model.BlockedAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                    </div>
+                    }
 
                     <div class="mt-4">
                         <div class="d-flex align-items-center justify-content-between mb-1">
@@ -209,6 +242,15 @@
                     </div>
                     <div class="card-body d-flex flex-column gap-2" style="padding: 16px;">
                         <span class="label-md mb-1" style="font-weight: 600; text-transform: uppercase;">Box Security Overrides</span>
+
+                        @if (Model.Status != MothersonBoxManagement.Entities.BoxStatus.Archived)
+                        {
+                            <a asp-action="PrintClient" asp-controller="Print" asp-route-barcode="@Model.BarcodeValue" target="_blank"
+                               class="btn btn-outline-custom w-100 text-start justify-content-between d-flex align-items-center"
+                               style="min-height: 44px; font-weight: 600;">
+                                <span>Reprint QR label</span> <span>&#8599;</span>
+                            </a>
+                        }
                         
                         @if (Model.Status == MothersonBoxManagement.Entities.BoxStatus.Open)
                         {
@@ -220,10 +262,19 @@
                                     style="min-height: 44px; font-weight: 600;">
                                 <span>Quarantine / Block Box</span> <span>&rarr;</span>
                             </button>
-                            <button type="button" class="btn btn-outline-custom w-100 text-start justify-content-between" data-bs-toggle="modal" data-bs-target="#forceCloseBoxModal"
-                                    style="min-height: 44px; font-weight: 600; color: var(--status-exception); border-color: var(--status-exception);">
-                                <span>Force Close with Exception</span> <span>&rarr;</span>
-                            </button>
+                            @if (remaining > 0)
+                            {
+                                <button type="button" class="btn btn-outline-custom w-100 text-start justify-content-between" data-bs-toggle="modal" data-bs-target="#forceCloseBoxModal"
+                                        style="min-height: 44px; font-weight: 600; color: var(--status-exception); border-color: var(--status-exception);">
+                                    <span>Force Close with Exception</span> <span>&rarr;</span>
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info mb-0" style="padding: 10px 14px; border-radius: var(--radius-md); font-size: 12px;">
+                                    Force close is not available: the expected quantity has already been reached.
+                                </div>
+                            }
                             <button type="button" class="btn btn-outline-custom w-100 text-start justify-content-between" data-bs-toggle="modal" data-bs-target="#cancelBoxModal"
                                     style="min-height: 44px; font-weight: 600; color: var(--error); border-color: var(--error);">
                                 <span>Permanently Cancel Box</span> <span>&rarr;</span>
@@ -248,6 +299,8 @@
                 </div>
             }
 
+            @if (isSupervisorOrAdmin)
+            {
             <!-- Short navigation / history links card -->
             <div class="card" style="border: 1px solid var(--border);">
                 <div class="card-header" style="background-color: var(--surface-container-low); font-weight: 700; color: var(--on-surface);">
@@ -262,6 +315,7 @@
                     </a>
                 </div>
             </div>
+            }
         </div>
     </div>
 
@@ -456,7 +510,7 @@
                                     <option value="">-- Select Destination Box --</option>
                                     @if (ViewBag.OpenBoxes != null)
                                     {
-                                        @foreach (var openBox in (List<MothersonBoxManagement.Data.Dtos.BoxListItemDto>)ViewBag.OpenBoxes)
+                                        @foreach (var openBox in (List<MothersonBoxManagement.Dtos.BoxListItemDto>)ViewBag.OpenBoxes)
                                         {
                                             <option value="@openBox.Id">@openBox.BoxNumber (@openBox.BarcodeValue) - Fill: @openBox.CurrentQuantity/@openBox.ExpectedQuantity</option>
                                         }

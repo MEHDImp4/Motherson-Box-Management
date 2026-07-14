@@ -1,18 +1,32 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using MothersonBoxManagement.Data;
-using MothersonBoxManagement.Data.Dtos;
+using MothersonBoxManagement.Dtos;
 using MothersonBoxManagement.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace MothersonBoxManagement.Services;
 
-public class BoxService : IBoxService
+public class BoxService : IBoxService, IBoxQueryService, IBoxLifecycleService, IBoxPackageService
 {
+    public const string CompletionModeForced = "Forced";
+    public const string CompletionModeAutomatic = "Automatic";
+
+    private static readonly Expression<Func<Box, BoxListItemDto>> ToListItemDtoExpr = b => new BoxListItemDto
+    {
+        Id = b.Id,
+        BoxNumber = b.BoxNumber,
+        BarcodeValue = b.BarcodeValue,
+        Type = b.Type,
+        ExpectedQuantity = b.ExpectedQuantity,
+        CurrentQuantity = b.CurrentQuantity,
+        Status = b.Status,
+        CreatedAt = b.CreatedAt,
+        ModifiedAt = b.ModifiedAt,
+        CreatedByMatricule = b.CreatedBy.Matricule,
+        LastModifiedAt = b.ModifiedAt ?? b.CreatedAt,
+        LastUserMatricule = b.LastModifiedBy != null ? b.LastModifiedBy.Matricule : b.CreatedBy.Matricule
+    };
+
     private readonly ApplicationDbContext _context;
     private readonly IBarcodeService _barcodeService;
 
@@ -38,7 +52,7 @@ public class BoxService : IBoxService
             Depth = dto.Depth,
             ExpectedQuantity = dto.ExpectedQuantity,
             CurrentQuantity = 0,
-            Status = BoxStatus.Open,
+            Status = BoxStatus.Created,
             CreatedByUserId = userId,
             CreatedAt = DateTime.UtcNow
         };
@@ -55,21 +69,18 @@ public class BoxService : IBoxService
         return await _context.Boxes
             .Where(b => b.Status == BoxStatus.Open)
             .OrderByDescending(b => b.CreatedAt)
-            .Select(b => new BoxListItemDto
-            {
-                Id = b.Id,
-                BoxNumber = b.BoxNumber,
-                BarcodeValue = b.BarcodeValue,
-                Type = b.Type,
-                ExpectedQuantity = b.ExpectedQuantity,
-                CurrentQuantity = b.CurrentQuantity,
-                Status = b.Status,
-                CreatedAt = b.CreatedAt,
-                ModifiedAt = b.ModifiedAt,
-                CreatedByMatricule = b.CreatedBy.Matricule,
-                LastModifiedAt = b.ModifiedAt ?? b.CreatedAt,
-                LastUserMatricule = b.LastModifiedBy != null ? b.LastModifiedBy.Matricule : b.CreatedBy.Matricule
-            })
+            .Take(200)
+            .Select(ToListItemDtoExpr)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<BoxListItemDto>> GetCreatedBoxesAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.Boxes
+            .Where(b => b.Status == BoxStatus.Created)
+            .OrderByDescending(b => b.CreatedAt)
+            .Take(200)
+            .Select(ToListItemDtoExpr)
             .ToListAsync(cancellationToken);
     }
 
@@ -105,37 +116,14 @@ public class BoxService : IBoxService
             query = query.Where(b => b.CreatedAt <= endOfDay);
         }
 
+        var page = Math.Max(1, filter.Page);
+        var pageSize = Math.Clamp(filter.PageSize, 1, 200);
+
         return await query
             .OrderByDescending(b => b.CreatedAt)
-            .Select(b => new BoxListItemDto
-            {
-                Id = b.Id,
-                BoxNumber = b.BoxNumber,
-                BarcodeValue = b.BarcodeValue,
-                Type = b.Type,
-                ExpectedQuantity = b.ExpectedQuantity,
-                CurrentQuantity = b.CurrentQuantity,
-                Status = b.Status,
-                CreatedAt = b.CreatedAt,
-                ModifiedAt = b.ModifiedAt,
-                CreatedByMatricule = b.CreatedBy.Matricule,
-                LastModifiedAt = b.ModifiedAt ?? b.CreatedAt,
-                LastUserMatricule = b.LastModifiedBy != null ? b.LastModifiedBy.Matricule : b.CreatedBy.Matricule
-            })
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task<List<UserListItemDto>> GetUsersAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.Users
-            .Where(u => u.IsActive)
-            .OrderBy(u => u.Matricule)
-            .Select(u => new UserListItemDto
-            {
-                Id = u.Id,
-                Matricule = u.Matricule,
-                Role = u.Role
-            })
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(ToListItemDtoExpr)
             .ToListAsync(cancellationToken);
     }
 
@@ -161,45 +149,17 @@ public class BoxService : IBoxService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task LogBoxResumedIfNeededAsync(int boxId, int userId, string workstationName, CancellationToken ct = default)
+    public async Task<BoxDetailsDto?> FindBoxByPackageBarcodeAsync(string packageBarcode, CancellationToken cancellationToken = default)
     {
-        var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, ct);
-        if (box == null || box.Status != BoxStatus.Open)
-            return;
+        var package = await _context.BoxPackages
+            .FirstOrDefaultAsync(
+                bp => bp.PackageBarcode == packageBarcode && !bp.IsRemoved,
+                cancellationToken);
 
-        var lastLog = await _context.BoxAuditLogs
-            .Where(l => l.BoxId == boxId)
-            .OrderByDescending(l => l.Timestamp)
-            .FirstOrDefaultAsync(ct);
+        if (package is null)
+            return null;
 
-        if (lastLog != null && lastLog.UserId == userId && lastLog.ActionType == "BoxResumed")
-            return;
-
-        bool isReprise = false;
-        int? previousUserId = null;
-        string previousUserMatricule = "";
-
-        if (box.LastModifiedByUserId.HasValue)
-        {
-            previousUserId = box.LastModifiedByUserId.Value;
-            isReprise = box.LastModifiedByUserId.Value != userId;
-        }
-        else
-        {
-            previousUserId = box.CreatedByUserId;
-            isReprise = box.CreatedByUserId != userId;
-        }
-
-        if (isReprise && previousUserId.HasValue)
-        {
-            var prevUser = await _context.Users.FindAsync(new object[] { previousUserId.Value }, ct);
-            previousUserMatricule = prevUser?.Matricule ?? "";
-
-            var currentUser = await _context.Users.FindAsync(new object[] { userId }, ct);
-            var currentUserMatricule = currentUser?.Matricule ?? "";
-
-            await _context.SaveChangesAsync(ct);
-        }
+        return await GetBoxByIdAsync(package.BoxId, cancellationToken);
     }
 
     private async Task<T> ExecuteWithConcurrencyRetryAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken)
@@ -245,6 +205,28 @@ public class BoxService : IBoxService
         throw new InvalidOperationException("Concurrency conflict. Please try again.");
     }
 
+    public async Task<BoxDetailsDto> OpenBoxAsync(int boxId, int userId, string workstationName, CancellationToken ct = default)
+    {
+        return await ExecuteWithConcurrencyRetryAsync(async () =>
+        {
+            var box = await _context.Boxes.FirstOrDefaultAsync(b => b.Id == boxId, ct);
+            if (box == null)
+                throw new KeyNotFoundException($"Box with ID {boxId} was not found.");
+
+            if (box.Status != BoxStatus.Created)
+                throw new InvalidOperationException("Only boxes with 'Created' status can be opened.");
+
+            box.Status = BoxStatus.Open;
+            box.LastModifiedByUserId = userId;
+            box.ModifiedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync(ct);
+
+            return await GetBoxByIdAsync(boxId, ct)
+                ?? throw new InvalidOperationException("The box could not be saved.");
+        }, ct);
+    }
+
     public async Task<BoxDetailsDto> CancelBoxAsync(int boxId, string reason, int userId, string workstationName, CancellationToken ct = default)
     {
         return await ExecuteWithConcurrencyRetryAsync(async () =>
@@ -253,8 +235,8 @@ public class BoxService : IBoxService
             if (box == null)
                 throw new KeyNotFoundException($"Box with ID {boxId} was not found.");
 
-            if (box.Status != BoxStatus.Open)
-                throw new InvalidOperationException("Only open boxes can be cancelled.");
+            if (box.Status != BoxStatus.Open && box.Status != BoxStatus.Created)
+                throw new InvalidOperationException("Only open or created boxes can be cancelled.");
 
             box.Status = BoxStatus.Cancelled;
             box.ExceptionReason = reason;
@@ -282,9 +264,12 @@ public class BoxService : IBoxService
             var expectedQuantity = box.ExpectedQuantity;
             var currentQuantity = box.CurrentQuantity;
 
+            if (currentQuantity >= expectedQuantity)
+                throw new InvalidOperationException("Force close is only allowed when the expected quantity has not been reached.");
+
             box.Status = BoxStatus.CompletedWithException;
             box.ExceptionReason = reason;
-            box.CompletionMode = "Forced";
+            box.CompletionMode = CompletionModeForced;
             box.LastModifiedByUserId = userId;
             box.ModifiedAt = DateTime.UtcNow;
             box.CompletedAt = DateTime.UtcNow;
@@ -324,7 +309,7 @@ public class BoxService : IBoxService
             if (box.CurrentQuantity >= box.ExpectedQuantity)
             {
                 box.Status = BoxStatus.Completed;
-                box.CompletionMode = "Automatic";
+                box.CompletionMode = CompletionModeAutomatic;
                 box.CompletedAt = DateTime.UtcNow;
                 box.CompletedByUserId = userId;
             }
@@ -423,8 +408,24 @@ public class BoxService : IBoxService
             if (package.Box.Status == BoxStatus.Cancelled || package.Box.Status == BoxStatus.Archived)
                 throw new InvalidOperationException("Packages in a cancelled or archived box cannot be changed.");
 
+            if (package.IsRemoved)
+                throw new InvalidOperationException("A removed package association cannot be blocked.");
+
+            if (package.IsBlocked)
+                throw new InvalidOperationException("This package is already blocked.");
+
             package.IsBlocked = true;
             package.BlockReason = reason;
+            package.Box.CurrentQuantity = Math.Max(0, package.Box.CurrentQuantity - 1);
+
+            if (package.Box.Status == BoxStatus.Completed || package.Box.Status == BoxStatus.CompletedWithException)
+            {
+                package.Box.Status = BoxStatus.Open;
+                package.Box.CompletionMode = null;
+                package.Box.CompletedAt = null;
+                package.Box.CompletedByUserId = null;
+            }
+
             package.Box.ModifiedAt = DateTime.UtcNow;
             package.Box.LastModifiedByUserId = userId;
 
@@ -449,8 +450,28 @@ public class BoxService : IBoxService
             if (package.Box.Status == BoxStatus.Cancelled || package.Box.Status == BoxStatus.Archived)
                 throw new InvalidOperationException("Packages in a cancelled or archived box cannot be changed.");
 
+            if (package.IsRemoved)
+                throw new InvalidOperationException("A removed package association cannot be unblocked.");
+
+            if (!package.IsBlocked)
+                throw new InvalidOperationException("This package is not blocked.");
+
+            if (package.Box.CurrentQuantity >= package.Box.ExpectedQuantity)
+                throw new InvalidOperationException("Unblocking this package would exceed the expected quantity.");
+
             package.IsBlocked = false;
             package.BlockReason = reason;
+            package.Box.CurrentQuantity++;
+
+            if (package.Box.Status == BoxStatus.Open &&
+                package.Box.CurrentQuantity >= package.Box.ExpectedQuantity)
+            {
+                package.Box.Status = BoxStatus.Completed;
+                package.Box.CompletionMode = CompletionModeAutomatic;
+                package.Box.CompletedAt = DateTime.UtcNow;
+                package.Box.CompletedByUserId = userId;
+            }
+
             package.Box.ModifiedAt = DateTime.UtcNow;
             package.Box.LastModifiedByUserId = userId;
 
@@ -470,6 +491,12 @@ public class BoxService : IBoxService
 
             if (package == null)
                 throw new KeyNotFoundException($"Package with ID {packageId} was not found.");
+
+            if (package.IsBlocked)
+                throw new InvalidOperationException("A blocked package cannot be transferred. Unblock it first.");
+
+            if (package.IsRemoved)
+                throw new InvalidOperationException("A removed package association cannot be transferred.");
 
             int sourceBoxId = package.BoxId;
 
@@ -497,7 +524,6 @@ public class BoxService : IBoxService
             if (destinationBox.CurrentQuantity >= destinationBox.ExpectedQuantity)
                 throw new InvalidOperationException("The destination box is full.");
 
-            var packageBarcode = package.PackageBarcode;
             package.BoxId = destinationBoxId;
 
             sourceBox.CurrentQuantity--;
@@ -513,10 +539,35 @@ public class BoxService : IBoxService
             if (destinationBox.CurrentQuantity >= destinationBox.ExpectedQuantity)
             {
                 destinationBox.Status = BoxStatus.Completed;
-                destinationBox.CompletionMode = "Automatic";
+                destinationBox.CompletionMode = CompletionModeAutomatic;
                 destinationBox.CompletedAt = DateTime.UtcNow;
                 destinationBox.CompletedByUserId = userId;
             }
+
+            _context.BoxAuditLogs.Add(new BoxAuditLog
+            {
+                BoxId = sourceBoxId,
+                PackageBarcode = package.PackageBarcode,
+                ActionType = "PackageTransferred",
+                UserId = userId,
+                Timestamp = DateTime.UtcNow,
+                WorkstationName = workstationName,
+                PreviousValue = sourceBoxId.ToString(),
+                NewValue = destinationBoxId.ToString(),
+                Reason = reason,
+                Description = $"Package transferred from box {sourceBox.BoxNumber} to box {destinationBox.BoxNumber}.",
+                DetailsJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    PackageBarcode = package.PackageBarcode,
+                    SourceBoxId = sourceBoxId,
+                    SourceBoxNumber = sourceBox.BoxNumber,
+                    DestinationBoxId = destinationBoxId,
+                    DestinationBoxNumber = destinationBox.BoxNumber,
+                    Reason = reason,
+                    UserId = userId,
+                    WorkstationName = workstationName
+                })
+            });
 
             await _context.SaveChangesAsync(ct);
 
@@ -541,12 +592,15 @@ public class BoxService : IBoxService
             if (box.Status != BoxStatus.Open && box.Status != BoxStatus.Cancelled)
                 throw new InvalidOperationException("A package can only be removed from an open or cancelled box.");
 
-            var packageBarcode = package.PackageBarcode;
-            var sourceBoxId = box.Id;
+            if (package.IsRemoved)
+                throw new InvalidOperationException("This package association has already been removed.");
 
-            _context.BoxPackages.Remove(package);
+            package.IsRemoved = true;
+            package.RemovedAt = DateTime.UtcNow;
+            package.RemovedByUserId = userId;
+            package.RemovalReason = reason;
 
-            box.CurrentQuantity--;
+            box.CurrentQuantity = Math.Max(0, box.CurrentQuantity - 1);
             box.ModifiedAt = DateTime.UtcNow;
             box.LastModifiedByUserId = userId;
             box.ExceptionReason = reason;
@@ -574,12 +628,15 @@ public class BoxService : IBoxService
             if (box.Status != BoxStatus.Cancelled)
                 throw new InvalidOperationException("Disassociation is only allowed for packages in a cancelled box.");
 
-            var packageBarcode = package.PackageBarcode;
-            var sourceBoxId = box.Id;
+            if (package.IsRemoved)
+                throw new InvalidOperationException("This package association has already been removed.");
 
-            _context.BoxPackages.Remove(package);
+            package.IsRemoved = true;
+            package.RemovedAt = DateTime.UtcNow;
+            package.RemovedByUserId = userId;
+            package.RemovalReason = reason;
 
-            box.CurrentQuantity--;
+            box.CurrentQuantity = Math.Max(0, box.CurrentQuantity - 1);
             box.ModifiedAt = DateTime.UtcNow;
             box.LastModifiedByUserId = userId;
             box.ExceptionReason = reason;

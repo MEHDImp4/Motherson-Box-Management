@@ -1,6 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
-using MothersonBoxManagement.Data.Dtos;
+using MothersonBoxManagement.Dtos;
 
 namespace MothersonBoxManagement.Services;
 
@@ -8,11 +8,14 @@ public interface IBoxService
 {
     Task<BoxDetailsDto> CreateBoxAsync(CreateBoxDto dto, int userId, CancellationToken cancellationToken = default);
     Task<List<BoxListItemDto>> GetOpenBoxesAsync(CancellationToken cancellationToken = default);
+    Task<List<BoxListItemDto>> GetCreatedBoxesAsync(CancellationToken cancellationToken = default);
     Task<List<BoxListItemDto>> SearchBoxesAsync(BoxSearchFilterDto filter, CancellationToken cancellationToken = default);
-    Task<List<UserListItemDto>> GetUsersAsync(CancellationToken cancellationToken = default);
     Task<BoxDetailsDto?> GetBoxByBarcodeAsync(string barcode, CancellationToken cancellationToken = default);
     Task<BoxDetailsDto?> GetBoxByIdAsync(int id, CancellationToken cancellationToken = default);
-    Task LogBoxResumedIfNeededAsync(int boxId, int userId, string workstationName, CancellationToken ct = default);
+    Task<BoxDetailsDto?> FindBoxByPackageBarcodeAsync(string packageBarcode, CancellationToken cancellationToken = default);
+
+    // Box lifecycle methods
+    Task<BoxDetailsDto> OpenBoxAsync(int boxId, int userId, string workstationName, CancellationToken ct = default);
 
     // Box exception methods
     Task<BoxDetailsDto> CancelBoxAsync(int boxId, string reason, int userId, string workstationName, CancellationToken ct = default);

@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Entities;
+using MothersonBoxManagement.Services;
 using System.Threading.Tasks;
 
 namespace MothersonBoxManagement.Tests;
@@ -18,6 +19,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseSetting("DemoUsers:OP001:Password", "Operator-Test-Only-2026!");
+        builder.UseSetting("DemoUsers:SP001:Password", "Supervisor-Test-Only-2026!");
+        builder.UseSetting("DemoUsers:AD001:Password", "Administrator-Test-Only-2026!");
         builder.ConfigureServices(services =>
         {
             var descriptor = services.SingleOrDefault(
@@ -47,14 +51,15 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             var users = new[]
             {
-                new User { Matricule = "OP001", Role = "Operator", IsActive = true },
-                new User { Matricule = "SP001", Role = "Supervisor", IsActive = true },
-                new User { Matricule = "AD001", Role = "Administrator", IsActive = true }
+                new User { Matricule = "OP001", FullName = "Test Operator", Role = "Operator", IsActive = true },
+                new User { Matricule = "SP001", FullName = "Test Supervisor", Role = "Supervisor", IsActive = true },
+                new User { Matricule = "AD001", FullName = "Test Administrator", Role = "Administrator", IsActive = true }
             };
 
             foreach (var user in users)
             {
                 user.PasswordHash = passwordHasher.HashPassword(user, password);
+                user.SecurityStamp = Guid.NewGuid().ToString("N");
             }
 
             db.Users.AddRange(users);
@@ -116,15 +121,29 @@ public class E2EUniqueConstraintSimulatingInterceptor : SaveChangesInterceptor
             .Select(e => e.Entity)
             .ToList();
 
+        var removedPackages = eventData.Context.ChangeTracker.Entries<BoxPackage>()
+            .Where(e => e.State == EntityState.Modified && e.Entity.IsRemoved)
+            .Select(e => e.Entity.PackageBarcode)
+            .ToList();
+
+        lock (_lock)
+        {
+            foreach (var removedBarcode in removedPackages)
+                _seenBarcodes.Remove(removedBarcode);
+        }
+
         foreach (var pkg in newPackages)
         {
             lock (_lock)
             {
-                var existsInDb = eventData.Context.Set<BoxPackage>().Any(p => p.PackageBarcode == pkg.PackageBarcode && p.Id != pkg.Id);
+                var existsInDb = eventData.Context.Set<BoxPackage>().Any(
+                    p => p.PackageBarcode == pkg.PackageBarcode && !p.IsRemoved && p.Id != pkg.Id);
                 if (_seenBarcodes.Contains(pkg.PackageBarcode) || existsInDb)
                 {
                     var inner = new Exception("IX_BoxPackages_PackageBarcode");
-                    throw new DbUpdateException("Duplicate package barcode unique index violation.", inner);
+                    var exception = new DbUpdateException("Duplicate package barcode unique index violation.", inner);
+                    exception.Data[PackageScanService.SqlServerErrorNumberDataKey] = 2601;
+                    throw exception;
                 }
                 _seenBarcodes.Add(pkg.PackageBarcode);
             }

@@ -84,7 +84,7 @@ public class AuditControllerTests : IClassFixture<CustomWebApplicationFactory>
             {
                 BoxNumber = "BOX-AUDIT-FILTER",
                 BarcodeValue = "BOX-AUDIT-FILTER",
-                Type = BoxType.Carton,
+                Type = BoxType.Cardboard,
                 Height = 10,
                 Width = 10,
                 Depth = 10,
@@ -132,7 +132,7 @@ public class AuditControllerTests : IClassFixture<CustomWebApplicationFactory>
             {
                 BoxNumber = "BOX-AUDIT-TYPE",
                 BarcodeValue = "BOX-AUDIT-TYPE",
-                Type = BoxType.Carton,
+                Type = BoxType.Cardboard,
                 Height = 10,
                 Width = 10,
                 Depth = 10,
@@ -180,7 +180,7 @@ public class AuditControllerTests : IClassFixture<CustomWebApplicationFactory>
             {
                 BoxNumber = "BOX-AUDIT-DATE",
                 BarcodeValue = "BOX-AUDIT-DATE",
-                Type = BoxType.Carton,
+                Type = BoxType.Cardboard,
                 Height = 10,
                 Width = 10,
                 Depth = 10,
@@ -239,7 +239,7 @@ public class AuditControllerTests : IClassFixture<CustomWebApplicationFactory>
             {
                 BoxNumber = "BOX-AUDIT-PAGINATION",
                 BarcodeValue = "BOX-AUDIT-PAGINATION",
-                Type = BoxType.Carton,
+                Type = BoxType.Cardboard,
                 Height = 10,
                 Width = 10,
                 Depth = 10,

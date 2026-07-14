@@ -9,7 +9,7 @@
 - Live package scanning with duplicate prevention and automatic completion
 - Supervisor exception flows: cancel, force close, block/unblock, remove, transfer
 - Immutable audit log
-- Seeded development accounts
+- Development-only seed accounts
 - Local startup through either Docker or a direct .NET + SQL Server setup
 
 ## Quick start with Docker
@@ -29,7 +29,7 @@ docker compose up --build
 
 4. Open the app at [http://localhost:8080](http://localhost:8080).
 
-The application runs EF Core migrations automatically on startup and seeds the test users if they do not already exist.
+In `Development`, the application applies EF Core migrations and seeds local test users if they do not already exist. Production startup does not auto-migrate or seed unless `Database__AutoMigrate=true` or `SeedDemoUsers=true` is set deliberately.
 
 ## Quick start without Docker
 
@@ -50,21 +50,21 @@ dotnet run --project MothersonBoxManagement
 
 4. Open the URL shown by ASP.NET Core, usually [http://localhost:5169](http://localhost:5169).
 
-## Seeded test accounts
+## Development seed accounts
 
-These accounts are created by `DbInitializer.SeedAsync()` on first startup:
+These local-only accounts are created by `DbInitializer.SeedAsync()` when the app runs in `Development` or when `SeedDemoUsers=true` is explicitly configured:
 
-| Role | Matricule | Password |
-| --- | --- | --- |
-| Operator | `OP001` | `Motherson2026!` |
-| Supervisor | `SP001` | `Motherson2026!` |
-| Administrator | `AD001` | `Motherson2026!` |
+| Role | Matricule |
+| --- | --- |
+| Operator | `OP001` |
+| Supervisor | `SP001` |
+| Administrator | `AD001` |
 
-These credentials are for local development and testing only.
+Seed credentials are for local development and automated tests only. Do not enable demo seeding in production.
 
 ## Database creation and migrations
 
-The app applies migrations automatically at startup:
+The app applies migrations automatically at startup only in `Development` or when `Database__AutoMigrate=true` is configured:
 
 - relational providers: `Database.MigrateAsync()`
 - non-relational test providers: `Database.EnsureCreatedAsync()`

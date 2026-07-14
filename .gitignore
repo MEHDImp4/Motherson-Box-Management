@@ -32,3 +32,8 @@ node_modules/
 # Test and coverage artifacts
 TestResults/
 coverage/
+
+# Generated/signed release artifacts
+MothersonBoxManagement/App_Data/Downloads/*.exe
+MothersonBoxManagement/App_Data/Downloads/*.json
+artifacts/

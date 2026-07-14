@@ -1,0 +1,303 @@
+@{
+    ViewData["Title"] = "Settings";
+    var barcodeConfig = ViewBag.BarcodeConfig as MothersonBoxManagement.Entities.BarcodeConfiguration ?? new();
+    var canManageSettings = User.IsInRole("Administrator") || User.IsInRole("Admin");
+}
+
+<div class="container" style="padding-top: var(--space-md);">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <a asp-action="Index" asp-controller="Dashboard" class="back-link d-inline-flex align-items-center" style="margin-bottom: 0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="margin-right: 6px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Back to Dashboard
+        </a>
+    </div>
+
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="card" style="border: 1px solid var(--border);">
+                <div class="card-header d-flex justify-content-between align-items-center" style="background-color: var(--surface-container-low); font-weight: 700;">
+                    <span>Local Print Agent</span>
+                    <span id="printAgentBadge" class="badge text-bg-secondary">Checking…</span>
+                </div>
+                <div class="card-body" style="padding: 24px;">
+                    <div id="printAgentMessage" class="alert alert-info">Configure a workstation name above to inspect its print agent.</div>
+                    <dl class="row mb-3" id="printAgentDetails" hidden>
+                        <dt class="col-sm-3">Machine</dt><dd class="col-sm-9" id="agentMachine">—</dd>
+                        <dt class="col-sm-3">Agent version</dt><dd class="col-sm-9" id="agentVersion">—</dd>
+                        <dt class="col-sm-3">Printer</dt><dd class="col-sm-9" id="agentPrinter">—</dd>
+                        <dt class="col-sm-3">Last contact</dt><dd class="col-sm-9" id="agentLastSeen">—</dd>
+                    </dl>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <a href="/Downloads/PrintAgent" class="btn btn-outline-custom" id="downloadPrintAgent">Download print agent</a>
+                        <a asp-action="PrintClient" asp-controller="Print" class="btn btn-outline-secondary disabled" aria-disabled="true">Browser print remains available</a>
+                    </div>
+
+                    @if (canManageSettings)
+                    {
+                        <form id="pairingForm" method="post" action="/PrintAgent/PairingCode" class="mb-3">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="workstationName" />
+                            <button type="submit" class="btn btn-primary-custom">Generate pairing code</button>
+                            <strong id="pairingCode" class="ms-3" style="letter-spacing:.12em"></strong>
+                        </form>
+                        <form method="post" action="/PrintAgent/Configure" class="row g-2 align-items-end mb-3" id="printerConfigForm">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="workstationName" />
+                            <div class="col-md-6">
+                                <label for="agentPrinterSelect" class="form-label">Windows printer</label>
+                                <select id="agentPrinterSelect" name="printerName" class="form-select" required></select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="agentPrintMode" class="form-label">Mode</label>
+                                <select id="agentPrintMode" name="printMode" class="form-select">
+                                    <option value="Windows">Windows driver</option>
+                                    <option value="Zpl">Raw ZPL</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3"><button type="submit" class="btn btn-primary-custom w-100">Save printer</button></div>
+                        </form>
+                        <form method="post" action="/PrintAgent/Revoke" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="workstationName" />
+                            <button type="submit" class="btn btn-outline-danger">Revoke agent</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+            <strong>Success:</strong> @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card" style="border: 1px solid var(--border);">
+                <div class="card-header" style="background-color: var(--surface-container-low); font-weight: 700; color: var(--on-surface);">
+                    Workstation Settings
+                </div>
+                <div class="card-body" style="padding: 24px;">
+                    @if (canManageSettings)
+                    {
+                    <div class="mb-4">
+                        <label for="settingStation" class="form-label" style="font-weight: 600;">Workstation Name</label>
+                        <input type="text" id="settingStation" class="form-control" placeholder="e.g. P3-STATION-01" maxlength="64" style="min-height: 44px; font-weight: 600;" />
+                        <div class="form-text text-muted" style="font-size: 12px;">This name appears in audit logs to identify which terminal performed each operation.</div>
+                    </div>
+                    <button type="button" id="saveSettingsBtn" class="btn btn-primary-custom" style="min-height: 44px; padding: 0 32px; font-weight: 600;">
+                        Save Settings
+                    </button>
+                    <span id="settingsSaved" style="display:none;color:#198754;font-weight:600;margin-left:12px;">&#10003; Saved</span>
+                    }
+                    else
+                    {
+                    <div>
+                        <div class="form-label" style="font-weight: 600;">Workstation Name</div>
+                        <div class="form-control d-flex align-items-center" style="min-height: 44px; font-weight: 600; background: var(--surface-container-low);" data-station-terminal>Not configured</div>
+                        <div class="form-text text-muted" style="font-size: 12px;">Only an administrator can change the workstation name.</div>
+                    </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card" style="border: 1px solid var(--border);">
+                <div class="card-header" style="background-color: var(--surface-container-low); font-weight: 700; color: var(--on-surface);">
+                    About
+                </div>
+                <div class="card-body" style="padding: 24px;">
+                    <p class="body-md text-muted mb-3" style="font-size: 13px; line-height: 1.6;">
+                        These settings are saved locally on this workstation's browser using localStorage. They are not shared across workstations.
+                    </p>
+                    <ul class="body-md text-muted" style="font-size: 13px; line-height: 1.8; padding-left: 18px;">
+                        <li><strong>Workstation Name</strong> — recorded in the audit trail for every scan and box operation performed from this terminal.</li>
+                        <li><strong>Printing</strong> — labels are printed exclusively through the browser print dialog.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (canManageSettings)
+    {
+        <div class="row g-4 mt-2">
+            <div class="col-12">
+                <div class="card" style="border: 1px solid var(--border);">
+                    <div class="card-header" style="background-color: var(--surface-container-low); font-weight: 700; color: var(--on-surface);">
+                        Barcode Patterns
+                    </div>
+                    <div class="card-body" style="padding: 24px;">
+                        <form asp-action="SaveBarcodeConfig" asp-controller="Box" method="post">
+                            @Html.AntiForgeryToken()
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <h6 style="font-weight: 700; color: var(--on-surface); margin-bottom: 16px; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em;">Box Barcode Format</h6>
+                                    <div class="mb-3">
+                                        <label for="boxPrefix" class="form-label" style="font-weight: 600;">Box Prefix</label>
+                                        <input type="text" id="boxPrefix" name="boxPrefix" class="form-control" value="@barcodeConfig.BoxPrefix" maxlength="20" style="min-height: 44px;" />
+                                        <div class="form-text text-muted" style="font-size: 12px;">Prefix for generated box barcodes (e.g., BOX-, WBX-).</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="boxDatePattern" class="form-label" style="font-weight: 600;">Date Pattern</label>
+                                        <input type="text" id="boxDatePattern" name="boxDatePattern" class="form-control" value="@barcodeConfig.BoxDatePattern" maxlength="20" style="min-height: 44px;" />
+                                        <div class="form-text text-muted" style="font-size: 12px;">.NET date format string (e.g., yyyyMMdd, yyMMdd).</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="boxRandomLength" class="form-label" style="font-weight: 600;">Random Suffix Length</label>
+                                        <input type="number" id="boxRandomLength" name="boxRandomLength" class="form-control" value="@barcodeConfig.BoxRandomLength" min="2" max="16" style="min-height: 44px;" />
+                                        <div class="form-text text-muted" style="font-size: 12px;">Number of hex characters for the random portion (2-16).</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 style="font-weight: 700; color: var(--on-surface); margin-bottom: 16px; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em;">Package Barcode Format</h6>
+                                    <div class="mb-3">
+                                        <label for="packagePrefix" class="form-label" style="font-weight: 600;">Package Prefix (optional)</label>
+                                        <input type="text" id="packagePrefix" name="packagePrefix" class="form-control" value="@(barcodeConfig.PackagePrefix ?? "")" maxlength="20" placeholder="Leave empty to accept any" style="min-height: 44px;" />
+                                        <div class="form-text text-muted" style="font-size: 12px;">If set, only packages starting with this prefix are accepted (e.g., PKG-).</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="packageMinLength" class="form-label" style="font-weight: 600;">Minimum Length</label>
+                                        <input type="number" id="packageMinLength" name="packageMinLength" class="form-control" value="@barcodeConfig.PackageMinLength" min="1" max="50" style="min-height: 44px;" />
+                                        <div class="form-text text-muted" style="font-size: 12px;">Minimum number of characters for a valid package barcode.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4 d-flex align-items-center gap-3">
+                                <button type="submit" class="btn btn-primary-custom" style="min-height: 44px; padding: 0 32px; font-weight: 600;">
+                                    Save Barcode Patterns
+                                </button>
+                                <div style="font-size: 12px; color: var(--secondary); background: var(--surface-container-low); padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border);">
+                                    <strong>Preview:</strong> <code id="barcodePreview" style="font-weight: 700;">@(barcodeConfig.BoxPrefix)@(DateTime.UtcNow.ToString(barcodeConfig.BoxDatePattern))-@(new string('X', barcodeConfig.BoxRandomLength))</code>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var stationInput = document.getElementById('settingStation');
+        var saveBtn = document.getElementById('saveSettingsBtn');
+        var savedMsg = document.getElementById('settingsSaved');
+
+        function updateStationFields() {
+            var name = window.MothersonStation ? window.MothersonStation.getStationName() : '';
+            document.querySelectorAll('#pairingForm input[name="workstationName"], #printerConfigForm input[name="workstationName"], form[action="/PrintAgent/Revoke"] input[name="workstationName"]').forEach(function (input) {
+                input.value = name;
+            });
+            return name;
+        }
+
+        async function refreshPrintAgent() {
+            var station = updateStationFields();
+            if (!station) return;
+            var response = await fetch('/PrintAgent/Status?workstationName=' + encodeURIComponent(station));
+            if (!response.ok) return;
+            var status = await response.json();
+            var badge = document.getElementById('printAgentBadge');
+            var message = document.getElementById('printAgentMessage');
+            var details = document.getElementById('printAgentDetails');
+            badge.textContent = !status.configured ? 'Not paired' : status.isOnline ? 'Online' : 'Offline';
+            badge.className = 'badge ' + (status.isOnline ? 'text-bg-success' : status.configured ? 'text-bg-warning' : 'text-bg-secondary');
+            message.textContent = !status.configured
+                ? 'Download the agent, generate a temporary code, then enter the server URL and code on first launch.'
+                : status.printerAvailable ? 'The workstation is ready for direct printing.' : 'The selected printer is not currently reported by the agent.';
+            message.className = 'alert ' + (status.isOnline && status.printerAvailable ? 'alert-success' : 'alert-warning');
+            details.hidden = !status.configured;
+            if (status.configured) {
+                document.getElementById('agentMachine').textContent = status.machineName || '—';
+                document.getElementById('agentVersion').textContent = status.agentVersion || '—';
+                document.getElementById('agentPrinter').textContent = status.printerName || 'Not selected';
+                document.getElementById('agentLastSeen').textContent = status.lastSeenAt ? new Date(status.lastSeenAt).toLocaleString() : 'Never';
+                var select = document.getElementById('agentPrinterSelect');
+                if (select) {
+                    select.innerHTML = '';
+                    (status.printers || []).forEach(function (printer) {
+                        var option = new Option(printer, printer, printer === status.printerName, printer === status.printerName);
+                        select.add(option);
+                    });
+                    document.getElementById('agentPrintMode').value = status.printMode || 'Windows';
+                }
+            }
+        }
+
+        if (stationInput && window.MothersonStation) {
+            stationInput.value = window.MothersonStation.getStationName();
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', function () {
+                if (window.MothersonStation) {
+                    window.MothersonStation.setStationName(stationInput.value);
+                }
+
+                refreshPrintAgent();
+
+                savedMsg.style.display = 'inline';
+                setTimeout(function () { savedMsg.style.display = 'none'; }, 1000);
+            });
+        }
+
+        var pairingForm = document.getElementById('pairingForm');
+        if (pairingForm) {
+            pairingForm.addEventListener('submit', async function (event) {
+                event.preventDefault();
+                updateStationFields();
+                var response = await fetch(pairingForm.action, { method: 'POST', body: new FormData(pairingForm) });
+                var body = await response.json();
+                document.getElementById('pairingCode').textContent = response.ok ? body.code : 'Unable to generate code';
+            });
+        }
+
+        refreshPrintAgent();
+
+        var boxPrefixInput = document.getElementById('boxPrefix');
+        var boxDatePatternInput = document.getElementById('boxDatePattern');
+        var boxRandomLengthInput = document.getElementById('boxRandomLength');
+        var previewEl = document.getElementById('barcodePreview');
+
+        function updatePreview() {
+            var prefix = boxPrefixInput.value || 'BOX-';
+            var datePattern = boxDatePatternInput.value || 'yyyyMMdd';
+            var randLen = parseInt(boxRandomLengthInput.value) || 6;
+            var now = new Date();
+            var dateStr = '';
+            if (datePattern === 'yyyyMMdd') {
+                dateStr = now.getFullYear().toString() +
+                    String(now.getMonth() + 1).padStart(2, '0') +
+                    String(now.getDate()).padStart(2, '0');
+            } else if (datePattern === 'yyMMdd') {
+                dateStr = now.getFullYear().toString().slice(-2) +
+                    String(now.getMonth() + 1).padStart(2, '0') +
+                    String(now.getDate()).padStart(2, '0');
+            } else if (datePattern === 'yyMM') {
+                dateStr = now.getFullYear().toString().slice(-2) +
+                    String(now.getMonth() + 1).padStart(2, '0');
+            } else {
+                dateStr = datePattern;
+            }
+            var hex = '';
+            for (var i = 0; i < randLen; i++) {
+                hex += 'X';
+            }
+            previewEl.textContent = prefix + dateStr + '-' + hex;
+        }
+
+        if (boxPrefixInput) {
+            boxPrefixInput.addEventListener('input', updatePreview);
+            boxDatePatternInput.addEventListener('input', updatePreview);
+            boxRandomLengthInput.addEventListener('input', updatePreview);
+        }
+    });
+</script>
+}

@@ -7,9 +7,6 @@ public static class AppRoles
     public const string SupervisorFr = "Superviseur";
     public const string Administrator = "Administrator";
     public const string AdminFr = "Admin";
-
-    public static class PolicyNames
-    {
-        public const string SupervisorOrAdmin = "SupervisorOrAdmin";
-    }
+    public const string AdministratorOnly = $"{AdminFr},{Administrator}";
+    public const string SupervisorOrAdministrator = $"{SupervisorFr},{AdminFr},{Supervisor},{Administrator}";
 }

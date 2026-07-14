@@ -7,6 +7,23 @@ description: Technical architecture of the Motherson Box Management project
 
 # Architecture - Motherson Box Management
 
+> Updated 13 July 2026: Production uses a Linux web container and an outbound-only Windows print agent, with browser printing retained as fallback.
+
+## Production topology
+
+```mermaid
+flowchart LR
+  S[Scanner HID / browser] -->|HTTPS| W[ASP.NET Core MVC on Linux]
+  W -->|EF Core| D[(SQL Server)]
+  W -->|Persistent print jobs| D
+  A[Windows print agent] -->|HTTPS poll / heartbeat| W
+  A -->|Windows driver or raw ZPL| P[Configured workstation printer]
+  W -->|Fallback HTML label| B[Browser print dialog]
+  W --> O[Central logs and metrics]
+```
+
+The Linux server never contacts a Windows spooler directly. Each paired agent authenticates with a workstation-scoped bearer token, reports installed printers, and polls its own leased jobs. The server stores only token hashes; the agent protects its token with Windows DPAPI. `/Box/PrintClient/{barcode}` remains available if the agent or printer is unavailable.
+
 ## Overview
 
 Motherson Box Management is an internal ASP.NET Core MVC web application for the P3 packaging area at the Motherson plant. It lets operators create packaging boxes, scan cable packages identified by barcodes into them, and keep full traceability through an append-only audit log. The application works independently, with no sync to an external ERP or MES.

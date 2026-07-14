@@ -1,0 +1,21 @@
+@model MothersonBoxManagement.Models.RecoveryLoginViewModel
+@{
+    ViewData["Title"] = "Continue password reset";
+}
+<div class="login-page">
+    <div class="login-card">
+        <h1 class="login-title">Continue password reset</h1>
+        <p class="text-muted">After an administrator approves your request, enter your matricule. No password is required for this one-time access.</p>
+        <form asp-action="RecoveryLogin" method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+            <div class="mb-3">
+                <label asp-for="Matricule" class="form-label">Employee ID (Matricule)</label>
+                <input asp-for="Matricule" class="form-control" autocomplete="username" />
+                <span asp-validation-for="Matricule" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-primary-custom w-100">Continue without password</button>
+        </form>
+        <div class="text-center mt-3"><a asp-action="Login">Back to sign in</a></div>
+    </div>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

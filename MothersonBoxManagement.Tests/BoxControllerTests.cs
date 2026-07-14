@@ -1,5 +1,7 @@
 using System.Net;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Services;
 using Xunit;
 
@@ -38,83 +40,99 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
         return client;
     }
 
-    [Fact]
-    public async Task CreateBox_Get_ReturnsFormPage()
+    private async Task<int> CreateTemplateAsync(HttpClient client)
     {
-        var client = await LoginAsync();
-
-        var response = await client.GetAsync("/Box/Create");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Create a box", content);
-    }
-
-    [Fact]
-    public async Task CreateBox_Post_ValidData_RedirectsToPrepare()
-    {
-        var client = await LoginAsync();
-
         var formData = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("Type", "Carton"),
+            new KeyValuePair<string, string>("Name", "Test Template " + Guid.NewGuid().ToString("N")[..6]),
+            new KeyValuePair<string, string>("Type", "Cardboard"),
             new KeyValuePair<string, string>("Height", "30"),
             new KeyValuePair<string, string>("Width", "20"),
             new KeyValuePair<string, string>("Depth", "15"),
             new KeyValuePair<string, string>("ExpectedQuantity", "50")
         });
 
-        var response = await client.PostAsync("/Box/Create", formData);
+        var response = await client.PostAsync("/BoxTemplate/Create", formData);
 
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains("/Box/Prepare/", response.Headers.Location?.OriginalString);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var template = await db.BoxTemplates.OrderByDescending(t => t.Id).FirstAsync();
+        return template.Id;
+    }
+
+    private async Task<string> CreateBoxFromTemplateAsync(HttpClient client, int templateId)
+    {
+        var formData = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("templateId", templateId.ToString())
+        });
+
+        var response = await client.PostAsync("/Box/CreateFromTemplate", formData);
+
+        var location = response.Headers.Location?.OriginalString!;
+        return location.Split('/').Last();
     }
 
     [Fact]
-    public async Task CreateBox_Post_InvalidDimensions_ReturnsForm()
+    public async Task CreateFromTemplate_ReturnsRedirectToDetails()
     {
-        var client = await LoginAsync();
+        var client = await LoginAsync("SP001");
+        var templateId = await CreateTemplateAsync(client);
 
         var formData = new FormUrlEncodedContent(new[]
         {
-            new KeyValuePair<string, string>("Type", "Carton"),
-            new KeyValuePair<string, string>("Height", "0"),
-            new KeyValuePair<string, string>("Width", "20"),
-            new KeyValuePair<string, string>("Depth", "15"),
-            new KeyValuePair<string, string>("ExpectedQuantity", "50")
+            new KeyValuePair<string, string>("templateId", templateId.ToString())
         });
 
-        var response = await client.PostAsync("/Box/Create", formData);
+        var response = await client.PostAsync("/Box/CreateFromTemplate", formData);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/Box/Details/", response.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task CreateFromTemplate_Operator_ReturnsRedirectToDetails()
+    {
+        var supervisorClient = await LoginAsync("SP001");
+        var templateId = await CreateTemplateAsync(supervisorClient);
+        var operatorClient = await LoginAsync("OP001");
+
+        var formData = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("templateId", templateId.ToString())
+        });
+
+        var response = await operatorClient.PostAsync("/Box/CreateFromTemplate", formData);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/Box/PrintClient/", response.Headers.Location?.OriginalString);
+        Assert.Contains("autoPrint=True", response.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task BoxTemplate_Index_ReturnsTemplates()
+    {
+        var client = await LoginAsync("SP001");
+
+        var response = await client.GetAsync("/BoxTemplate");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("greater than 0", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Box Templates", content);
     }
 
     [Fact]
     public async Task BoxDetails_ExistingBox_ReturnsDetails()
     {
-        var client = await LoginAsync();
-
-        var createForm = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("Type", "Bois"),
-            new KeyValuePair<string, string>("Height", "40"),
-            new KeyValuePair<string, string>("Width", "30"),
-            new KeyValuePair<string, string>("Depth", "20"),
-            new KeyValuePair<string, string>("ExpectedQuantity", "100")
-        });
-        var createResponse = await client.PostAsync("/Box/Create", createForm);
-
-        var location = createResponse.Headers.Location?.OriginalString!;
-        var boxBarcode = location.Split('/').Last();
+        var client = await LoginAsync("SP001");
+        var templateId = await CreateTemplateAsync(client);
+        var boxBarcode = await CreateBoxFromTemplateAsync(client, templateId);
 
         var response = await client.GetAsync($"/Box/Details/{boxBarcode}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
         Assert.Contains("BOX-", content);
-        Assert.Contains("Bois", content);
     }
 
     [Fact]
@@ -130,186 +148,60 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Homepage_Authenticated_ShowsDashboard()
     {
-        var client = await LoginAsync();
-
-        var createForm = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("Type", "Plastique"),
-            new KeyValuePair<string, string>("Height", "25"),
-            new KeyValuePair<string, string>("Width", "25"),
-            new KeyValuePair<string, string>("Depth", "25"),
-            new KeyValuePair<string, string>("ExpectedQuantity", "10")
-        });
-        await client.PostAsync("/Box/Create", createForm);
+        var client = await LoginAsync("SP001");
+        var templateId = await CreateTemplateAsync(client);
+        await CreateBoxFromTemplateAsync(client, templateId);
 
         var response = await client.GetAsync("/");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var content = await response.Content.ReadAsStringAsync();
         Assert.Contains("Welcome", content);
-        Assert.Contains("Plastique", content);
     }
 
     [Fact]
     public async Task BoxCreation_GeneratesValidBoxNumber()
     {
-        var client = await LoginAsync();
+        var client = await LoginAsync("SP001");
+        var templateId = await CreateTemplateAsync(client);
+        var boxBarcode = await CreateBoxFromTemplateAsync(client, templateId);
 
-        var formData = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("Type", "Carton"),
-            new KeyValuePair<string, string>("Height", "20"),
-            new KeyValuePair<string, string>("Width", "20"),
-            new KeyValuePair<string, string>("Depth", "20"),
-            new KeyValuePair<string, string>("ExpectedQuantity", "1")
-        });
-
-        var createResponse = await client.PostAsync("/Box/Create", formData);
-        var location = createResponse.Headers.Location?.OriginalString!;
-
-        var response = await client.GetAsync(location);
+        var response = await client.GetAsync($"/Box/Details/{boxBarcode}");
         var content = await response.Content.ReadAsStringAsync();
 
         Assert.Contains("BOX-", content);
     }
 
     [Fact]
-    public async Task BoxPrepare_OpenBox_ReturnsOk()
-    {
-        var client = await LoginAsync();
-
-        var createForm = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("Type", "Carton"),
-            new KeyValuePair<string, string>("Height", "30"),
-            new KeyValuePair<string, string>("Width", "20"),
-            new KeyValuePair<string, string>("Depth", "15"),
-            new KeyValuePair<string, string>("ExpectedQuantity", "10")
-        });
-        var createResponse = await client.PostAsync("/Box/Create", createForm);
-        var location = createResponse.Headers.Location?.OriginalString!;
-        var boxId = location.Split('/').Last();
-
-        var response = await client.GetAsync($"/Box/Prepare/{boxId}");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Preparation", content);
-    }
-
-    [Fact]
-    public async Task BoxPrepare_NonexistentBox_ReturnsNotFound()
-    {
-        var client = await LoginAsync();
-
-        var response = await client.GetAsync("/Box/Prepare/99999");
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task BoxPrepare_NonOpenBox_RedirectsToDetails()
-    {
-        var client = await LoginAsync();
-
-        // Create box
-        var createForm = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("Type", "Carton"),
-            new KeyValuePair<string, string>("Height", "30"),
-            new KeyValuePair<string, string>("Width", "20"),
-            new KeyValuePair<string, string>("Depth", "15"),
-            new KeyValuePair<string, string>("ExpectedQuantity", "1") // quantity 1 so 1 scan completes it
-        });
-        var createResponse = await client.PostAsync("/Box/Create", createForm);
-        var location = createResponse.Headers.Location?.OriginalString!;
-        var boxBarcode = location.Split('/').Last();
-
-        using var scope = _factory.Services.CreateScope();
-        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
-        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
-
-        // Scan 1 item to complete the box
-        var scanForm = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
-            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
-            new KeyValuePair<string, string>("barcode", "PKG-TEST-COMPLETION")
-        });
-        await client.PostAsync("/Box/Scan", scanForm);
-
-        // Prepare should redirect to Details now since box is completed (not open)
-        var response = await client.GetAsync($"/Box/Prepare/{boxBarcode}");
-
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains($"/Box/Details/{boxBarcode}", response.Headers.Location?.OriginalString);
-    }
-
-    [Fact]
-    public async Task Homepage_Autofocus_Exists()
+    public async Task Homepage_DoesNotAutofocusScannerInput()
     {
         var client = await LoginAsync();
         var response = await client.GetAsync("/");
         var content = await response.Content.ReadAsStringAsync();
-        Assert.Contains("autofocus", content);
+        Assert.DoesNotContain("autofocus", content, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task Homepage_Lookup_OpenBox_RedirectsToPrepare()
+    public async Task TemplateSelectionPage_ContainsCreateFromTemplateForms()
     {
-        var client = await LoginAsync();
-        
-        var createForm = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("Type", "Carton"),
-            new KeyValuePair<string, string>("Height", "30"),
-            new KeyValuePair<string, string>("Width", "20"),
-            new KeyValuePair<string, string>("Depth", "15"),
-            new KeyValuePair<string, string>("ExpectedQuantity", "10")
-        });
-        var createResponse = await client.PostAsync("/Box/Create", createForm);
-        var location = createResponse.Headers.Location?.OriginalString!;
-        var boxBarcode = location.Split('/').Last();
-        
-        var lookupForm = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("Barcode", boxBarcode)
-        });
-        var response = await client.PostAsync("/", lookupForm);
+        var client = await LoginAsync("SP001");
+        var templateId = await CreateTemplateAsync(client);
 
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains($"/Box/Prepare/{boxBarcode}", response.Headers.Location?.OriginalString);
+        var response = await client.GetAsync("/Dashboard/Templates");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("/Box/CreateFromTemplate", content);
+        Assert.Contains($"value=\"{templateId}\"", content);
     }
 
     [Fact]
-    public async Task Homepage_Lookup_NonOpenBox_RedirectsToDetails()
+    public async Task Homepage_Lookup_OpenBox_RedirectsToDetails()
     {
-        var client = await LoginAsync();
+        var client = await LoginAsync("SP001");
+        var templateId = await CreateTemplateAsync(client);
+        var boxBarcode = await CreateBoxFromTemplateAsync(client, templateId);
         
-        var createForm = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("Type", "Carton"),
-            new KeyValuePair<string, string>("Height", "30"),
-            new KeyValuePair<string, string>("Width", "20"),
-            new KeyValuePair<string, string>("Depth", "15"),
-            new KeyValuePair<string, string>("ExpectedQuantity", "1")
-        });
-        var createResponse = await client.PostAsync("/Box/Create", createForm);
-        var location = createResponse.Headers.Location?.OriginalString!;
-        var boxBarcode = location.Split('/').Last();
-
-        using var scope = _factory.Services.CreateScope();
-        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
-        var box = await boxService.GetBoxByBarcodeAsync(boxBarcode);
-
-        var scanForm = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("boxId", box!.Id.ToString()),
-            new KeyValuePair<string, string>("boxBarcode", boxBarcode),
-            new KeyValuePair<string, string>("barcode", "PKG-LKP-001")
-        });
-        await client.PostAsync("/Box/Scan", scanForm);
-
         var lookupForm = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string, string>("Barcode", boxBarcode)
@@ -335,5 +227,18 @@ public class BoxControllerTests : IClassFixture<CustomWebApplicationFactory>
         var content = await response.Content.ReadAsStringAsync();
         Assert.Contains("value=\"PKG-123456\"", content);
         Assert.Contains("alert-warning", content);
+    }
+
+    [Fact]
+    public async Task BoxSearchPage_OpenNewBoxLink_TargetsDedicatedTemplateSelectionPage()
+    {
+        var client = await LoginAsync();
+
+        var response = await client.GetAsync("/Box");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("/Dashboard/Templates", content);
+        Assert.DoesNotContain("showTemplatePicker", content);
     }
 }

@@ -8,7 +8,9 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MothersonBoxManagement.Data;
+using MothersonBoxManagement.Dtos;
 using MothersonBoxManagement.Entities;
+using MothersonBoxManagement.Services;
 using Xunit;
 
 namespace MothersonBoxManagement.Tests;
@@ -59,7 +61,9 @@ public class SecurityAuditTests : IClassFixture<CustomWebApplicationFactory>
             "/Box/BlockPackage",
             "/Box/UnblockPackage",
             "/Box/TransferPackage",
-            "/Box/RetraitPackage"
+            "/Box/RetraitPackage",
+            "/Box/ArchiveBox",
+            "/Box/DisassociatePackage"
         };
 
         foreach (var endpoint in endpoints)
@@ -80,6 +84,72 @@ public class SecurityAuditTests : IClassFixture<CustomWebApplicationFactory>
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
             Assert.Contains("/Account/Login", response.Headers.Location?.ToString() ?? "");
         }
+    }
+
+    [Fact]
+    public async Task Operator_CanCreateFromTemplate_AndConfigurePrinterSettings_ButCannotOpenOrUseSupervisorPrintActions()
+    {
+        var supervisorClient = await TestAuthHelper.CreateAuthenticatedClient(_factory, "SP001", "Motherson2026!");
+        var operatorClient = await TestAuthHelper.CreateAuthenticatedClient(_factory, "OP001", "Motherson2026!");
+
+        var templateForm = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            { "Name", "Restricted Template " + Guid.NewGuid().ToString("N")[..6] },
+            { "Type", "Cardboard" },
+            { "Height", "30" },
+            { "Width", "20" },
+            { "Depth", "15" },
+            { "ExpectedQuantity", "5" }
+        });
+        await supervisorClient.PostAsync("/BoxTemplate/Create", templateForm);
+
+        int templateId;
+        int createdBoxId;
+        string createdBoxBarcode;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+            var user = await db.Users.FirstAsync(u => u.Matricule == "SP001");
+            templateId = await db.BoxTemplates.OrderByDescending(t => t.Id).Select(t => t.Id).FirstAsync();
+            var createdBox = await boxService.CreateBoxAsync(new CreateBoxDto
+            {
+                Type = BoxType.Cardboard,
+                Height = 10,
+                Width = 10,
+                Depth = 10,
+                ExpectedQuantity = 2
+            }, user.Id);
+            createdBoxId = createdBox.Id;
+            createdBoxBarcode = createdBox.BarcodeValue;
+        }
+
+        var createResponse = await operatorClient.PostAsync("/Box/CreateFromTemplate", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            { "templateId", templateId.ToString() }
+        }));
+        var openResponse = await operatorClient.PostAsync("/Box/Open", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            { "boxId", createdBoxId.ToString() },
+            { "boxBarcode", createdBoxBarcode }
+        }));
+        var printResponse = await operatorClient.GetAsync($"/Box/Print/{createdBoxBarcode}");
+        var browserPrintResponse = await operatorClient.GetAsync($"/Box/PrintClient/{createdBoxBarcode}?autoPrint=true");
+        var settingsResponse = await operatorClient.GetAsync("/Box/Settings");
+        var templateSelectionResponse = await operatorClient.GetAsync("/Dashboard/Templates");
+        var templateAdminResponse = await operatorClient.GetAsync("/BoxTemplate");
+
+        Assert.Equal(HttpStatusCode.Redirect, createResponse.StatusCode);
+        Assert.Contains("/Box/PrintClient/", createResponse.Headers.Location?.OriginalString ?? "");
+        Assert.Equal(HttpStatusCode.Redirect, openResponse.StatusCode);
+        Assert.Contains("/Account/Login", openResponse.Headers.Location?.OriginalString ?? "");
+        Assert.Equal(HttpStatusCode.Redirect, printResponse.StatusCode);
+        Assert.Contains("/Account/Login", printResponse.Headers.Location?.OriginalString ?? "");
+        Assert.Equal(HttpStatusCode.OK, browserPrintResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, settingsResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, templateSelectionResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, templateAdminResponse.StatusCode);
+        Assert.Contains("/Account/Login", templateAdminResponse.Headers.Location?.OriginalString ?? "");
     }
 
     [Fact]
@@ -107,33 +177,90 @@ public class SecurityAuditTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task BarcodePatterns_CanOnlyBeModifiedByAdministrator()
+    {
+        var supervisorClient = await TestAuthHelper.CreateAuthenticatedClient(_factory, "SP001", "Motherson2026!");
+        var administratorClient = await TestAuthHelper.CreateAuthenticatedClient(_factory, "AD001", "Motherson2026!");
+        var supervisorPrefix = $"SP-{Guid.NewGuid():N}"[..10];
+        var administratorPrefix = $"AD-{Guid.NewGuid():N}"[..10];
+
+        var supervisorResponse = await supervisorClient.PostAsync("/Box/SaveBarcodeConfig", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["boxPrefix"] = supervisorPrefix,
+            ["boxDatePattern"] = "yyyyMMdd",
+            ["boxRandomLength"] = "6",
+            ["packagePrefix"] = "PKG-",
+            ["packageMinLength"] = "3"
+        }));
+
+        Assert.Equal(HttpStatusCode.Redirect, supervisorResponse.StatusCode);
+        Assert.Contains("/Account/Login", supervisorResponse.Headers.Location?.OriginalString ?? "");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var config = await db.BarcodeConfigurations.SingleAsync(candidate => candidate.Id == 1);
+            Assert.NotEqual(supervisorPrefix, config.BoxPrefix);
+        }
+
+        var administratorResponse = await administratorClient.PostAsync("/Box/SaveBarcodeConfig", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["boxPrefix"] = administratorPrefix,
+            ["boxDatePattern"] = "yyyyMMdd",
+            ["boxRandomLength"] = "6",
+            ["packagePrefix"] = "PKG-",
+            ["packageMinLength"] = "3"
+        }));
+
+        Assert.Equal(HttpStatusCode.Redirect, administratorResponse.StatusCode);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var config = await db.BarcodeConfigurations.SingleAsync(candidate => candidate.Id == 1);
+            Assert.Equal(administratorPrefix, config.BoxPrefix);
+        }
+    }
+
+    [Fact]
+    public async Task WorkstationNameEditor_IsVisibleOnlyToAdministrator()
+    {
+        var supervisorClient = await TestAuthHelper.CreateAuthenticatedClient(_factory, "SP001", "Motherson2026!");
+        var administratorClient = await TestAuthHelper.CreateAuthenticatedClient(_factory, "AD001", "Motherson2026!");
+
+        var supervisorHtml = await (await supervisorClient.GetAsync("/Box/Settings")).Content.ReadAsStringAsync();
+        var administratorHtml = await (await administratorClient.GetAsync("/Box/Settings")).Content.ReadAsStringAsync();
+
+        Assert.DoesNotContain("id=\"settingStation\"", supervisorHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("id=\"saveSettingsBtn\"", supervisorHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("id=\"settingStation\"", administratorHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("id=\"saveSettingsBtn\"", administratorHtml, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task InputValidation_RejectsInvalidBoxDimensions()
     {
-        // Authenticate as Operator (OP001)
-        var client = await TestAuthHelper.CreateAuthenticatedClient(_factory, "OP001", "Motherson2026!");
+        var client = await TestAuthHelper.CreateAuthenticatedClient(_factory, "SP001", "Motherson2026!");
 
-        // POST box creation with negative/zero dimensions
         var formData = new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            { "Type", "Carton" },
+            { "Name", "Bad Template" },
+            { "Type", "Cardboard" },
             { "Height", "-5" },
             { "Width", "0" },
             { "Depth", "10" },
             { "ExpectedQuantity", "5" }
         });
 
-        var response = await client.PostAsync("/Box/Create", formData);
+        var response = await client.PostAsync("/BoxTemplate/Create", formData);
 
-        // The request returns the view (HTTP 200 OK) with validation errors
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         
         var responseContent = await response.Content.ReadAsStringAsync();
         var decoded = System.Net.WebUtility.HtmlDecode(responseContent);
 
-        Assert.Contains("Height must be greater than 0.", decoded);
-        Assert.Contains("Width must be greater than 0.", decoded);
+        Assert.Contains("Height must be at least 1 cm.", decoded);
+        Assert.Contains("Width must be at least 1 cm.", decoded);
         
-        // Check that no box with these invalid dimensions was created in database
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var hasInvalidBox = await db.Boxes.AnyAsync(b => b.Height <= 0 || b.Width <= 0);
@@ -141,40 +268,15 @@ public class SecurityAuditTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task InputValidation_RejectsShortBarcode()
-    {
-        // Authenticate as Operator (OP001)
-        var client = await TestAuthHelper.CreateAuthenticatedClient(_factory, "OP001", "Motherson2026!");
-
-        // POST scan with barcode of less than 3 characters
-        var formData = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            { "boxId", "1" },
-            { "boxBarcode", "BOX-TEST-001" },
-            { "barcode", "A" }
-        });
-
-        var response = await client.PostAsync("/Box/Scan", formData);
-
-        // It should redirect back to Prepare page
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        var location = response.Headers.Location?.ToString() ?? "";
-        Assert.Contains("/Box/Prepare", location);
-        
-        // Verify the AJAX endpoint
-        var ajaxResponse = await client.PostAsync("/Box/ScanAjax", formData);
-        Assert.Equal(HttpStatusCode.OK, ajaxResponse.StatusCode);
-        var responseJson = await ajaxResponse.Content.ReadAsStringAsync();
-        
-        Assert.Contains("The barcode must contain at least 3", responseJson);
-    }
-
-    [Fact]
     public async Task GlobalExceptionHandler_SuppressesDetails()
     {
         var prodFactory = _factory.WithWebHostBuilder(builder =>
         {
-            builder.UseEnvironment("Production");
+            builder.UseEnvironment("Staging");
+            builder.UseSetting("ConnectionStrings:DefaultConnection", "Server=test;Database=test;User Id=test;Password=test;TrustServerCertificate=True");
+            builder.UseSetting("AllowedHosts", "localhost");
+            builder.UseSetting("Kestrel:Certificates:Default:Path", "test-certificate.pfx");
+            builder.UseSetting("Kestrel:Certificates:Default:Password", "test-password");
             builder.ConfigureServices(services =>
             {
                 services.AddTransient<IStartupFilter, ErrorTriggerStartupFilter>();
@@ -200,5 +302,95 @@ public class SecurityAuditTests : IClassFixture<CustomWebApplicationFactory>
         Assert.DoesNotContain("SqlException", htmlContent);
         Assert.DoesNotContain("db.Boxes", htmlContent);
         Assert.DoesNotContain("Stack trace", htmlContent);
+    }
+
+    [Fact]
+    public async Task HealthEndpoint_Anonymous_ReturnsHealthy()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Healthy", content);
+    }
+
+    [Fact]
+    public async Task AuditWithoutHttpContext_IsAttributedToInactiveSystemPrincipal()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var boxService = scope.ServiceProvider.GetRequiredService<IBoxService>();
+
+        var systemUser = await db.Users.FirstOrDefaultAsync(user => user.Matricule == "SYSTEM");
+        if (systemUser is null)
+        {
+            systemUser = new User
+            {
+                Matricule = "SYSTEM",
+                FullName = "Application System",
+                PasswordHash = "LOGIN-DISABLED",
+                Role = "System",
+                IsActive = false,
+                SecurityStamp = "SYSTEM-PRINCIPAL",
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Users.Add(systemUser);
+            await db.SaveChangesAsync();
+        }
+
+        var operatorUser = await db.Users.FirstAsync(user => user.Matricule == "OP001");
+        var box = await boxService.CreateBoxAsync(new CreateBoxDto
+        {
+            Type = BoxType.Cardboard,
+            Height = 10,
+            Width = 10,
+            Depth = 10,
+            ExpectedQuantity = 2
+        }, operatorUser.Id);
+
+        var audit = await db.BoxAuditLogs
+            .Where(log => log.BoxId == box.Id && log.ActionType == "BoxCreated")
+            .SingleAsync();
+
+        Assert.Equal(systemUser.Id, audit.UserId);
+        Assert.False(systemUser.IsActive);
+        Assert.NotEqual(operatorUser.Id, audit.UserId);
+    }
+
+    [Fact]
+    public async Task SystemAuditPrincipal_CannotBeModifiedOrDeleted()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
+        var systemUser = await db.Users.SingleAsync(user => user.Matricule == "SYSTEM");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            userService.UpdateUserAsync(systemUser.Id, "Compromised", "Administrator", true));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            userService.ResetPasswordAsync(systemUser.Id, "CompromisedPassword123!"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            userService.DeleteUserAsync(systemUser.Id));
+    }
+
+    [Fact]
+    public async Task DeactivatedUserCookie_IsRejectedOnNextRequest()
+    {
+        var client = await TestAuthHelper.CreateAuthenticatedClient(_factory, "OP001", "Motherson2026!");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
+            var user = await db.Users.FirstAsync(u => u.Matricule == "OP001");
+            await userService.DeleteUserAsync(user.Id);
+        }
+
+        var response = await client.GetAsync("/");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/Account/Login", response.Headers.Location?.OriginalString ?? "");
     }
 }

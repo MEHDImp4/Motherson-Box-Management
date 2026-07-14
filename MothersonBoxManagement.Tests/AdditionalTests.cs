@@ -7,10 +7,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MothersonBoxManagement.Data;
-using MothersonBoxManagement.Data.Dtos;
+using MothersonBoxManagement.Dtos;
 using MothersonBoxManagement.Entities;
 using MothersonBoxManagement.Services;
-using MothersonBoxManagement.ViewModels;
+using MothersonBoxManagement.Models;
 using Xunit;
 
 namespace MothersonBoxManagement.Tests;
@@ -25,24 +25,25 @@ public class AdditionalTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Theory]
-    [InlineData(BoxType.Carton, 10, 10, 10, 5, true)]
-    [InlineData(BoxType.Plastique, 1, 1, 1, 1, true)]
-    [InlineData(BoxType.Bois, 9999, 9999, 9999, 9999, true)]
-    [InlineData(BoxType.Carton, 0, 10, 10, 5, false)]
-    [InlineData(BoxType.Carton, -1, 10, 10, 5, false)]
-    [InlineData(BoxType.Carton, -9999, 10, 10, 5, false)]
-    [InlineData(BoxType.Carton, 10, 0, 10, 5, false)]
-    [InlineData(BoxType.Carton, 10, -5, 10, 5, false)]
-    [InlineData(BoxType.Carton, 10, 10, 0, 5, false)]
-    [InlineData(BoxType.Carton, 10, 10, -100, 5, false)]
-    [InlineData(BoxType.Carton, 10, 10, 10, 0, false)]
-    [InlineData(BoxType.Carton, 10, 10, 10, -1, false)]
-    [InlineData(BoxType.Carton, 10, 10, 10, -500, false)]
-    public void CreateBoxViewModel_Validation_Theories(BoxType type, int height, int width, int depth, int expectedQuantity, bool expectedIsValid)
+    [InlineData("Test Template", BoxType.Cardboard, 10, 10, 10, 5, true)]
+    [InlineData("Plastic Box", BoxType.Plastic, 1, 1, 1, 1, true)]
+    [InlineData("Wood Crate", BoxType.Wood, 9999, 9999, 9999, 9999, true)]
+    [InlineData("Zero Height", BoxType.Cardboard, 0, 10, 10, 5, false)]
+    [InlineData("Negative H", BoxType.Cardboard, -1, 10, 10, 5, false)]
+    [InlineData("Negative Big H", BoxType.Cardboard, -9999, 10, 10, 5, false)]
+    [InlineData("Zero Width", BoxType.Cardboard, 10, 0, 10, 5, false)]
+    [InlineData("Negative W", BoxType.Cardboard, 10, -5, 10, 5, false)]
+    [InlineData("Zero Depth", BoxType.Cardboard, 10, 10, 0, 5, false)]
+    [InlineData("Negative D", BoxType.Cardboard, 10, 10, -100, 5, false)]
+    [InlineData("Zero Qty", BoxType.Cardboard, 10, 10, 10, 0, false)]
+    [InlineData("Negative Qty", BoxType.Cardboard, 10, 10, 10, -1, false)]
+    [InlineData("Neg Big Qty", BoxType.Cardboard, 10, 10, 10, -500, false)]
+    public void BoxTemplateViewModel_Validation_Theories(string name, BoxType type, int height, int width, int depth, int expectedQuantity, bool expectedIsValid)
     {
         // Arrange
-        var model = new CreateBoxViewModel
+        var model = new BoxTemplateViewModel
         {
+            Name = name,
             Type = type,
             Height = height,
             Width = width,
@@ -146,13 +147,14 @@ public class AdditionalTests : IClassFixture<CustomWebApplicationFactory>
         
         var boxDto = new CreateBoxDto
         {
-            Type = BoxType.Carton,
+            Type = BoxType.Cardboard,
             Height = 10,
             Width = 10,
             Depth = 10,
             ExpectedQuantity = 10
         };
         var box = await boxService.CreateBoxAsync(boxDto, user.Id);
+        await boxService.OpenBoxAsync(box.Id, user.Id, "TEST-STATION");
 
         // Act
         var result = await packageScanService.ScanPackageAsync(box.Id, barcode, user.Id, "TEST-STATION");
@@ -172,6 +174,7 @@ public class AdditionalTests : IClassFixture<CustomWebApplicationFactory>
     [InlineData(BoxStatus.Cancelled, "Cancelled")]
     [InlineData(BoxStatus.Archived, "Archived")]
     [InlineData(BoxStatus.Blocked, "Blocked")]
+    [InlineData(BoxStatus.Created, "Created")]
     public void BoxStatus_EnumValues_Theories(BoxStatus status, string expectedName)
     {
         // Act & Assert

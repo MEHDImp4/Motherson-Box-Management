@@ -1,59 +1,182 @@
-# Design System - Motherson Box Management
-
-This design system is built for the high-stakes environment of industrial packaging areas (specifically the P3 packaging workstation). The brand personality focuses on reliability, absolute clarity, and utility, avoiding decorative trends, shadows, or visual noise.
-
-## Core Visual Attributes
-* **Style**: Industrial Corporate Modern
-* **Principles**: High contrast, keyboard/scanner friendly, calm surface backgrounds, clear visual hierarchy.
-* **Layout**: Desktop-first layout with a persistent left sidebar on desktop to save vertical space and keep workstation terminals clean.
-
+---
+name: Motherson Box Management
+colors:
+  surface: '#f8f9fb'
+  surface-dim: '#d9dadc'
+  surface-bright: '#f8f9fb'
+  surface-container-lowest: '#ffffff'
+  surface-container-low: '#f2f4f6'
+  surface-container: '#edeef0'
+  surface-container-high: '#e7e8ea'
+  surface-container-highest: '#e1e2e4'
+  on-surface: '#191c1e'
+  on-surface-variant: '#5d3f3c'
+  inverse-surface: '#2e3132'
+  inverse-on-surface: '#f0f1f3'
+  outline: '#926e6b'
+  outline-variant: '#e7bdb8'
+  surface-tint: '#c00015'
+  primary: '#bc0015'
+  on-primary: '#ffffff'
+  primary-container: '#e51e25'
+  on-primary-container: '#fffcff'
+  inverse-primary: '#ffb4ac'
+  secondary: '#5f5e5e'
+  on-secondary: '#ffffff'
+  secondary-container: '#e5e2e1'
+  on-secondary-container: '#656464'
+  tertiary: '#535d6d'
+  on-tertiary: '#ffffff'
+  tertiary-container: '#6c7686'
+  on-tertiary-container: '#fffdff'
+  error: '#ba1a1a'
+  on-error: '#ffffff'
+  error-container: '#ffdad6'
+  on-error-container: '#93000a'
+  primary-fixed: '#ffdad6'
+  primary-fixed-dim: '#ffb4ac'
+  on-primary-fixed: '#410002'
+  on-primary-fixed-variant: '#93000d'
+  secondary-fixed: '#e5e2e1'
+  secondary-fixed-dim: '#c8c6c5'
+  on-secondary-fixed: '#1c1b1b'
+  on-secondary-fixed-variant: '#474646'
+  tertiary-fixed: '#d9e3f6'
+  tertiary-fixed-dim: '#bdc7d9'
+  on-tertiary-fixed: '#121c2a'
+  on-tertiary-fixed-variant: '#3d4756'
+  background: '#f8f9fb'
+  on-background: '#191c1e'
+  surface-variant: '#e1e2e4'
+typography:
+  display-lg:
+    fontFamily: Inter
+    fontSize: 36px
+    fontWeight: '700'
+    lineHeight: 44px
+    letterSpacing: -0.02em
+  headline-lg:
+    fontFamily: Inter
+    fontSize: 28px
+    fontWeight: '600'
+    lineHeight: 36px
+    letterSpacing: -0.01em
+  headline-md:
+    fontFamily: Inter
+    fontSize: 20px
+    fontWeight: '600'
+    lineHeight: 28px
+  body-lg:
+    fontFamily: Inter
+    fontSize: 16px
+    fontWeight: '400'
+    lineHeight: 24px
+  body-md:
+    fontFamily: Inter
+    fontSize: 14px
+    fontWeight: '400'
+    lineHeight: 20px
+  label-lg:
+    fontFamily: Inter
+    fontSize: 14px
+    fontWeight: '600'
+    lineHeight: 20px
+  label-md:
+    fontFamily: Inter
+    fontSize: 12px
+    fontWeight: '500'
+    lineHeight: 16px
+  headline-lg-mobile:
+    fontFamily: Inter
+    fontSize: 24px
+    fontWeight: '600'
+    lineHeight: 32px
+rounded:
+  sm: 0.25rem
+  DEFAULT: 0.5rem
+  md: 0.75rem
+  lg: 1rem
+  xl: 1.5rem
+  full: 9999px
+spacing:
+  base: 4px
+  xs: 8px
+  sm: 12px
+  md: 16px
+  lg: 24px
+  xl: 32px
+  gutter: 24px
+  margin: 32px
+  container-max: 1440px
 ---
 
-## 1. Color Palette (Design Tokens)
+## Brand & Style
 
-### Brand & Surface Colors
-* **Primary Brand Red (`#E51E25`)**: The official brand red. Used for primary call-to-actions, brand accents, and critical warnings. Never overused.
-* **Background (`#F8F9FB`)**: A light, low-glare off-white baseline that reduces eye fatigue for operators standing at terminals.
-* **Surface Container Lowest (`#FFFFFF`)**: Pure white. Reserved for cards, tables, and modal backgrounds.
-* **Surface Container (`#EDEEF0`)**: Light grey. Used for input fields, backgrounds for disabled states, or sidebar background.
-* **Text Main (`#1F2937`)**: Dark grey. Provides optimal text contrast.
-* **Text High Emphasis (`#111111`)**: Deep black for headings and prominent labels.
-* **Borders & Outlines (`#E5E7EB`)**: A clean line separator. Avoids fuzzy shadows.
+This design system is built for the high-stakes environment of B2B industrial management. The brand personality is rooted in reliability, precision, and sobriety. It eschews decorative trends in favor of functional clarity, ensuring that users can manage box inventory and logistics without visual fatigue or ambiguity.
 
-### Semantic Status Badges & Chips
-Status indicators must use desaturated backgrounds with high-contrast text to communicate state clearly, complemented by text labels and distinct icons where possible:
+The design style is **Corporate Modern** with a focus on **High-Contrast** utility. It utilizes a flat, structural aesthetic that mimics the efficiency of a well-organized physical workspace. The interface relies on substantial white space, rigid grid alignment, and a strict adherence to a limited color palette to evoke a sense of security and professional rigor.
 
-| Status Name | Text Color | Background Color | Visual Meaning |
-| :--- | :--- | :--- | :--- |
-| **Open** | `#16A34A` (Green) | `#DCFCE7` (Light Green) | Box is currently open for scans |
-| **Completed** | `#E51E25` (Red) | `#FDE8E8` (Light Red) | Expected quantity met (Auto-closed) |
-| **Completed with Exception** | `#0284C7` (Blue) | `#E0F2FE` (Light Blue) | Force-closed by a supervisor with deviation |
-| **Cancelled** | `#DC2626` (Dark Red) | `#FEE2E2` (Light Red) | Cancelled by a supervisor |
-| **Blocked** | `#D97706` (Orange) | `#FEF3C7` (Light Amber) | Temporarily quarantined / blocked |
-| **Archived** | `#4B5563` (Gray) | `#F3F4F6` (Light Gray) | Read-only box moved to long-term storage |
+## Colors
 
----
+The palette is intentionally restrained to maintain an industrial, sober atmosphere. 
 
-## 2. Typography
+- **Primary Red (#E51E25):** Used sparingly for primary actions, critical alerts, and brand accents. Its high visibility ensures key touchpoints are never missed.
+- **Surface & Backgrounds:** The main application background uses **Off-white (#F7F8FA)** to reduce glare, while component surfaces use pure White (#FFFFFF) to create clear content separation.
+- **Typography:** **Text (#1F2937)** provides high legibility against white backgrounds, while **Black (#111111)** is reserved for headings and high-emphasis labels.
+- **Borders:** **Light Gray (#E5E7EB)** defines the boundaries of the workspace, providing structure without adding visual noise.
 
-We use **Inter** or standard system sans-serif fallback stack for maximum legibility of numbers and barcodes.
+## Typography
 
-* **Display Large**: `36px` / SemiBold (e.g. key metrics, big totals)
-* **Headline Large**: `28px` / SemiBold (e.g. page headers)
-* **Headline Medium**: `20px` / SemiBold (e.g. card titles, modal titles)
-* **Body Large**: `16px` / Regular (e.g. form fields, primary text)
-* **Body Medium**: `14px` / Regular (e.g. tables, secondary text)
-* **Label Large**: `14px` / Bold (e.g. form labels, table headers)
-* **Label Medium**: `12px` / Medium (e.g. metadata tags, timestamps)
+Inter is chosen for its exceptional readability in data-heavy environments. The scale follows a strict hierarchy to help users scan inventory lists and dashboard metrics quickly. 
 
----
+Use `display-lg` for dashboard summaries and `headline-md` for card titles. For tabular data, `body-md` is the standard to allow for high information density without sacrificing clarity. Labels should use the `uppercase` variant to distinguish metadata from content.
 
-## 3. Shapes & Layout System
+## Layout & Spacing
 
-* **Cards**: Pure white background, `1px` solid border (`#E5E7EB`), `12px` border-radius (`rounded-lg`). No soft floating shadows.
-* **Inputs & Form Controls**: `1px` solid border (`#E5E7EB`), `8px` corner radius. Focused inputs use a `2px` brand red outline for clear scanning indicator.
-* **Interactive Elements Height**:
-  * **Primary actions**: `48px` minimum height (easy to tap/click while standing).
-  * **Secondary/Table actions**: `44px` minimum height.
-* **Spacing Grid**: A strict `4px` baseline spacing system (`8px`, `12px`, `16px`, `24px`, `32px`).
-* **Table Rows**: `56px` minimum row height with zebra striping (Off-white / White) for tables with many rows. Horizontal outlines only.
+The design system utilizes a **Fixed Grid** model for desktop to ensure data visualization remains consistent across professional monitors.
+
+- **Desktop (1440px+):** 12-column grid, 24px gutters, 32px side margins.
+- **Tablet (768px - 1439px):** 8-column grid, 16px gutters, 24px margins.
+- **Mobile (<767px):** 4-column grid, 12px gutters, 16px margins.
+
+Spacing follows a 4px baseline. Components like input fields and buttons utilize "Large Clickable Areas" (minimum 44px height) to accommodate use in industrial settings where precision interaction is required.
+
+## Elevation & Depth
+
+To maintain a "sober" and "industrial" feel, this design system avoids soft ambient shadows. Instead, it uses **Tonal Layers** and **Low-contrast outlines**.
+
+1.  **Level 0 (Background):** Off-white (#F7F8FA) base.
+2.  **Level 1 (Cards/Content):** Pure White (#FFFFFF) surface with a 1px solid border (#E5E7EB). No shadow.
+3.  **Level 2 (Active/Modals):** Pure White (#FFFFFF) with a thin 1px border (#111111) or a very tight, 4px blur shadow with 5% opacity to indicate temporary overlay.
+
+Depth is communicated through structure and containment rather than lighting effects.
+
+## Shapes
+
+The shape language reflects the "Box Management" theme—structured and sturdy.
+
+- **Cards & Primary Containers:** Use 12px corner radius (`rounded-lg` in this system) to soften the industrial edge while maintaining a professional look.
+- **Inputs & Small Buttons:** Use 8px corner radius for a precise, modern feel.
+- **Status Badges:** Use 4px corner radius; avoid pill shapes to keep the aesthetic "sober" rather than playful.
+
+## Components
+
+### Buttons
+- **Primary:** Solid Red (#E51E25) with white text. 48px minimum height for high-traffic industrial use.
+- **Secondary:** Solid Black (#111111) or transparent with a 2px black border.
+- **States:** Hover states should simply darken the background color by 10%. No gradients or glows.
+
+### Cards
+- **Construction:** White background, 1px border (#E5E7EB), 12px border-radius.
+- **Header:** Cards should include a 16px padding top/bottom header section with a subtle bottom divider if they contain complex data.
+
+### Input Fields
+- **Style:** 1px border (#E5E7EB), 8px radius. Use a 2px Red (#E51E25) border for the focus state. Labels must always be visible above the field (no floating labels) for maximum accessibility.
+
+### Lists & Tables
+- **Rows:** 56px minimum height. Use subtle zebra striping (Off-white) for tables exceeding 10 rows.
+- **Borders:** Only horizontal dividers (#E5E7EB) to maintain a clean, scanned vertical flow.
+
+### Status Chips
+- **Geometry:** Rectangular with 4px radius.
+- **Coloring:** Use desaturated background tints with high-contrast text for status (e.g., Light Red background with Dark Red text for "Delayed").

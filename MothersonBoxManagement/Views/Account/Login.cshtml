@@ -1,4 +1,4 @@
-@model MothersonBoxManagement.ViewModels.LoginViewModel
+@model MothersonBoxManagement.Models.LoginViewModel
 @{
     ViewData["Title"] = "Sign in";
     Layout = "_Layout";
@@ -7,7 +7,7 @@
 <div class="login-page">
     <div class="login-card">
         <div class="login-logo">
-            <img src="~/images/mothersson-logo.png" alt="Motherson Logo" />
+            <img src="~/images/motherson-logo.png" alt="Motherson Logo" />
         </div>
 
         <h1 class="login-title" style="margin-bottom: 4px; font-size: 24px; font-weight: 700;">Motherson Box Management</h1>
@@ -37,15 +37,9 @@
 
             <button type="submit" class="btn btn-primary-custom btn-primary-large w-100" style="font-weight: 600;">Sign in</button>
         </form>
-
-        <div class="mt-4" style="padding: 16px; background-color: var(--surface-container-low); border-radius: var(--radius-md); border: 1px solid var(--border);">
-            <div class="label-md mb-2" style="color: var(--on-surface); text-transform: none; font-weight: 600;">Standard Seeded Test Accounts</div>
-            <div class="body-md" style="font-size: 13px; color: var(--secondary); line-height: 1.8;">
-                <div><strong>Operator:</strong> <code style="background: var(--surface-container); padding: 2px 6px; border-radius: 4px;">OP001</code></div>
-                <div><strong>Supervisor:</strong> <code style="background: var(--surface-container); padding: 2px 6px; border-radius: 4px;">SP001</code></div>
-                <div><strong>Administrator:</strong> <code style="background: var(--surface-container); padding: 2px 6px; border-radius: 4px;">AD001</code></div>
-                <div class="mt-2" style="border-top: 1px solid var(--border); padding-top: var(--space-xs);"><strong>Password:</strong> <code style="background: var(--surface-container); padding: 2px 6px; border-radius: 4px;">Motherson2026!</code></div>
-            </div>
+        <div class="text-center mt-3 d-grid gap-2">
+            <a asp-action="RequestPasswordReset">Forgot your password?</a>
+            <a asp-action="RecoveryLogin" class="small">Continue an approved password reset</a>
         </div>
     </div>
 </div>

@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MothersonBoxManagement.Data;
-using MothersonBoxManagement.Data.Dtos;
+using MothersonBoxManagement.Dtos;
 using MothersonBoxManagement.Entities;
 using MothersonBoxManagement.Services;
 using Xunit;
@@ -53,8 +53,146 @@ public class DashboardControllerTests : IClassFixture<CustomWebApplicationFactor
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("OP001", content);
+        Assert.Contains("Test Operator", content);
         Assert.Contains("Welcome", content);
+    }
+
+    [Fact]
+    public async Task Templates_Supervisor_DisplaysDedicatedTemplateSelectionPage()
+    {
+        var client = await TestAuthHelper.CreateAuthenticatedClient(_factory, "SP001", "Motherson2026!");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            if (!await db.BoxTemplates.AnyAsync())
+            {
+                var supervisor = await db.Users.FirstAsync(u => u.Matricule == "SP001");
+                db.BoxTemplates.Add(new BoxTemplate
+                {
+                    Name = "Dashboard Template",
+                    Type = BoxType.Cardboard,
+                    Height = 20,
+                    Width = 20,
+                    Depth = 20,
+                    ExpectedQuantity = 10,
+                    IsActive = true,
+                    CreatedByUserId = supervisor.Id,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await db.SaveChangesAsync();
+            }
+        }
+
+        var response = await client.GetAsync("/Dashboard/Templates");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Select a Box Template", content);
+        Assert.Contains("Create Box", content);
+        Assert.Contains("Manage Templates", content);
+    }
+
+    [Fact]
+    public async Task Index_OperatorWithTemplates_DisplaysOpenNewBoxButton()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            if (!await db.BoxTemplates.AnyAsync())
+            {
+                var supervisor = await db.Users.FirstAsync(u => u.Matricule == "SP001");
+                db.BoxTemplates.Add(new BoxTemplate
+                {
+                    Name = "Operator Template",
+                    Type = BoxType.Cardboard,
+                    Height = 25,
+                    Width = 20,
+                    Depth = 15,
+                    ExpectedQuantity = 8,
+                    IsActive = true,
+                    CreatedByUserId = supervisor.Id,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await db.SaveChangesAsync();
+            }
+        }
+
+        var client = await TestAuthHelper.CreateAuthenticatedClient(_factory, "OP001", "Motherson2026!");
+
+        var response = await client.GetAsync("/");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Open New Box", content);
+    }
+
+    [Fact]
+    public async Task Templates_Operator_DisplaysOnlyActiveTemplates()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var supervisor = await db.Users.FirstAsync(u => u.Matricule == "SP001");
+
+            db.BoxTemplates.Add(new BoxTemplate
+            {
+                Name = "Active Operator Template",
+                Type = BoxType.Cardboard,
+                Height = 22,
+                Width = 18,
+                Depth = 14,
+                ExpectedQuantity = 6,
+                IsActive = true,
+                CreatedByUserId = supervisor.Id,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            db.BoxTemplates.Add(new BoxTemplate
+            {
+                Name = "Inactive Hidden Template",
+                Type = BoxType.Cardboard,
+                Height = 22,
+                Width = 18,
+                Depth = 14,
+                ExpectedQuantity = 6,
+                IsActive = false,
+                CreatedByUserId = supervisor.Id,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        var client = await TestAuthHelper.CreateAuthenticatedClient(_factory, "OP001", "Motherson2026!");
+
+        var response = await client.GetAsync("/Dashboard/Templates");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Active Operator Template", content);
+        Assert.DoesNotContain("Inactive Hidden Template", content);
+        Assert.DoesNotContain("Manage Templates", content);
+    }
+
+    [Fact]
+    public async Task Templates_OperatorWithNoTemplates_ShowsSupervisorGuidance()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.BoxTemplates.RemoveRange(db.BoxTemplates);
+            await db.SaveChangesAsync();
+        }
+
+        var client = await TestAuthHelper.CreateAuthenticatedClient(_factory, "OP001", "Motherson2026!");
+
+        var response = await client.GetAsync("/Dashboard/Templates");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("No Templates Available", content);
+        Assert.Contains("A supervisor must create box templates before you can prepare boxes.", content);
     }
 
     [Fact]
@@ -120,7 +258,7 @@ public class DashboardControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
-    public async Task SearchBarcode_OpenBox_RedirectsToPrepare()
+    public async Task SearchBarcode_OpenBox_RedirectsToDetails()
     {
         // Arrange
         var client = await TestAuthHelper.CreateAuthenticatedClient(_factory, "OP001", "Motherson2026!");
@@ -134,13 +272,14 @@ public class DashboardControllerTests : IClassFixture<CustomWebApplicationFactor
             
             var boxDto = new CreateBoxDto
             {
-                Type = BoxType.Carton,
+                Type = BoxType.Cardboard,
                 Height = 10,
                 Width = 10,
                 Depth = 10,
                 ExpectedQuantity = 5
             };
             var box = await boxService.CreateBoxAsync(boxDto, user.Id);
+            await boxService.OpenBoxAsync(box.Id, user.Id, "TEST-STATION");
             barcode = box.BarcodeValue;
         }
 
@@ -154,7 +293,7 @@ public class DashboardControllerTests : IClassFixture<CustomWebApplicationFactor
 
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains($"/Box/Prepare/{barcode}", response.Headers.Location?.ToString() ?? "");
+        Assert.Contains($"/Box/Details/{barcode}", response.Headers.Location?.ToString() ?? "");
     }
 
     [Fact]
@@ -175,7 +314,7 @@ public class DashboardControllerTests : IClassFixture<CustomWebApplicationFactor
             
             var boxDto = new CreateBoxDto
             {
-                Type = BoxType.Carton,
+                Type = BoxType.Cardboard,
                 Height = 10,
                 Width = 10,
                 Depth = 10,
@@ -183,7 +322,10 @@ public class DashboardControllerTests : IClassFixture<CustomWebApplicationFactor
             };
             var box = await boxService.CreateBoxAsync(boxDto, user.Id);
             barcode = box.BarcodeValue;
-            
+
+            // Open the box
+            await boxService.OpenBoxAsync(box.Id, user.Id, "TEST-STATION");
+
             // Scan 1 package to auto-complete the box
             await packageScanService.ScanPackageAsync(box.Id, "PKG-COMPLETE-HOME", user.Id, "TEST-STATION");
         }
@@ -199,19 +341,6 @@ public class DashboardControllerTests : IClassFixture<CustomWebApplicationFactor
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Contains($"/Box/Details/{barcode}", response.Headers.Location?.ToString() ?? "");
-    }
-
-    [Fact]
-    public async Task Privacy_ReturnsView()
-    {
-        // Arrange
-        var client = await TestAuthHelper.CreateAuthenticatedClient(_factory, "OP001", "Motherson2026!");
-
-        // Act
-        var response = await client.GetAsync("/Dashboard/Privacy");
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
