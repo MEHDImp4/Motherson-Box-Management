@@ -76,6 +76,7 @@ public class UserService : IUserService
             FullName = fullName,
             Role = role,
             IsActive = true,
+            MustChangePassword = true,
             PasswordHash = _passwordHasher.HashPassword(null!, password),
             SecurityStamp = Guid.NewGuid().ToString("N"),
             CreatedAt = DateTime.UtcNow
@@ -112,6 +113,7 @@ public class UserService : IUserService
             ?? throw new KeyNotFoundException($"User {id} was not found.");
 
         user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
+        user.MustChangePassword = true;
         user.SecurityStamp = Guid.NewGuid().ToString("N");
         await _context.SaveChangesAsync(ct);
     }

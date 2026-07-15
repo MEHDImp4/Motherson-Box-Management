@@ -113,7 +113,7 @@
 
     @if (Model.AutoPrint)
     {
-    <script>
+    <script csp-nonce>
         (function () {
             var redirected = false;
             var returnUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ReturnUrl));

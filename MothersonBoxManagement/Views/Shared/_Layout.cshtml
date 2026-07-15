@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body data-require-station-name="@requireStationName.ToString().ToLowerInvariant()" data-box-prefix="@boxPrefix">
-    <script>
+    <script csp-nonce>
         if (localStorage.getItem('sidebar-collapsed') === 'true') {
             document.body.classList.add('sidebar-collapsed');
         }
@@ -171,7 +171,7 @@
     {
     <script src="~/js/scanner.js" asp-append-version="true"></script>
     }
-    <script>
+    <script csp-nonce>
         document.addEventListener('DOMContentLoaded', () => {
             const toggle = document.querySelector('.mobile-menu-toggle');
             const sidebar = document.querySelector('.sidebar');

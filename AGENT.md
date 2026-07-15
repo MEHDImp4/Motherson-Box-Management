@@ -97,9 +97,28 @@ This section summarizes the history of applied EF Core migrations.
 | Migration Name | Main Goal | Status (Applied/Pending) | Data Impact | Rollback / Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | `20260702125840_InitialSchema` | Create tables `Users`, `Boxes`, `BoxPackages`, `BoxAuditLogs` | Applied | Initial schema | - |
-| `20260702143042_UseIntegerBoxDimensions` | Convert `Height`, `Width`, and `Depth` in `Boxes` from double (float) to whole number (int) | Applied | Column conversion | - |
-| `20260708004620_AuditRemediationSecurityAndTraceability` | Add user security stamps and soft-removal fields for package associations | Applied | Backfills `Users.SecurityStamp`; adds `BoxPackages.IsRemoved`, `RemovedAt`, `RemovedByUserId`, and `RemovalReason` | Generated for audit remediation; apply with `dotnet ef database update` |
-| `AddPackagePrefixPattern` | Add `PackagePrefixPattern` (nullable string) to `BoxTemplates` for auto-scan prefix matching | Pending | Adds column to existing templates (nullable, no data impact) | Apply with `dotnet ef database update` |
+| `20260702143042_UseIntegerBoxDimensions` | Convert `Height`, `Width`, `Depth` in `Boxes` from double to int | Applied | Column conversion | - |
+| `20260704003307_AddBoxPackageBlocking` | Add `IsBlocked` and `BlockReason` to `BoxPackages` | Applied | New columns | - |
+| `20260704003659_AddBoxExceptionReason` | Add `ExceptionReason` to `Boxes` | Applied | New column | - |
+| `20260704130001_RenameColumnsAndAddMissingFields` | Rename `UpdatedAt` to `ModifiedAt`, `ClosedByUserId` to `CompletedByUserId`; add `CompletionMode` | Applied | Column renames | - |
+| `20260704155338_DimensionsDecimalAndAuditDescription` | Add `CreatedAt`/`UpdatedAt` to Users; add `Description` to audit log | Applied | New columns | - |
+| `20260706133916_AddCdcFieldsAndPrintJobs` | Add CDC scan fields to `BoxPackages` and create `BoxPrintJobs` table | Applied | New table + columns | - |
+| `20260706161659_CleanupDeadFields` | Remove unused `QrCodeValue` index and dead scan fields | Applied | Column drops | - |
+| `20260706235753_RemoveRelatedBoxIdFromAuditLog` | Drop `RelatedBoxId` FK from `BoxAuditLogs` | Applied | Column drop | - |
+| `20260707011309_AddBoxTemplate` | Create `BoxTemplates` table for reusable box templates | Applied | New table | - |
+| `20260708004620_AuditRemediationSecurityAndTraceability` | Add `SecurityStamp` to Users; add soft-removal fields to `BoxPackages` | Applied | Backfills stamps; adds `IsRemoved`, `RemovedAt`, `RemovedByUserId`, `RemovalReason` | - |
+| `20260709082658_AddPackagePrefixPattern` | Add `PackagePrefixPattern` to `BoxTemplates` for auto-scan prefix matching | Applied | New nullable column | - |
+| `20260709090941_AddLoginAttemptsTable` | Create `LoginAttempts` table for brute force tracking | Applied | New table | - |
+| `20260709110708_AddPrinterConfigurationAndExtendPrintJobs` | Extend `BoxPrintJobs` with failure tracking; create `PrinterConfigurations` table | Applied | New table + columns | - |
+| `20260709131640_AddBarcodeConfiguration` | Create `BarcodeConfigurations` table for barcode format settings | Applied | New table | - |
+| `20260712150705_AddSystemAuditPrincipal` | Insert SYSTEM user (Id=-1) for automated audit events | Applied | Seed data | - |
+| `20260712200405_AllowHistoricalPackageReassociation` | Change `PackageBarcode` unique index to filtered (only non-removed) | Applied | Index change | - |
+| `20260712201848_AddCriticalBoxCheckConstraints` | Add CHECK constraints for positive quantities and dimensions | Applied | Data validation | - |
+| `20260712205044_BoundStringsAndScanIdempotency` | Add string length limits across all tables; add scan idempotency fields | Applied | Column alterations | - |
+| `20260713001629_ProductionRemediationActivePrefix` | Normalize prefix patterns; add unique partial index on active prefixes | Applied | Data normalization | - |
+| `20260713082536_AddPasswordResetWorkflow` | Create `PasswordResetRequests` table for password recovery flow | Applied | New table | - |
+| `20260713120000_AddLocalPrintAgent` | Add print agent fields (`LeaseTokenHash`, `AgentTokenHash`, `PrintMode`, etc.) | Applied | New columns | - |
+| `20260714153000_AddRemoteWorkstationAdministration` | Add `DisplayName` and `LastIpAddress` to `PrinterConfigurations` | Applied | New columns | - |
 
 *Regulatory note:* No direct database schema change is allowed without an explicit EF Core migration.
 
@@ -322,15 +341,24 @@ A comprehensive security audit was performed on 2026-07-05. The following vulner
 ### Open / Not Yet Fixed
 | ID | Severity | Description | Recommendation |
 | :--- | :--- | :--- | :--- |
-| VULN-01 | Critical | Static development seed password remains in `DbInitializer` | Replace static seed credentials with generated temporary passwords or a first-login password-change flow before any production user bootstrap |
-| VULN-09 | Low | No password expiry / rotation policy | Implement configurable password expiry (e.g., 90 days) and force change on first login |
+| VULN-01 | Critical | Static development seed password in `.env` | **Mitigated:** `.env` is gitignored; `SeedDemoUsers` is `false` in production compose; `ProductionConfigurationValidation` throws if enabled in Production. Demo passwords cleared from `.env`. |
+| VULN-09 | Low | No password expiry / rotation policy | **Partial fix:** Admin-created users and admin-reset passwords now force first-login password change via `MustChangePassword` flag. Full expiry policy still open. |
 | AUDIT-DB-001 | Medium | No SQL Server integration test proves duplicate-scan behavior against the real unique index | Add a SQL Server-backed integration test suite for scan concurrency and unique index violations |
+
+### Recently Fixed (Production Audit Remediation 2026-07-15)
+| ID | Severity | Description | Fix | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| VULN-09-fix | Medium | Admin-created users could keep temporary passwords forever | Added `User.MustChangePassword` entity flag + `MustChangePassword` claim + forced redirect to `/Account/ChangePassword` on first login. Admin password resets also set the flag. Migration `AddMustChangePasswordFlag`. | **Fixed** |
+| CSP-001 | Medium | CSP `script-src 'unsafe-inline'` allowed XSS via inline scripts | Replaced with nonce-based CSP: `ICspNonceService` generates per-request nonce, `CspNonceTagHelper` injects `nonce` attribute into `<script csp-nonce>` tags. CSP header now uses `script-src 'self' 'nonce-{value}'`. | **Fixed** |
 
 ### Security Services Added
 * `ILoginLockoutService` / `LoginLockoutService` — brute force lockout service (in-memory, `ConcurrentDictionary`-based). Registered as `Scoped`.
 * Rate limiting middleware — configured in `Program.cs` with three policies: `login`, `scan`, `global`.
 * Security headers middleware — inline `Use()` pipeline in `Program.cs`.
 * Cookie security-stamp validation — rejects inactive users and sessions whose `SecurityStamp` claim no longer matches the database.
+* `ICspNonceService` / `CspNonceService` — generates per-request CSP nonce via `RandomNumberGenerator`. Registered as `Singleton`.
+* `CspNonceTagHelper` — auto-injects `nonce` attribute into `<script csp-nonce>` tags.
+* `MustChangePassword` user flag — forces first-login password change for admin-created and admin-reset accounts.
 
 ### Security Configuration (`appsettings.json`)
 * `Security:LoginLockout:MaxAttempts` — maximum failed login attempts (default: 5).
@@ -364,6 +392,7 @@ A comprehensive security audit was performed on 2026-07-05. The following vulner
 * **2026-07-09:** Codebase reorganization: extracted `Configuration/` extensions from `Program.cs` (192→91 lines), relocated DTOs from `Data/Dtos/` to `Dtos/`, consolidated `ViewModels/` into `Models/`, made `AuditController` use `IAuditService`, moved `GetUsersAsync` to `UserService`, cleaned up documentation (removed duplicates, renamed `DESING.md` → `DESIGN.md`, moved docs to `docs/`), removed empty `MothersonPrintAgent/` project. Verified with `dotnet build` (**0/0**) and `dotnet test` (**118/118**).
 * **2026-07-09:** Auto-scan prefix feature: added `PackagePrefixPattern` to `BoxTemplate` entity, new `POST /Box/AutoScanPackage` endpoint, template matching by longest prefix, auto-creation + association + QR print. Verified with `dotnet build` (**0/0**) and `dotnet test` (**118/118**).
 * **2026-07-09:** Sticky box mode: scanner state machine extended with `HAS_BOX` state for continuous scanning. Added `sfxStickyMode` and `sfxBoxComplete` sound notifications. Verified with `dotnet build` (**0/0**) and `dotnet test` (**118/118**).
+* **2026-07-15:** Production audit remediation. Cleaned demo passwords from `.env`; synced AGENT.md migration table (4→23 entries); added `MustChangePassword` flag for admin-created/reset accounts with forced first-login password change; replaced CSP `unsafe-inline` with per-request nonce-based CSP (`ICspNonceService` + `CspNonceTagHelper`); added `csp-nonce` attribute to all 9 inline `<script>` blocks. Migration `AddMustChangePasswordFlag`. Verified with `dotnet build` (**0/0**) and `dotnet test` (**182 passed / 2 skipped / 0 failed**).
 
 ---
 > **Golden rule:** Any change to an entity, relationship, migration, SQL constraint, index, persistence rule, business status, authorization, MVC route, NuGet package, or architecture decision must trigger an update to `AGENT.md`.

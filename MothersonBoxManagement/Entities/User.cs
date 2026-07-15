@@ -8,6 +8,7 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public bool MustChangePassword { get; set; }
     public string SecurityStamp { get; set; } = Guid.NewGuid().ToString("N");
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

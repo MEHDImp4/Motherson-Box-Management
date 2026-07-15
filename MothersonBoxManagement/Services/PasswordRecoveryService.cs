@@ -16,6 +16,7 @@ public interface IPasswordRecoveryService
     Task ApproveAsync(int requestId, int administratorId, CancellationToken ct = default);
     Task<(User User, PasswordResetRequest Request)?> BeginRecoveryAsync(string matricule, CancellationToken ct = default);
     Task<User> CompleteRecoveryAsync(int requestId, int userId, string newPassword, CancellationToken ct = default);
+    Task<User> CompleteFirstLoginPasswordChangeAsync(int userId, string newPassword, CancellationToken ct = default);
 }
 
 public sealed class PasswordRecoveryService : IPasswordRecoveryService
@@ -149,5 +150,20 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
         if (transaction is not null)
             await transaction.CommitAsync(ct);
         return request.User;
+    }
+
+    public async Task<User> CompleteFirstLoginPasswordChangeAsync(int userId, string newPassword, CancellationToken ct = default)
+    {
+        var user = await _db.Users.FindAsync(new object[] { userId }, ct)
+            ?? throw new InvalidOperationException("User was not found.");
+        if (!user.MustChangePassword)
+            throw new InvalidOperationException("This account does not require a password change.");
+
+        user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
+        user.MustChangePassword = false;
+        user.SecurityStamp = Guid.NewGuid().ToString("N");
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return user;
     }
 }

@@ -75,6 +75,7 @@ builder.Services.AddHostedService<LoginLockoutCleanupService>();
 builder.Services.AddScoped<IQrCodeService, QrCodeService>();
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ICspNonceService, CspNonceService>();
 builder.Services.AddScoped<IPrintAgentService, PrintAgentService>();
 
 builder.Services.AddAppRateLimiting();

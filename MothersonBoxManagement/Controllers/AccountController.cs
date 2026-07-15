@@ -65,6 +65,9 @@ public class AccountController : Controller
 
         await SignInAsync(user);
 
+        if (user.MustChangePassword)
+            return RedirectToAction(nameof(ChangePassword));
+
         if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             return Redirect(model.ReturnUrl);
 
@@ -124,7 +127,7 @@ public class AccountController : Controller
     [Authorize]
     public IActionResult ChangePassword()
     {
-        if (!HasRecoverySession(out _, out _))
+        if (!User.HasClaim("MustChangePassword", "true"))
             return RedirectToAction("Index", "Dashboard");
         return View(new ForcedPasswordChangeViewModel());
     }
@@ -134,16 +137,31 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChangePassword(ForcedPasswordChangeViewModel model, CancellationToken cancellationToken)
     {
-        if (!HasRecoverySession(out var userId, out var requestId))
+        if (!User.HasClaim("MustChangePassword", "true"))
             return RedirectToAction("Index", "Dashboard");
         if (!ModelState.IsValid)
             return View(model);
 
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var requestId = User.FindFirstValue("PasswordResetRequestId");
+
         try
         {
-            var user = await _passwordRecoveryService.CompleteRecoveryAsync(requestId, userId, model.NewPassword, cancellationToken);
-            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            await SignInAsync(user);
+            if (requestId is not null)
+            {
+                var recovery = await _passwordRecoveryService.CompleteRecoveryAsync(
+                    int.Parse(requestId), userId, model.NewPassword, cancellationToken);
+                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                await SignInAsync(recovery);
+            }
+            else
+            {
+                var updatedUser = await _passwordRecoveryService.CompleteFirstLoginPasswordChangeAsync(
+                    userId, model.NewPassword, cancellationToken);
+                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                await SignInAsync(updatedUser);
+            }
+
             TempData["Success"] = "Password changed successfully.";
             return Redirect("/Dashboard");
         }
@@ -163,13 +181,6 @@ public class AccountController : Controller
         return RedirectToAction("Login");
     }
 
-    private bool HasRecoverySession(out int userId, out int requestId)
-    {
-        var hasUserId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
-        var hasRequestId = int.TryParse(User.FindFirstValue("PasswordResetRequestId"), out requestId);
-        return hasUserId && hasRequestId && User.HasClaim("MustChangePassword", "true");
-    }
-
     private async Task SignInAsync(User user, PasswordResetRequest? recoveryRequest = null)
     {
         var displayName = string.IsNullOrWhiteSpace(user.FullName) ? user.Matricule : user.FullName;
@@ -186,6 +197,10 @@ public class AccountController : Controller
         {
             claims.Add(new("MustChangePassword", "true"));
             claims.Add(new("PasswordResetRequestId", recoveryRequest.Id.ToString()));
+        }
+        else if (user.MustChangePassword)
+        {
+            claims.Add(new("MustChangePassword", "true"));
         }
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
