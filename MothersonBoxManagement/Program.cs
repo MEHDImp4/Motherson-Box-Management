@@ -22,6 +22,11 @@ builder.Logging.AddSimpleConsole(options =>
     options.UseUtcTimestamp = true;
 });
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
+builder.Services.AddMemoryCache();
 builder.Services.AddControllersWithViews();
 var keyPath = builder.Configuration["DataProtection:KeyPath"];
 if (!string.IsNullOrWhiteSpace(keyPath))
@@ -64,6 +69,7 @@ builder.Services.AddScoped<IBoxTemplateService, BoxTemplateService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 builder.Services.AddScoped<IWorkstationResolver, WorkstationResolver>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddSingleton<ILoginLockoutService, LoginLockoutService>();
 builder.Services.AddHostedService<LoginLockoutCleanupService>();
 builder.Services.AddScoped<IQrCodeService, QrCodeService>();
@@ -80,13 +86,14 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Dashboard/Error");
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
-
-if (app.Configuration.GetValue<int>("Kestrel:Certificates:Default:Port") is > 0 ||
+else if (app.Configuration.GetValue<int>("Kestrel:Certificates:Default:Port") is > 0 ||
     app.Configuration.GetValue<int?>("HTTPS_PORT") is > 0)
 {
     app.UseHttpsRedirection();
 }
+app.UseResponseCompression();
 app.UseStaticFiles();
 
 app.UseStatusCodePagesWithReExecute("/Dashboard/Error/{0}");

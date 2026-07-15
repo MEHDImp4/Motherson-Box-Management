@@ -33,21 +33,39 @@ Motherson Box Management is an internal ASP.NET Core MVC web application for the
 ```mermaid
 graph TD
     subgraph "Presentation Layer"
-        V[Razor Views + Bootstrap]
-        JS[scanner.js - Keyboard wedge detection]
-        SC[Virtual scan simulator]
+        V[Razor Views + Bootstrap 5]
+        JS[scanner.js - 3-state machine]
+        ST[station-terminal.js]
+        AP[adaptive-pagination.js]
     end
 
     subgraph "Controller Layer"
         DC[DashboardController]
         BC[BoxController]
+        BOC[BoxOperationsController]
+        BTC[BoxTemplateController]
         AC[AccountController]
         AUC[AuditController]
+        UC[UsersController]
+        PC[PrintController]
+        PAC[PrintAgentApiController]
+        PAGC[PrintAgentController]
     end
 
     subgraph "Service Layer"
-        BS[IBoxService / BoxService]
-        AS[IUserAuthenticationService / AuthenticationService]
+        BOS[IBoxService / BoxService]
+        PSS[IPackageScanService / PackageScanService]
+        BTS[IBoxTemplateService / BoxTemplateService]
+        AUS[IUserAuthenticationService / AuthenticationService]
+        USR[IUserService / UserService]
+        ATS[IAuditService / AuditService]
+        BRS[IBarcodeService / BarcodeService]
+        QRS[IQrCodeService / QrCodeService]
+        WRS[IWorkstationResolver / WorkstationResolver]
+        LLS[ILoginLockoutService / LoginLockoutService]
+        PRS[IPasswordRecoveryService / PasswordRecoveryService]
+        PAS[IPrintAgentService / PrintAgentService]
+        CUS[ICurrentUserService / CurrentUserService]
     end
 
     subgraph "Persistence Layer"
@@ -57,18 +75,32 @@ graph TD
     end
 
     subgraph "Database"
-        SQL[SQL Server]
+        SQL[SQL Server 2022]
     end
 
     V --> DC
     V --> BC
-    JS -->|AJAX POST| BC
-    SC --> JS
-    DC --> BS
-    BC --> BS
-    AC --> AS
-    BS --> DB
-    AS --> DB
+    JS -->|POST /Box/AutoScanPackage| BC
+    JS -->|POST /Box/AssociatePackage| BC
+    DC --> BOS
+    BC --> BOS
+    BC --> PSS
+    BC --> BTS
+    BOC --> BOS
+    BTC --> BTS
+    AC --> AUS
+    AUC --> ATS
+    UC --> USR
+    PC --> BOS
+    PAC --> PAS
+    PAGC --> PAS
+    BOS --> DB
+    PSS --> DB
+    BTS --> DB
+    AUS --> DB
+    USR --> DB
+    ATS --> DB
+    BRS --> DB
     DB --> AIS
     AIS --> SQL
     DB --> SQL

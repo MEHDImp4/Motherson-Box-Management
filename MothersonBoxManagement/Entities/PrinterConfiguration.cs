@@ -4,6 +4,7 @@ public class PrinterConfiguration
 {
     public int Id { get; set; }
     public string Code { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
     public string PcName { get; set; } = string.Empty;
     public string PrinterName { get; set; } = string.Empty;
     public string PrinterUncPath { get; set; } = string.Empty;
@@ -13,6 +14,7 @@ public class PrinterConfiguration
     public string? AgentVersion { get; set; }
     public string AvailablePrintersJson { get; set; } = "[]";
     public DateTime? LastSeenAt { get; set; }
+    public string? LastIpAddress { get; set; }
     public DateTime? RevokedAt { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;

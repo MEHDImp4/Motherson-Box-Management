@@ -579,10 +579,15 @@ namespace MothersonBoxManagement.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
                     b.Property<DateTime?>("LastSeenAt").HasColumnType("datetime2");
+                    b.Property<string>("LastIpAddress").HasMaxLength(45).HasColumnType("nvarchar(45)");
                     b.Property<string>("MachineName").HasMaxLength(100).HasColumnType("nvarchar(100)");
 
                     b.Property<string>("PcName")

@@ -9,8 +9,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
-[assembly: Xunit.CollectionBehavior(DisableTestParallelization = true)]
-
 namespace MothersonBoxManagement.Tests;
 
 public class BoxServiceExceptionTests : IClassFixture<CustomWebApplicationFactory>

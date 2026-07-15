@@ -44,4 +44,22 @@ public class PrintAgentRenderingTests
         var payload = new AgentPrintLabelPayload(1, "BOX-1", "BOX-1", 801, 800, 203, 1);
         Assert.Throws<InvalidOperationException>(() => ZplLabelBuilder.Build(payload));
     }
+
+    [Fact]
+    public void ConfigurationDialog_ReservesEnoughHeightForItsPairingAction()
+    {
+        Assert.True(ConfigurationDialogLayout.MinimumWindowHeight > 250);
+        Assert.True(ConfigurationDialogLayout.MinimumWindowHeight >= ConfigurationDialogLayout.RequiredWindowHeight);
+    }
+
+    [Fact]
+    public void AgentVersion_IsBoundedBeforeItIsSentToThePairingApi()
+    {
+        var buildVersion = "1.0.0+3a89de8d8713694f22414c49b0e54f2d81019f13";
+
+        var version = AgentVersionFormatter.ForApi(buildVersion);
+
+        Assert.Equal(40, version.Length);
+        Assert.StartsWith("1.0.0+", version);
+    }
 }

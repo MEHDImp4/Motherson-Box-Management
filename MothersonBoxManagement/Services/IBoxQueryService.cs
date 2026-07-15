@@ -10,4 +10,6 @@ public interface IBoxQueryService
     Task<List<BoxListItemDto>> GetOpenBoxesAsync(CancellationToken cancellationToken = default);
     Task<List<BoxListItemDto>> GetCreatedBoxesAsync(CancellationToken cancellationToken = default);
     Task<List<BoxListItemDto>> SearchBoxesAsync(BoxSearchFilterDto filter, CancellationToken cancellationToken = default);
+    Task<PagedResult<BoxListItemDto>> GetOpenBoxesPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default);
+    Task<PagedResult<BoxListItemDto>> GetCreatedBoxesPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default);
 }

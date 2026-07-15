@@ -1,3 +1,5 @@
+using MothersonBoxManagement.PrintAgent.Core;
+
 namespace MothersonBoxManagement.PrintAgent;
 
 internal sealed class ConfigurationForm : Form
@@ -12,12 +14,22 @@ internal sealed class ConfigurationForm : Form
     {
         Text = "Motherson Print Agent configuration";
         Width = 520;
-        Height = 250;
+        Height = ConfigurationDialogLayout.MinimumWindowHeight;
+        MinimumSize = new Size(520, ConfigurationDialogLayout.MinimumWindowHeight);
+        AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(20), ColumnCount = 1, RowCount = 6 };
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(20),
+            ColumnCount = 1,
+            RowCount = 6
+        };
+        for (var row = 0; row < layout.RowCount; row++)
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.Controls.Add(new Label { Text = "Server URL", AutoSize = true });
         layout.Controls.Add(_server);
         layout.Controls.Add(new Label { Text = "Temporary pairing code", AutoSize = true });
@@ -26,6 +38,7 @@ internal sealed class ConfigurationForm : Form
         layout.Controls.Add(_pair);
         Controls.Add(layout);
         _pair.Click += PairClicked;
+        AcceptButton = _pair;
         var existing = AgentConfiguration.Load();
         if (existing is not null) _server.Text = existing.ServerUrl;
     }

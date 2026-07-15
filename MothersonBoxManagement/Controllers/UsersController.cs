@@ -12,18 +12,13 @@ public class UsersController : Controller
 {
     private readonly IUserService _userService;
     private readonly IPasswordRecoveryService _passwordRecoveryService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public UsersController(IUserService userService, IPasswordRecoveryService passwordRecoveryService)
+    public UsersController(IUserService userService, IPasswordRecoveryService passwordRecoveryService, ICurrentUserService currentUserService)
     {
         _userService = userService;
         _passwordRecoveryService = passwordRecoveryService;
-    }
-
-    private int GetCurrentUserId()
-    {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier)
-            ?? throw new InvalidOperationException("User identity is not authenticated.");
-        return int.Parse(claim.Value);
+        _currentUserService = currentUserService;
     }
 
     [HttpGet]
@@ -152,7 +147,7 @@ public class UsersController : Controller
     {
         try
         {
-            await _passwordRecoveryService.ApproveAsync(requestId, GetCurrentUserId(), cancellationToken);
+            await _passwordRecoveryService.ApproveAsync(requestId, _currentUserService.GetUserId(), cancellationToken);
             TempData["Success"] = "Password reset approved. The employee has 15 minutes to continue without a password.";
         }
         catch (KeyNotFoundException)
@@ -173,7 +168,7 @@ public class UsersController : Controller
     {
         try
         {
-            var currentUserId = GetCurrentUserId();
+            var currentUserId = _currentUserService.GetUserId();
             if (id == currentUserId)
             {
                 TempData["Error"] = "You cannot deactivate your own account.";

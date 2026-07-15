@@ -73,9 +73,16 @@ public class PrintAgentApiTests : IClassFixture<CustomWebApplicationFactory>
         {
             machineName = "PC-P3-API",
             agentVersion = "1.0.0",
-            printers = new[] { "ZDesigner ZT411", "Microsoft Print to PDF" }
+            printers = new[] { "ZDesigner ZT411", "Microsoft Print to PDF" },
+            ipAddress = "192.168.10.42"
         });
         Assert.Equal(HttpStatusCode.NoContent, heartbeatResponse.StatusCode);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.Equal("192.168.10.42", (await db.PrinterConfigurations.FindAsync(workstationId))!.LastIpAddress);
+        }
 
         using (var scope = _factory.Services.CreateScope())
         {

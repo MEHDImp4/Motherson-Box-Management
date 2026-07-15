@@ -37,3 +37,18 @@ coverage/
 MothersonBoxManagement/App_Data/Downloads/*.exe
 MothersonBoxManagement/App_Data/Downloads/*.json
 artifacts/
+
+# Certificates and keys
+*.pfx
+*.pem
+*.key
+*.p12
+
+# Logs
+logs/
+*.log
+
+# App settings overrides (keep only base and Development)
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json

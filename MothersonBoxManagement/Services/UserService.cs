@@ -54,10 +54,18 @@ public class UserService : IUserService
         return await _context.Users.FindAsync(new object[] { id }, ct);
     }
 
+    private static readonly HashSet<string> ValidRoles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        AppRoles.Operator, AppRoles.Supervisor, AppRoles.SupervisorFr, AppRoles.Administrator, AppRoles.AdminFr
+    };
+
     public async Task<User> CreateUserAsync(string matricule, string fullName, string role, string password, CancellationToken ct = default)
     {
         if (string.Equals(matricule, SystemPrincipal.Matricule, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("The SYSTEM matricule is reserved for automated audit events.");
+
+        if (!ValidRoles.Contains(role))
+            throw new InvalidOperationException($"Invalid role: '{role}'. Valid roles are: {string.Join(", ", ValidRoles)}.");
 
         if (await _context.Users.AnyAsync(u => u.Matricule == matricule, ct))
             throw new InvalidOperationException($"A user with matricule '{matricule}' already exists.");
@@ -81,6 +89,9 @@ public class UserService : IUserService
     public async Task<User> UpdateUserAsync(int id, string fullName, string role, bool isActive, CancellationToken ct = default)
     {
         EnsureNotSystemPrincipal(id);
+        if (!ValidRoles.Contains(role))
+            throw new InvalidOperationException($"Invalid role: '{role}'. Valid roles are: {string.Join(", ", ValidRoles)}.");
+
         var user = await _context.Users.FindAsync(new object[] { id }, ct)
             ?? throw new KeyNotFoundException($"User {id} was not found.");
 

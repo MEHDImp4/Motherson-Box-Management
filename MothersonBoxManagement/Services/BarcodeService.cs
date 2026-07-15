@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Entities;
 using System;
@@ -10,17 +11,25 @@ namespace MothersonBoxManagement.Services;
 public class BarcodeService : IBarcodeService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IMemoryCache _cache;
+    private const string ConfigCacheKey = "BarcodeConfig_Id1";
 
-    public BarcodeService(ApplicationDbContext context)
+    public BarcodeService(ApplicationDbContext context, IMemoryCache cache)
     {
         _context = context;
+        _cache = cache;
     }
 
     private async Task<BarcodeConfiguration> GetConfigAsync(CancellationToken cancellationToken)
     {
-        return await _context.BarcodeConfigurations
-            .FirstOrDefaultAsync(bc => bc.Id == 1, cancellationToken)
-            ?? new BarcodeConfiguration();
+        return await _cache.GetOrCreateAsync(ConfigCacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
+            return await _context.BarcodeConfigurations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(bc => bc.Id == BarcodeConfiguration.DefaultId, cancellationToken)
+                ?? new BarcodeConfiguration();
+        }) ?? new BarcodeConfiguration();
     }
 
     public async Task<string> GenerateUniqueBoxBarcodeAsync(CancellationToken cancellationToken = default)

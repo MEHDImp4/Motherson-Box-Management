@@ -13,6 +13,7 @@
     <PublishTrimmed>false</PublishTrimmed>
     <Version>1.0.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\motherson-agent.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MothersonBoxManagement.PrintAgent.Core\MothersonBoxManagement.PrintAgent.Core.csproj" />

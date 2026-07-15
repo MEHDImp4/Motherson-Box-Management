@@ -1,0 +1,88 @@
+@{
+    ViewData["Title"] = "Workstation supervision";
+}
+
+<div class="container" style="padding-top: var(--space-md);">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <p class="text-uppercase text-muted mb-1" style="letter-spacing: .08em; font-size: .75rem;">Administration</p>
+            <h1 class="h3 mb-1">Workstation supervision</h1>
+            <p class="text-muted mb-0">Live view of all registered print-agent workstations.</p>
+        </div>
+        <a asp-controller="Box" asp-action="Settings" class="btn btn-outline-custom">Local workstation settings</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Station</th><th>Machine / printer</th><th>Agent</th><th>Queue</th><th>Last activity</th><th>User</th><th></th></tr></thead>
+                    <tbody id="fleetRows"><tr><td colspan="7" class="text-muted">Loading workstations…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="workstationModal" tabindex="-1" aria-labelledby="workstationModalTitle" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content"><form id="workstationForm" method="post">
+        @Html.AntiForgeryToken()
+        <div class="modal-header"><h2 class="modal-title fs-5" id="workstationModalTitle">Remote workstation settings</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+            <p class="text-muted small" id="workstationTechnicalName"></p>
+            <div class="mb-3"><label for="remoteDisplayName" class="form-label">Station name</label><input id="remoteDisplayName" name="displayName" maxlength="100" class="form-control" /></div>
+            <div class="mb-3"><label for="remotePrinterName" class="form-label">Printer</label><select id="remotePrinterName" name="printerName" class="form-select" required></select></div>
+            <div><label for="remotePrintMode" class="form-label">Mode</label><select id="remotePrintMode" name="printMode" class="form-select"><option value="Windows">Windows driver</option><option value="Zpl">ZPL</option></select></div>
+            <p class="form-text mt-3 mb-0">The station name is an administrative label. The technical PC identity and the agent pairing remain unchanged.</p>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary-custom">Save remotely</button></div>
+    </form></div></div>
+</div>
+
+@section Scripts {
+<script>
+    async function refreshFleet() {
+        var rows = document.getElementById('fleetRows');
+        var response = await fetch('/PrintAgent/Fleet');
+        if (!response.ok) return;
+        var stations = await response.json();
+        rows.replaceChildren();
+        if (!stations.length) {
+            rows.innerHTML = '<tr><td colspan="7" class="text-muted">No registered workstations.</td></tr>';
+            return;
+        }
+        stations.forEach(function (station) {
+            var row = document.createElement('tr');
+            var stationCell = document.createElement('td');
+            var stationName = document.createElement('div'); stationName.textContent = station.displayName || station.code;
+            var ip = document.createElement('small'); ip.className = station.lastIpAddress ? 'text-muted' : 'text-warning';
+            ip.textContent = station.lastIpAddress ? 'IP: ' + station.lastIpAddress : 'IP pending agent connection';
+            stationCell.append(stationName, ip); row.appendChild(stationCell);
+            var device = document.createElement('td'); device.textContent = (station.machineName || station.pcName || '—') + ' / ' + (station.printerName || 'Not selected'); row.appendChild(device);
+            var state = document.createElement('td'); var stateLabel = document.createElement('span'); stateLabel.className = 'workstation-state ' + (station.isOnline ? 'is-online' : ''); stateLabel.textContent = station.isOnline ? 'Online' : 'Offline'; state.appendChild(stateLabel); row.appendChild(state);
+            ['Waiting: ' + station.pending + ', printing: ' + station.claimed + ', failed: ' + station.failed, station.lastAction ? station.lastAction + ' — ' + new Date(station.lastActionAt).toLocaleString() : '—', station.lastUser || '—'].forEach(function (value) {
+                var cell = document.createElement('td');
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+            var action = document.createElement('td');
+            var edit = document.createElement('button');
+            edit.type = 'button'; edit.className = 'btn btn-outline-custom btn-sm'; edit.textContent = 'Configure';
+            edit.addEventListener('click', function () { openWorkstationEditor(station); });
+            action.appendChild(edit); row.appendChild(action);
+            rows.appendChild(row);
+        });
+    }
+    function openWorkstationEditor(station) {
+        var select = document.getElementById('remotePrinterName'); select.replaceChildren();
+        (station.printers || []).forEach(function (printer) { select.add(new Option(printer, printer, printer === station.printerName, printer === station.printerName)); });
+        document.getElementById('remoteDisplayName').value = station.displayName || station.code;
+        document.getElementById('remotePrintMode').value = station.printMode || 'Windows';
+        document.getElementById('workstationTechnicalName').textContent = 'Technical identity: ' + (station.machineName || station.pcName || station.code) + (station.lastIpAddress ? ' — ' + station.lastIpAddress : '');
+        document.getElementById('workstationForm').action = '/PrintAgent/Workstations/' + station.id + '/Configure';
+        new bootstrap.Modal(document.getElementById('workstationModal')).show();
+    }
+    refreshFleet();
+    setInterval(refreshFleet, 5000);
+</script>
+}

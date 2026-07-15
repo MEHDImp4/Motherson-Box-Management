@@ -13,6 +13,8 @@ public interface IBoxService
     Task<BoxDetailsDto?> GetBoxByBarcodeAsync(string barcode, CancellationToken cancellationToken = default);
     Task<BoxDetailsDto?> GetBoxByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<BoxDetailsDto?> FindBoxByPackageBarcodeAsync(string packageBarcode, CancellationToken cancellationToken = default);
+    Task<PagedResult<BoxListItemDto>> GetOpenBoxesPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default);
+    Task<PagedResult<BoxListItemDto>> GetCreatedBoxesPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default);
 
     // Box lifecycle methods
     Task<BoxDetailsDto> OpenBoxAsync(int boxId, int userId, string workstationName, CancellationToken ct = default);

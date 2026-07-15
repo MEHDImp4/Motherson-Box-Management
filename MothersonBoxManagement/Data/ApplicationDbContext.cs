@@ -64,6 +64,7 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(b => b.BoxNumber).IsUnique();
             entity.HasIndex(b => b.BarcodeValue).IsUnique();
+            entity.HasIndex(b => new { b.Status, b.CreatedAt });
             entity.Property(b => b.RowVersion).IsRowVersion();
             entity.Property(b => b.BoxNumber).HasMaxLength(80);
             entity.Property(b => b.BarcodeValue).HasMaxLength(100);
@@ -136,6 +137,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(log => log.Reason).HasMaxLength(1000);
             entity.Property(log => log.Description).HasMaxLength(1000);
             entity.Property(log => log.DetailsJson).HasColumnType("nvarchar(max)");
+            entity.HasIndex(al => al.Timestamp);
             entity.HasOne(al => al.Box)
                 .WithMany()
                 .HasForeignKey(al => al.BoxId)
@@ -178,6 +180,7 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasIndex(pc => pc.Code).IsUnique();
             entity.Property(pc => pc.Code).HasMaxLength(50);
+            entity.Property(pc => pc.DisplayName).HasMaxLength(100);
             entity.Property(pc => pc.PcName).HasMaxLength(100);
             entity.Property(pc => pc.PrinterName).HasMaxLength(200);
             entity.Property(pc => pc.PrinterUncPath).HasMaxLength(500);
@@ -186,6 +189,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(pc => pc.AgentTokenHash).HasMaxLength(64);
             entity.HasIndex(pc => pc.AgentTokenHash).IsUnique().HasFilter("[AgentTokenHash] IS NOT NULL");
             entity.Property(pc => pc.AgentVersion).HasMaxLength(40);
+            entity.Property(pc => pc.LastIpAddress).HasMaxLength(45);
             entity.Property(pc => pc.AvailablePrintersJson).HasColumnType("nvarchar(max)");
             entity.Property(pc => pc.Description).HasMaxLength(500);
         });
@@ -248,7 +252,7 @@ public class ApplicationDbContext : DbContext
 
             entity.HasData(new BarcodeConfiguration
             {
-                Id = 1,
+                Id = BarcodeConfiguration.DefaultId,
                 BoxPrefix = "BOX-",
                 BoxDatePattern = "yyyyMMdd",
                 BoxRandomLength = 6,

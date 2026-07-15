@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Dtos;
 using MothersonBoxManagement.Entities;
@@ -9,10 +10,13 @@ namespace MothersonBoxManagement.Services;
 public class AuditService : IAuditService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IMemoryCache _cache;
+    private const string ActionTypesCacheKey = "AuditActionTypes";
 
-    public AuditService(ApplicationDbContext context)
+    public AuditService(ApplicationDbContext context, IMemoryCache cache)
     {
         _context = context;
+        _cache = cache;
     }
 
     public async Task LogScanRejectionAsync(int? boxId, string barcode, string reason, int userId, string workstationName, CancellationToken ct = default)
@@ -67,10 +71,14 @@ public class AuditService : IAuditService
             .Take(pageSize)
             .ToListAsync(ct);
 
-        var actionTypes = await _context.BoxAuditLogs
-            .Select(l => l.ActionType)
-            .Distinct()
-            .ToListAsync(ct);
+        var actionTypes = await _cache.GetOrCreateAsync(ActionTypesCacheKey, entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
+            return _context.BoxAuditLogs
+                .Select(l => l.ActionType)
+                .Distinct()
+                .ToListAsync();
+        }) ?? new List<string>();
 
         return new AuditIndexViewModel
         {

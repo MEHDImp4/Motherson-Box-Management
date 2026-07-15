@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using MothersonBoxManagement.Data;
 using MothersonBoxManagement.Entities;
@@ -95,6 +96,7 @@ public sealed class PrintAgentService : IPrintAgentService
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .Take(100));
         workstation.LastSeenAt = _clock.GetUtcNow().UtcDateTime;
+        workstation.LastIpAddress = NormalizeIpAddress(heartbeat.RemoteIpAddress);
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -130,6 +132,10 @@ public sealed class PrintAgentService : IPrintAgentService
 
     public async Task<ClaimedPrintJob?> ClaimNextAsync(int workstationId, bool ignoreRetryDelay = false, CancellationToken cancellationToken = default)
     {
+        var workstation = await GetWorkstationAsync(workstationId, cancellationToken);
+        if (!IsConfiguredPrinterReported(workstation))
+            return null;
+
         var now = _clock.GetUtcNow().UtcDateTime;
         var job = await _db.BoxPrintJobs
             .Where(candidate => candidate.WorkstationId == workstationId &&
@@ -184,7 +190,15 @@ public sealed class PrintAgentService : IPrintAgentService
 
     private async Task<PrinterConfiguration> GetWorkstationAsync(int id, CancellationToken cancellationToken) =>
         await _db.PrinterConfigurations.FirstOrDefaultAsync(candidate => candidate.Id == id && candidate.IsActive, cancellationToken)
-        ?? throw new KeyNotFoundException("Workstation not found.");
+            ?? throw new KeyNotFoundException("Workstation not found.");
+
+    private static string? NormalizeIpAddress(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (!IPAddress.TryParse(value, out var address))
+            throw new ArgumentException("Invalid IP address.", nameof(value));
+        return address.ToString();
+    }
 
     private async Task<BoxPrintJob> GetClaimedJobAsync(int workstationId, int jobId, string leaseToken, CancellationToken cancellationToken)
     {
@@ -199,6 +213,21 @@ public sealed class PrintAgentService : IPrintAgentService
     {
         job.LeaseTokenHash = null;
         job.LeaseExpiresAt = null;
+    }
+
+    private static bool IsConfiguredPrinterReported(PrinterConfiguration workstation)
+    {
+        if (string.IsNullOrWhiteSpace(workstation.PrinterName))
+            return false;
+        try
+        {
+            var printers = JsonSerializer.Deserialize<string[]>(workstation.AvailablePrintersJson) ?? [];
+            return printers.Any(printer => string.Equals(printer, workstation.PrinterName, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static string RequireBounded(string value, int maxLength, string field)

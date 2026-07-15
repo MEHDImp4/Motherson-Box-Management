@@ -13,20 +13,15 @@ public class BoxOperationsController : Controller
 {
     private readonly IBoxService _boxService;
     private readonly IWorkstationResolver _workstationResolver;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<BoxOperationsController> _logger;
 
-    public BoxOperationsController(IBoxService boxService, IWorkstationResolver workstationResolver, ILogger<BoxOperationsController> logger)
+    public BoxOperationsController(IBoxService boxService, IWorkstationResolver workstationResolver, ICurrentUserService currentUserService, ILogger<BoxOperationsController> logger)
     {
         _boxService = boxService;
         _workstationResolver = workstationResolver;
+        _currentUserService = currentUserService;
         _logger = logger;
-    }
-
-    private int GetUserId()
-    {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier)
-            ?? throw new InvalidOperationException("User identity is not authenticated.");
-        return int.Parse(claim.Value);
     }
 
     private string ResolveWorkstation(string? workstationName)
@@ -44,16 +39,28 @@ public class BoxOperationsController : Controller
     {
         try
         {
-            var userId = GetUserId();
+            var userId = _currentUserService.GetUserId();
             var resolvedWorkstationName = ResolveWorkstation(workstationName);
             var box = await operation(userId, resolvedWorkstationName, cancellationToken);
             TempData["ScanSuccess"] = successMessage;
             return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
         }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "{ErrorMessage}", errorLogMessage);
+            TempData["Error"] = ex.Message;
+            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "{ErrorMessage}", errorLogMessage);
+            TempData["Error"] = ex.Message;
+            return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "{ErrorMessage}", errorLogMessage);
-            TempData["Error"] = "An error occurred. Please try again.";
+            TempData["Error"] = "An unexpected error occurred. Please try again.";
             return RedirectToAction("Details", "Box", new { barcode = boxBarcode });
         }
     }

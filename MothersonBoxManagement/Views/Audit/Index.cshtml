@@ -194,7 +194,7 @@
         else
         {
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover" data-adaptive-pagination>
                     <thead>
                         <tr>
                             <th>Date &amp; Time</th>
@@ -233,7 +233,7 @@
                                         @log.ActionType
                                     </span>
                                 </td>
-                                <td style="max-width: 260px; font-size: 13px; color: var(--on-surface);">
+                                <td class="audit-description" style="font-size: 13px; color: var(--on-surface);">
                                     @if (!string.IsNullOrWhiteSpace(log.Description))
                                     {
                                         @log.Description
@@ -291,17 +291,18 @@
     <!-- Pagination Section -->
     @if (Model.TotalPages > 1)
     {
-        <nav aria-label="Page navigation" class="mt-4">
-            <ul class="pagination justify-content-center">
+        <nav aria-label="Audit log pagination" class="adaptive-pager mt-4">
+            <span class="data-summary">Showing @(((Model.CurrentPage - 1) * Model.PageSize) + 1)-@Math.Min(Model.CurrentPage * Model.PageSize, Model.TotalItems) of @Model.TotalItems records</span>
+            <ul class="pagination adaptive-pager__controls mb-0">
                 <li class="page-item @(Model.CurrentPage == 1 ? "disabled" : "")">
                     <a class="page-link" asp-action="Index"
                        asp-route-boxId="@Model.Filter.BoxId"
                        asp-route-actionType="@Model.Filter.ActionType"
                        asp-route-fromDate="@(Model.Filter.FromDate?.ToString("yyyy-MM-dd"))"
                        asp-route-toDate="@(Model.Filter.ToDate?.ToString("yyyy-MM-dd"))"
-                       asp-route-page="@(Model.CurrentPage - 1)">Previous</a>
+                       asp-route-page="@(Model.CurrentPage - 1)" asp-route-pageSize="@Model.PageSize">Previous</a>
                 </li>
-                @for (int i = 1; i <= Model.TotalPages; i++)
+                @for (int i = Math.Max(1, Model.CurrentPage - 2); i <= Math.Min(Model.TotalPages, Model.CurrentPage + 2); i++)
                 {
                     <li class="page-item @(Model.CurrentPage == i ? "active" : "")">
                         <a class="page-link" asp-action="Index"
@@ -309,7 +310,7 @@
                            asp-route-actionType="@Model.Filter.ActionType"
                            asp-route-fromDate="@(Model.Filter.FromDate?.ToString("yyyy-MM-dd"))"
                            asp-route-toDate="@(Model.Filter.ToDate?.ToString("yyyy-MM-dd"))"
-                           asp-route-page="@i">@i</a>
+                           asp-route-page="@i" asp-route-pageSize="@Model.PageSize">@i</a>
                     </li>
                 }
                 <li class="page-item @(Model.CurrentPage == Model.TotalPages ? "disabled" : "")">
@@ -318,7 +319,7 @@
                        asp-route-actionType="@Model.Filter.ActionType"
                        asp-route-fromDate="@(Model.Filter.FromDate?.ToString("yyyy-MM-dd"))"
                        asp-route-toDate="@(Model.Filter.ToDate?.ToString("yyyy-MM-dd"))"
-                       asp-route-page="@(Model.CurrentPage + 1)">Next</a>
+                       asp-route-page="@(Model.CurrentPage + 1)" asp-route-pageSize="@Model.PageSize">Next</a>
                 </li>
             </ul>
         </nav>

@@ -3,11 +3,13 @@ namespace MothersonBoxManagement.Services;
 public class LoginLockoutCleanupService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<LoginLockoutCleanupService> _logger;
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(5);
 
-    public LoginLockoutCleanupService(IServiceProvider serviceProvider)
+    public LoginLockoutCleanupService(IServiceProvider serviceProvider, ILogger<LoginLockoutCleanupService> logger)
     {
         _serviceProvider = serviceProvider;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -26,8 +28,9 @@ public class LoginLockoutCleanupService : BackgroundService
             {
                 break;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Failed to cleanup expired login attempts");
             }
         }
     }

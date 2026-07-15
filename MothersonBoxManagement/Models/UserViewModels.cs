@@ -31,7 +31,7 @@ public class CreateUserViewModel
 
     [Required(ErrorMessage = "Password is required.")]
     [DataType(DataType.Password)]
-    [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must contain at least 8 characters.")]
+    [StringLength(100, MinimumLength = 12, ErrorMessage = "Password must contain at least 12 characters.")]
     public string Password { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Confirm password is required.")]
@@ -62,7 +62,7 @@ public class ResetPasswordViewModel
 
     [Required(ErrorMessage = "New password is required.")]
     [DataType(DataType.Password)]
-    [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must contain at least 8 characters.")]
+    [StringLength(100, MinimumLength = 12, ErrorMessage = "Password must contain at least 12 characters.")]
     public string NewPassword { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Confirm password is required.")]

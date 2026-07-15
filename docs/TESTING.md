@@ -9,8 +9,8 @@ The `v1` release is backed by an xUnit test suite using `WebApplicationFactory` 
 
 ## Current baseline
 
-- `129/129` tests passing
-- `dotnet build` passing
+- `182/182` tests passing (2 SQL Server integration tests conditionally skipped)
+- `dotnet build` passing (0 warnings, 0 errors)
 - `dotnet test` passing
 
 ## Main commands
@@ -29,15 +29,20 @@ dotnet test --collect:"XPlat Code Coverage"
 
 ## Main coverage areas
 
-- authentication and role access
-- dashboard and box lookup
-- package scanning
-- duplicate prevention
-- optimistic concurrency
-- supervisor exception flows
-- audit log access and structure
+- authentication, role access, and login lockout
+- dashboard, box lookup, and template selection
+- package scanning (auto-scan, manual double-scan, sticky mode)
+- duplicate prevention and idempotency
+- optimistic concurrency and retry logic
+- supervisor exception flows (cancel, force-close, block, transfer, remove)
+- audit log access, filtering, and structure
 - security and validation behavior
 - end-to-end lifecycle scenarios
+- password recovery workflow
+- print agent pairing, heartbeat, and job lifecycle
+- workstation resolver and station identity
+- QR code and barcode generation
+- SQL Server constraint validation
 
 ## Important note for local validation
 

@@ -68,6 +68,26 @@ public class PrintAgentWorkflowTests
     }
 
     [Fact]
+    public async Task UnavailablePrinter_LeavesQueuedLabelPendingUntilItIsReportedAgain()
+    {
+        await using var db = CreateDb();
+        var user = NewUser();
+        var box = NewBox(user);
+        var workstation = NewWorkstation("P3-OFFLINE");
+        workstation.AvailablePrintersJson = "[\"Microsoft Print to PDF\"]";
+        db.AddRange(user, box, workstation);
+        await db.SaveChangesAsync();
+        var service = new PrintAgentService(db, TimeProvider.System);
+        var job = await service.QueueAsync(box.Id, user.Id, workstation.Id);
+
+        var claim = await service.ClaimNextAsync(workstation.Id);
+        var stored = await db.BoxPrintJobs.FindAsync(job.Id);
+
+        Assert.Null(claim);
+        Assert.Equal(PrintJobStatuses.Pending, stored!.Status);
+    }
+
+    [Fact]
     public async Task TransientFailure_RetriesThreeTimes_ThenFailsPermanently()
     {
         await using var db = CreateDb();
@@ -136,6 +156,7 @@ public class PrintAgentWorkflowTests
         PcName = code,
         PrinterName = "ZDesigner ZT411",
         PrintMode = PrintModes.Zpl,
+        AvailablePrintersJson = "[\"ZDesigner ZT411\"]",
         IsActive = true,
         CreatedAt = DateTime.UtcNow
     };

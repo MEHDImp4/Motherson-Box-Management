@@ -21,6 +21,7 @@ public class BoxController : Controller
     private readonly IWorkstationResolver _workstationResolver;
     private readonly IQrCodeService _qrCodeService;
     private readonly IUserService _userService;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<BoxController> _logger;
 
@@ -32,6 +33,7 @@ public class BoxController : Controller
         IWorkstationResolver workstationResolver,
         IQrCodeService qrCodeService,
         IUserService userService,
+        ICurrentUserService currentUserService,
         ApplicationDbContext context,
         ILogger<BoxController> logger)
     {
@@ -42,15 +44,9 @@ public class BoxController : Controller
         _workstationResolver = workstationResolver;
         _qrCodeService = qrCodeService;
         _userService = userService;
+        _currentUserService = currentUserService;
         _context = context;
         _logger = logger;
-    }
-
-    private int GetUserId()
-    {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier)
-            ?? throw new InvalidOperationException("User identity is not authenticated.");
-        return int.Parse(claim.Value);
     }
 
     [HttpGet]
@@ -70,7 +66,7 @@ public class BoxController : Controller
     [Route("Box/CreateFromTemplate")]
     public async Task<IActionResult> CreateFromTemplate([FromForm] int templateId, [FromForm] string? workstationName, CancellationToken cancellationToken)
     {
-        var userId = GetUserId();
+        var userId = _currentUserService.GetUserId();
         var resolvedWorkstation = _workstationResolver.Resolve(workstationName);
 
         try
@@ -110,8 +106,22 @@ public class BoxController : Controller
 
         if (User.IsInRole(AppRoles.Supervisor) || User.IsInRole(AppRoles.AdminFr) || User.IsInRole(AppRoles.SupervisorFr) || User.IsInRole(AppRoles.Administrator))
         {
-            var openBoxes = await _boxService.GetOpenBoxesAsync(cancellationToken);
-            ViewBag.OpenBoxes = openBoxes.Where(b => b.Id != box.Id).ToList();
+            var openBoxes = await _context.Boxes
+                .Where(b => b.Status == BoxStatus.Open && b.Id != box.Id)
+                .OrderByDescending(b => b.CreatedAt)
+                .Select(b => new BoxListItemDto
+                {
+                    Id = b.Id,
+                    BoxNumber = b.BoxNumber,
+                    BarcodeValue = b.BarcodeValue,
+                    Type = b.Type,
+                    ExpectedQuantity = b.ExpectedQuantity,
+                    CurrentQuantity = b.CurrentQuantity,
+                    Status = b.Status,
+                    CreatedAt = b.CreatedAt
+                })
+                .ToListAsync(cancellationToken);
+            ViewBag.OpenBoxes = openBoxes;
         }
 
         return View(box);
@@ -122,7 +132,7 @@ public class BoxController : Controller
     [Authorize(Roles = AppRoles.SupervisorOrAdministrator)]
     public async Task<IActionResult> Open(int boxId, string boxBarcode, CancellationToken cancellationToken)
     {
-        var userId = GetUserId();
+        var userId = _currentUserService.GetUserId();
         var workstationName = _workstationResolver.Resolve();
 
         try
@@ -164,7 +174,7 @@ public class BoxController : Controller
         if (template is null)
             return Json(new { success = false, noMatch = true, message = "No template matches this barcode prefix." });
 
-        var userId = GetUserId();
+        var userId = _currentUserService.GetUserId();
         var resolvedWorkstation = _workstationResolver.Resolve(workstationName);
 
         await using var transaction = _context.Database.IsRelational()
@@ -257,7 +267,7 @@ public class BoxController : Controller
         if (box is null)
             return Json(new { success = false, message = "No box found with code " + boxBarcode + "." });
 
-        var userId = GetUserId();
+        var userId = _currentUserService.GetUserId();
         var resolvedWorkstation = _workstationResolver.Resolve(workstationName);
         var result = await _packageScanService.ScanPackageAsync(box.Id, packageBarcode, userId, resolvedWorkstation, cancellationToken, requestId);
 
@@ -276,7 +286,7 @@ public class BoxController : Controller
     public async Task<IActionResult> Settings(CancellationToken cancellationToken)
     {
         var barcodeConfig = await _context.BarcodeConfigurations
-            .FirstOrDefaultAsync(bc => bc.Id == 1, cancellationToken)
+            .FirstOrDefaultAsync(bc => bc.Id == BarcodeConfiguration.DefaultId, cancellationToken)
             ?? new Entities.BarcodeConfiguration { Id = 1 };
 
         ViewBag.BarcodeConfig = barcodeConfig;
@@ -295,7 +305,7 @@ public class BoxController : Controller
         CancellationToken cancellationToken)
     {
         var config = await _context.BarcodeConfigurations
-            .FirstOrDefaultAsync(bc => bc.Id == 1, cancellationToken);
+            .FirstOrDefaultAsync(bc => bc.Id == BarcodeConfiguration.DefaultId, cancellationToken);
 
         if (config is null)
         {
@@ -317,38 +327,65 @@ public class BoxController : Controller
     }
 
     [HttpGet]
-    public IActionResult SearchPackage()
-    {
-        return View();
-    }
+    [ActionName(nameof(SearchPackage))]
+    public async Task<IActionResult> SearchPackageIndex(string? query, int page = 1, int pageSize = 12, CancellationToken cancellationToken = default) =>
+        View(await BuildPackageSearchPageAsync(query, page, pageSize, cancellationToken));
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SearchPackage(string barcode, CancellationToken cancellationToken)
+    public async Task<IActionResult> SearchPackage(string barcode, int page = 1, int pageSize = 12, CancellationToken cancellationToken = default)
     {
+        var model = await BuildPackageSearchPageAsync(barcode, page, pageSize, cancellationToken);
         if (string.IsNullOrWhiteSpace(barcode))
         {
-            ViewBag.Error = "Please enter a package barcode.";
-            return View();
+            model.Error = "Please enter a package barcode.";
+            return View(model);
         }
 
         barcode = barcode.Trim();
 
         if (_barcodeService.IsBoxBarcode(barcode))
         {
-            ViewBag.Error = "This code is a box barcode, not a package barcode. Use the box search from the dashboard.";
-            return View();
+            model.Error = "This code is a box barcode, not a package barcode. Use the box search from the dashboard.";
+            return View(model);
         }
 
         var box = await _boxService.FindBoxByPackageBarcodeAsync(barcode, cancellationToken);
         if (box is null)
         {
-            ViewBag.Error = $"No box contains the package \"{barcode}\". This package is not recognized or has not yet been associated with a box.";
-            return View();
+            model.Error = $"No box contains the package \"{barcode}\". This package is not recognized or has not yet been associated with a box.";
+            return View(model);
         }
 
-        ViewBag.Found = true;
-        ViewBag.SearchedBarcode = barcode;
-        return View(box);
+        model.FoundBox = box;
+        model.SearchedBarcode = barcode;
+        return View(model);
+    }
+
+    private async Task<PackageSearchPageViewModel> BuildPackageSearchPageAsync(string? query, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        pageSize = Math.Clamp(pageSize, 5, 100);
+        var packages = _context.BoxPackages.AsNoTracking().Include(package => package.Box).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var term = query.Trim();
+            packages = packages.Where(package => package.PackageBarcode.Contains(term));
+        }
+        var total = await packages.CountAsync(cancellationToken);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+        page = Math.Clamp(page, 1, totalPages);
+        var items = await packages.OrderByDescending(package => package.ScannedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(package => new PackageSearchListItem
+            {
+                Barcode = package.PackageBarcode,
+                BoxNumber = package.Box.BoxNumber,
+                BoxBarcode = package.Box.BarcodeValue,
+                BoxStatus = package.Box.Status.ToString(),
+                ScannedAt = package.ScannedAt,
+                IsBlocked = package.IsBlocked,
+                IsRemoved = package.IsRemoved
+            }).ToListAsync(cancellationToken);
+        return new PackageSearchPageViewModel { Query = query, Packages = items, CurrentPage = page, PageSize = pageSize, TotalItems = total, TotalPages = totalPages };
     }
 }

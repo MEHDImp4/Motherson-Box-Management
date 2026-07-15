@@ -205,13 +205,20 @@ public class BoxTemplateService : IBoxTemplateService
     public async Task<BoxTemplate?> FindTemplateByPackageBarcodeAsync(string packageBarcode, CancellationToken cancellationToken = default)
     {
         var candidates = await _context.BoxTemplates
+            .AsNoTracking()
             .Where(bt => bt.IsActive && bt.PackagePrefixPattern != null && bt.PackagePrefixPattern != "")
+            .Select(bt => new { bt.Id, bt.PackagePrefixPattern })
             .ToListAsync(cancellationToken);
 
-        return candidates
+        var bestMatch = candidates
             .Where(bt => packageBarcode.StartsWith(bt.PackagePrefixPattern!, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(bt => bt.PackagePrefixPattern!.Length)
             .FirstOrDefault();
+
+        if (bestMatch is null)
+            return null;
+
+        return await _context.BoxTemplates.FindAsync(new object[] { bestMatch.Id }, cancellationToken);
     }
 
     private static string? NormalizePrefix(string? prefix) =>

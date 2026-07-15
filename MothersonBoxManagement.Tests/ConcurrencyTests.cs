@@ -95,8 +95,9 @@ public class ConcurrencyTests
 
     private static PackageScanService CreatePackageScanService(ApplicationDbContext db)
     {
-        var barcodeService = new BarcodeService(db);
-        return new PackageScanService(db, barcodeService, new AuditService(db), new BoxService(db, barcodeService));
+        var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+        var barcodeService = new BarcodeService(db, cache);
+        return new PackageScanService(db, barcodeService, new AuditService(db, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions())), new BoxService(db, barcodeService));
     }
 
     [Fact]

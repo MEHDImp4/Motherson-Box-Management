@@ -57,6 +57,10 @@ public class PasswordRecoveryFlowTests : IClassFixture<CustomWebApplicationFacto
         Assert.Equal(HttpStatusCode.Redirect, recoveryLogin.StatusCode);
         Assert.Contains("/Account/ChangePassword", recoveryLogin.Headers.Location?.OriginalString ?? "");
 
+        var changePage = await recovery.GetAsync("/Account/ChangePassword");
+        Assert.Equal(HttpStatusCode.OK, changePage.StatusCode);
+        Assert.Contains("Choose a new password", await changePage.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+
         var forbiddenUntilChanged = await recovery.GetAsync("/");
         Assert.Equal(HttpStatusCode.Redirect, forbiddenUntilChanged.StatusCode);
         Assert.Contains("/Account/ChangePassword", forbiddenUntilChanged.Headers.Location?.OriginalString ?? "");
@@ -101,6 +105,17 @@ public class PasswordRecoveryFlowTests : IClassFixture<CustomWebApplicationFacto
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Contains("/Account/Login", response.Headers.Location?.OriginalString ?? "");
+    }
+
+    [Fact]
+    public async Task Administrator_CanViewPendingPasswordResetRequests()
+    {
+        var admin = await TestAuthHelper.CreateAuthenticatedClient(_factory, "AD001", "Motherson2026!");
+
+        var response = await admin.GetAsync("/Users/PasswordResetRequests");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Password Reset Requests", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
     }
 
     private static FormUrlEncodedContent Form(params (string Key, string Value)[] values) =>

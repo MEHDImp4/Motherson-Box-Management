@@ -43,7 +43,7 @@ public sealed class PrintAgentApiController : ControllerBase
         try
         {
             await _service.HeartbeatAsync(workstation.Id,
-                new AgentHeartbeat(request.MachineName, request.AgentVersion, request.Printers ?? []),
+                new AgentHeartbeat(request.MachineName, request.AgentVersion, request.Printers ?? [], request.IpAddress ?? HttpContext.Connection.RemoteIpAddress?.ToString()),
                 cancellationToken);
             return NoContent();
         }
@@ -108,6 +108,6 @@ public sealed class PrintAgentApiController : ControllerBase
 }
 
 public sealed record PairAgentRequest(string Code, string MachineName, string AgentVersion);
-public sealed record HeartbeatRequest(string MachineName, string AgentVersion, string[]? Printers);
+public sealed record HeartbeatRequest(string MachineName, string AgentVersion, string[]? Printers, string? IpAddress = null);
 public sealed record LeaseRequest(string LeaseToken);
 public sealed record FailJobRequest(string LeaseToken, string ErrorCode, bool Transient);

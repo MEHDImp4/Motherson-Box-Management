@@ -68,7 +68,7 @@ public class PrintController : Controller
             BarcodeValue = box.BarcodeValue,
             QrCodeBase64 = qrCodeBase64,
             AutoPrint = autoPrint,
-            ReturnUrl = returnUrl
+            ReturnUrl = string.IsNullOrEmpty(returnUrl) || !Url.IsLocalUrl(returnUrl) ? null : returnUrl
         };
 
         return View("~/Views/Box/Print.cshtml", vm);

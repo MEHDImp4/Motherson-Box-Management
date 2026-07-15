@@ -19,42 +19,46 @@ public class LoginLockoutService : ILoginLockoutService
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> MatriculeGates =
         new(StringComparer.OrdinalIgnoreCase);
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly int _maxAttempts;
     private readonly TimeSpan _lockoutDuration;
 
-    public LoginLockoutService(IServiceProvider serviceProvider, IConfiguration configuration)
+    public LoginLockoutService(IServiceScopeFactory scopeFactory, IConfiguration configuration)
     {
-        _serviceProvider = serviceProvider;
+        _scopeFactory = scopeFactory;
         _maxAttempts = configuration.GetValue("Security:LoginLockout:MaxAttempts", 5);
         _lockoutDuration = TimeSpan.FromMinutes(configuration.GetValue("Security:LoginLockout:LockoutMinutes", 15));
-    }
-
-    private ApplicationDbContext CreateDbContext()
-    {
-        var scope = _serviceProvider.CreateScope();
-        return scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     }
 
     public async Task<bool> IsLockedOutAsync(string matricule, CancellationToken cancellationToken = default)
     {
         matricule = matricule.Trim().ToUpperInvariant();
-        using var db = CreateDbContext();
-        var attempt = await db.LoginAttempts.FirstOrDefaultAsync(la => la.Matricule == matricule, cancellationToken);
-
-        if (attempt is null)
-            return false;
-
-        if (attempt.LockoutEnd.HasValue && attempt.LockoutEnd.Value > DateTime.UtcNow)
-            return true;
-
-        if (attempt.LockoutEnd.HasValue && attempt.LockoutEnd.Value <= DateTime.UtcNow)
+        var gate = MatriculeGates.GetOrAdd(matricule, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
         {
-            db.LoginAttempts.Remove(attempt);
-            await db.SaveChangesAsync(cancellationToken);
-        }
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var attempt = await db.LoginAttempts.FirstOrDefaultAsync(la => la.Matricule == matricule, cancellationToken);
 
-        return false;
+            if (attempt is null)
+                return false;
+
+            if (attempt.LockoutEnd.HasValue && attempt.LockoutEnd.Value > DateTime.UtcNow)
+                return true;
+
+            if (attempt.LockoutEnd.HasValue && attempt.LockoutEnd.Value <= DateTime.UtcNow)
+            {
+                db.LoginAttempts.Remove(attempt);
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
+            return false;
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     public async Task RecordFailedAttemptAsync(string matricule, CancellationToken cancellationToken = default)
@@ -64,7 +68,8 @@ public class LoginLockoutService : ILoginLockoutService
         await gate.WaitAsync(cancellationToken);
         try
         {
-            using var db = CreateDbContext();
+            using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             await using var transaction = db.Database.IsRelational()
                 ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
                 : null;
@@ -103,7 +108,8 @@ public class LoginLockoutService : ILoginLockoutService
     public async Task ResetAttemptsAsync(string matricule, CancellationToken cancellationToken = default)
     {
         matricule = matricule.Trim().ToUpperInvariant();
-        using var db = CreateDbContext();
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var attempt = await db.LoginAttempts.FirstOrDefaultAsync(la => la.Matricule == matricule, cancellationToken);
         if (attempt is not null)
         {
@@ -115,7 +121,8 @@ public class LoginLockoutService : ILoginLockoutService
     public async Task<int> GetRemainingAttemptsAsync(string matricule, CancellationToken cancellationToken = default)
     {
         matricule = matricule.Trim().ToUpperInvariant();
-        using var db = CreateDbContext();
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var attempt = await db.LoginAttempts.FirstOrDefaultAsync(la => la.Matricule == matricule, cancellationToken);
 
         if (attempt is null)
@@ -129,7 +136,8 @@ public class LoginLockoutService : ILoginLockoutService
 
     public async Task CleanupExpiredEntriesAsync(CancellationToken cancellationToken = default)
     {
-        using var db = CreateDbContext();
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var expiryThreshold = DateTime.UtcNow.AddHours(-1);
         var expired = await db.LoginAttempts
             .Where(la => la.LockoutEnd.HasValue && la.LockoutEnd.Value < expiryThreshold)

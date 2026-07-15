@@ -3,8 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main, master, develop]
 
 jobs:
   build-test:
@@ -36,10 +35,6 @@ jobs:
       - name: Publish application
         run: dotnet publish MothersonBoxManagement/MothersonBoxManagement.csproj -c Release --no-build -o artifacts/app
 
-      - name: Docker Build
-        if: matrix.os == 'ubuntu-latest'
-        run: docker build -t motherson-box-management:test .
-
   sql-integration:
     runs-on: ubuntu-latest
     services:
@@ -63,7 +58,6 @@ jobs:
       - run: dotnet test MothersonBoxManagement.Tests/MothersonBoxManagement.Tests.csproj -c Release --filter FullyQualifiedName~SqlServerIntegrationTests
 
   package-print-agent:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [build-test]
     runs-on: windows-latest
     steps:
@@ -85,5 +79,20 @@ jobs:
           if ((Get-FileHash -Algorithm SHA256 $source).Hash -ne (Get-FileHash -Algorithm SHA256 $exe).Hash) { throw "Embedded agent hash mismatch." }
       - uses: actions/upload-artifact@v4
         with:
-          name: motherson-app-with-print-agent
-          path: artifacts/app-with-agent
+          name: motherson-print-agent
+          path: MothersonBoxManagement/App_Data/Downloads
+          if-no-files-found: error
+
+  docker-build:
+    needs: [build-test, package-print-agent]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: motherson-print-agent
+          path: MothersonBoxManagement/App_Data/Downloads
+      - name: Build application image with current print agent
+        run: docker build -t motherson-box-management:${{ github.sha }} .
+      - name: Verify image exists
+        run: docker image inspect motherson-box-management:${{ github.sha }}

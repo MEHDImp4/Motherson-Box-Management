@@ -14,6 +14,8 @@ RUN dotnet publish MothersonBoxManagement/MothersonBoxManagement.csproj -c Relea
 FROM mcr.microsoft.com/dotnet/aspnet:8.0.28 AS final
 WORKDIR /app
 
+# Temporary root elevation to install curl (required for HEALTHCHECK) and create keys directory.
+# The container switches back to the non-root $APP_UID user immediately after.
 USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \

@@ -2,10 +2,16 @@
     ViewData["Title"] = "Settings";
     var barcodeConfig = ViewBag.BarcodeConfig as MothersonBoxManagement.Entities.BarcodeConfiguration ?? new();
     var canManageSettings = User.IsInRole("Administrator") || User.IsInRole("Admin");
+    var canManagePrintAgent = canManageSettings || User.IsInRole("Supervisor") || User.IsInRole("Superviseur");
 }
 
-<div class="container" style="padding-top: var(--space-md);">
-    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+<div class="container settings-page" style="padding-top: var(--space-md);">
+    <div class="page-header settings-page-header">
+        <div>
+            <p class="settings-eyebrow">Terminal configuration</p>
+            <h1 class="page-title">Settings</h1>
+            <p class="body-md text-muted mb-0">Manage this workstation, its local print agent and barcode rules.</p>
+        </div>
         <a asp-action="Index" asp-controller="Dashboard" class="back-link d-inline-flex align-items-center" style="margin-bottom: 0;">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="margin-right: 6px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             Back to Dashboard
@@ -14,33 +20,53 @@
 
     <div class="row g-4 mt-2">
         <div class="col-12">
-            <div class="card" style="border: 1px solid var(--border);">
-                <div class="card-header d-flex justify-content-between align-items-center" style="background-color: var(--surface-container-low); font-weight: 700;">
-                    <span>Local Print Agent</span>
+            <div class="card settings-agent-card">
+                <div class="card-header settings-agent-card__header">
+                    <div><p class="settings-eyebrow mb-1">Print infrastructure</p><span>Local Print Agent</span></div>
                     <span id="printAgentBadge" class="badge text-bg-secondary">Checking…</span>
                 </div>
-                <div class="card-body" style="padding: 24px;">
+                <div class="card-body settings-agent-card__body">
                     <div id="printAgentMessage" class="alert alert-info">Configure a workstation name above to inspect its print agent.</div>
-                    <dl class="row mb-3" id="printAgentDetails" hidden>
+                    <dl class="row mb-3 settings-agent-details" id="printAgentDetails" hidden>
                         <dt class="col-sm-3">Machine</dt><dd class="col-sm-9" id="agentMachine">—</dd>
                         <dt class="col-sm-3">Agent version</dt><dd class="col-sm-9" id="agentVersion">—</dd>
                         <dt class="col-sm-3">Printer</dt><dd class="col-sm-9" id="agentPrinter">—</dd>
                         <dt class="col-sm-3">Last contact</dt><dd class="col-sm-9" id="agentLastSeen">—</dd>
                     </dl>
-                    <div class="d-flex flex-wrap gap-2 mb-3">
+                    <div id="printedHistory" class="mb-3 settings-activity" hidden>
+                        <strong>Last printed labels</strong>
+                        <ul id="printedHistoryRows" class="list-group list-group-flush mt-2"></ul>
+                    </div>
+                    <div id="printQueue" class="mb-3 settings-queue" hidden>
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                            <strong>Print queue</strong>
+                            <div class="settings-queue__metrics"><span class="badge text-bg-warning"><span id="queuePending">0</span> waiting</span><span class="badge text-bg-info"><span id="queueClaimed">0</span> printing</span><span class="badge text-bg-danger"><span id="queueFailed">0</span> failed</span></div>
+                        </div>
+                        <div class="table-responsive border rounded">
+                            <table class="table table-sm mb-0" aria-label="Recent print jobs">
+                                <thead><tr><th>Label</th><th>Status</th><th>Queued</th><th>Attempts</th><th>Error</th></tr></thead>
+                                <tbody id="printQueueRows"><tr><td colspan="5" class="text-muted">No labels in this queue.</td></tr></tbody>
+                            </table>
+                        </div>
+                        <div class="form-text">Waiting labels remain queued and are sent automatically when the agent and selected printer are available.</div>
+                    </div>
+                    @if (canManagePrintAgent)
+                    {
+                    <div class="d-flex flex-wrap gap-2 mb-4 settings-agent-actions">
                         <a href="/Downloads/PrintAgent" class="btn btn-outline-custom" id="downloadPrintAgent">Download print agent</a>
                         <a asp-action="PrintClient" asp-controller="Print" class="btn btn-outline-secondary disabled" aria-disabled="true">Browser print remains available</a>
                     </div>
+                    }
 
-                    @if (canManageSettings)
+                    @if (canManagePrintAgent)
                     {
-                        <form id="pairingForm" method="post" action="/PrintAgent/PairingCode" class="mb-3">
+                        <form id="pairingForm" method="post" action="/PrintAgent/PairingCode" class="mb-3 settings-control-surface">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="workstationName" />
                             <button type="submit" class="btn btn-primary-custom">Generate pairing code</button>
                             <strong id="pairingCode" class="ms-3" style="letter-spacing:.12em"></strong>
                         </form>
-                        <form method="post" action="/PrintAgent/Configure" class="row g-2 align-items-end mb-3" id="printerConfigForm">
+                        <form method="post" action="/PrintAgent/Configure" class="row g-3 align-items-end mb-3 settings-control-surface" id="printerConfigForm">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="workstationName" />
                             <div class="col-md-6">
@@ -61,6 +87,14 @@
                             <input type="hidden" name="workstationName" />
                             <button type="submit" class="btn btn-outline-danger">Revoke agent</button>
                         </form>
+                    }
+                    @if (canManageSettings)
+                    {
+                        <div id="adminPrintHistory" hidden class="mt-4 settings-history">
+                            <strong>Complete print history</strong>
+                            <div id="adminPrintHistoryRows" class="mt-2"></div>
+                            <div id="historyPagination" class="d-flex gap-2 mt-2 align-items-center"><button type="button" id="historyPrevious" class="btn btn-outline-custom btn-sm">Previous</button><span id="historyPage"></span><button type="button" id="historyNext" class="btn btn-outline-custom btn-sm">Next</button></div>
+                        </div>
                     }
                 </div>
             </div>
@@ -207,18 +241,54 @@
             var badge = document.getElementById('printAgentBadge');
             var message = document.getElementById('printAgentMessage');
             var details = document.getElementById('printAgentDetails');
+            var queuePanel = document.getElementById('printQueue');
+            var printedHistory = document.getElementById('printedHistory');
             badge.textContent = !status.configured ? 'Not paired' : status.isOnline ? 'Online' : 'Offline';
             badge.className = 'badge ' + (status.isOnline ? 'text-bg-success' : status.configured ? 'text-bg-warning' : 'text-bg-secondary');
+            var pending = status.queue ? status.queue.pending || 0 : 0;
             message.textContent = !status.configured
                 ? 'Download the agent, generate a temporary code, then enter the server URL and code on first launch.'
+                : pending > 0 ? pending + ' label(s) waiting in the print queue. They will be printed automatically when the selected printer is available.'
                 : status.printerAvailable ? 'The workstation is ready for direct printing.' : 'The selected printer is not currently reported by the agent.';
-            message.className = 'alert ' + (status.isOnline && status.printerAvailable ? 'alert-success' : 'alert-warning');
+            message.className = 'alert ' + (status.isOnline && status.printerAvailable && pending === 0 ? 'alert-success' : 'alert-warning');
             details.hidden = !status.configured;
+            queuePanel.hidden = !status.configured;
+            printedHistory.hidden = !status.configured;
             if (status.configured) {
                 document.getElementById('agentMachine').textContent = status.machineName || '—';
                 document.getElementById('agentVersion').textContent = status.agentVersion || '—';
                 document.getElementById('agentPrinter').textContent = status.printerName || 'Not selected';
                 document.getElementById('agentLastSeen').textContent = status.lastSeenAt ? new Date(status.lastSeenAt).toLocaleString() : 'Never';
+                var printedRows = document.getElementById('printedHistoryRows');
+                printedRows.replaceChildren();
+                (status.recentPrintedJobs || []).forEach(function (job) { var item = document.createElement('li'); item.className = 'list-group-item px-0'; item.textContent = (job.boxNumber || '—') + ' — ' + (job.printedAt ? new Date(job.printedAt).toLocaleString() : '—'); printedRows.appendChild(item); });
+                if ((status.recentPrintedJobs || []).length === 0) { var empty = document.createElement('li'); empty.className = 'list-group-item px-0 text-muted'; empty.textContent = 'No printed labels yet.'; printedRows.appendChild(empty); }
+                var queue = status.queue || {};
+                document.getElementById('queuePending').textContent = queue.pending || 0;
+                document.getElementById('queueClaimed').textContent = queue.claimed || 0;
+                document.getElementById('queueFailed').textContent = queue.failed || 0;
+                var rows = document.getElementById('printQueueRows');
+                rows.replaceChildren();
+                var jobs = status.recentJobs || [];
+                if (jobs.length === 0) {
+                    var emptyRow = document.createElement('tr');
+                    var emptyCell = document.createElement('td');
+                    emptyCell.colSpan = 5;
+                    emptyCell.className = 'text-muted';
+                    emptyCell.textContent = 'No labels in this queue.';
+                    emptyRow.appendChild(emptyCell);
+                    rows.appendChild(emptyRow);
+                } else {
+                    jobs.forEach(function (job) {
+                        var row = document.createElement('tr');
+                        [job.boxNumber || '—', job.status || '—', job.requestedAt ? new Date(job.requestedAt).toLocaleString() : '—', job.retryCount || 0, job.errorMessage || '—'].forEach(function (value) {
+                            var cell = document.createElement('td');
+                            cell.textContent = value;
+                            row.appendChild(cell);
+                        });
+                        rows.appendChild(row);
+                    });
+                }
                 var select = document.getElementById('agentPrinterSelect');
                 if (select) {
                     select.innerHTML = '';
@@ -229,6 +299,26 @@
                     document.getElementById('agentPrintMode').value = status.printMode || 'Windows';
                 }
             }
+        }
+
+        var historyPageNumber = 1;
+        async function refreshAdminPrintHistory() {
+            var history = document.getElementById('adminPrintHistory');
+            if (!history) return;
+            var station = updateStationFields();
+            if (!station) return;
+            var pageSize = Math.max(5, Math.min(100, Math.floor((window.innerHeight - 320) / 42)));
+            var response = await fetch('/PrintAgent/History?workstationName=' + encodeURIComponent(station) + '&page=' + historyPageNumber + '&pageSize=' + pageSize);
+            if (!response.ok) return;
+            var data = await response.json();
+            history.hidden = false;
+            var rows = document.getElementById('adminPrintHistoryRows'); rows.replaceChildren();
+            (data.jobs || []).forEach(function (job) { var line = document.createElement('div'); line.className = 'border-bottom py-2'; line.textContent = (job.boxNumber || '—') + ' — ' + (job.printedAt ? new Date(job.printedAt).toLocaleString() : '—'); rows.appendChild(line); });
+            if (!(data.jobs || []).length) rows.textContent = 'No printed labels.';
+            document.getElementById('historyPage').textContent = 'Page ' + data.page + ' / ' + Math.max(1, data.totalPages);
+            document.getElementById('historyPagination').hidden = data.totalPages <= 1;
+            document.getElementById('historyPrevious').disabled = data.page <= 1;
+            document.getElementById('historyNext').disabled = data.page >= data.totalPages;
         }
 
         if (stationInput && window.MothersonStation) {
@@ -260,6 +350,10 @@
         }
 
         refreshPrintAgent();
+        refreshAdminPrintHistory();
+        var previous = document.getElementById('historyPrevious'); if (previous) previous.addEventListener('click', function () { historyPageNumber--; refreshAdminPrintHistory(); });
+        var next = document.getElementById('historyNext'); if (next) next.addEventListener('click', function () { historyPageNumber++; refreshAdminPrintHistory(); });
+        setInterval(refreshPrintAgent, 5000);
 
         var boxPrefixInput = document.getElementById('boxPrefix');
         var boxDatePatternInput = document.getElementById('boxDatePattern');

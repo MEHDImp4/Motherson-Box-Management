@@ -98,7 +98,8 @@ public class SqlServerIntegrationTests
             setup.Users.Add(user);
             await setup.SaveChangesAsync();
 
-            var barcodeService = new BarcodeService(setup);
+            var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+            var barcodeService = new BarcodeService(setup, cache);
             var boxService = new BoxService(setup, barcodeService);
             var box = await boxService.CreateBoxAsync(new CreateBoxDto
             {
@@ -113,9 +114,10 @@ public class SqlServerIntegrationTests
             async Task<ScanResult> ScanAsync(string station)
             {
                 await using var context = CreateContext(connectionString);
-                var barcode = new BarcodeService(context);
+                var scanCache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+                var barcode = new BarcodeService(context, scanCache);
                 var boxes = new BoxService(context, barcode);
-                var scanner = new PackageScanService(context, barcode, new AuditService(context), boxes);
+                var scanner = new PackageScanService(context, barcode, new AuditService(context, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions())), boxes);
                 return await scanner.ScanPackageAsync(box.Id, "PKG-SQL-RACE-001", user.Id, station);
             }
 

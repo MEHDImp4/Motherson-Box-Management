@@ -19,7 +19,7 @@ internal sealed class PrintAgentContext : ApplicationContext
         menu.Items.Add("Exit", null, (_, _) => Exit());
         _icon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application,
             Text = "Motherson Print Agent - starting",
             ContextMenuStrip = menu,
             Visible = true

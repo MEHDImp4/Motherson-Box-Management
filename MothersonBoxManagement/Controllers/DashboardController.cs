@@ -13,7 +13,7 @@ namespace MothersonBoxManagement.Controllers;
 [Authorize]
 public class DashboardController : Controller
 {
-    private const int OpenBoxesPageSize = 3;
+    private const int DefaultOpenBoxesPageSize = 8;
     private readonly IBoxService _boxService;
     private readonly IBarcodeService _barcodeService;
     private readonly IBoxTemplateService _boxTemplateService;
@@ -26,21 +26,28 @@ public class DashboardController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index(int page = 1, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Index(int page = 1, int pageSize = DefaultOpenBoxesPageSize, CancellationToken cancellationToken = default)
     {
         var fullName = User.FindFirst("FullName")?.Value;
         if (string.IsNullOrWhiteSpace(fullName))
             fullName = User.Identity?.Name;
         var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-        var openBoxes = await _boxService.GetOpenBoxesAsync(cancellationToken);
-        var model = BuildHomeViewModel(
-            User.FindFirst("Matricule")?.Value,
-            fullName,
-            role,
-            openBoxes,
-            await _boxService.GetCreatedBoxesAsync(cancellationToken),
-            page);
+        var openPaged = await _boxService.GetOpenBoxesPagedAsync(page, pageSize, cancellationToken);
+        var createdBoxes = await _boxService.GetCreatedBoxesPagedAsync(1, 100, cancellationToken);
+
+        var model = new HomeViewModel
+        {
+            Matricule = User.FindFirst("Matricule")?.Value,
+            FullName = fullName,
+            Role = role,
+            OpenBoxes = openPaged.Items,
+            CreatedBoxes = createdBoxes.Items,
+            CurrentOpenBoxesPage = openPaged.Page,
+            OpenBoxesPageSize = openPaged.PageSize,
+            TotalOpenBoxesCount = openPaged.TotalCount,
+            OpenBoxesTotalPages = openPaged.TotalPages
+        };
         model.Error = TempData["Error"] as string;
 
         return View(model);
@@ -69,87 +76,62 @@ public class DashboardController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Index(HomeViewModel postModel, CancellationToken cancellationToken)
     {
-        var matricule = User.FindFirst("Matricule")?.Value;
-        var role = User.FindFirst(ClaimTypes.Role)?.Value;
-        var fullName = User.FindFirst("FullName")?.Value;
-        if (string.IsNullOrWhiteSpace(fullName))
-            fullName = User.Identity?.Name;
-        var openBoxes = await _boxService.GetOpenBoxesAsync(cancellationToken);
-        var createdBoxes = await _boxService.GetCreatedBoxesAsync(cancellationToken);
-
-        var model = BuildHomeViewModel(matricule, fullName, role, openBoxes, createdBoxes, 1);
-        model.Barcode = postModel.Barcode;
-
         var barcode = postModel.Barcode?.Trim();
 
         if (string.IsNullOrWhiteSpace(barcode))
         {
-            model.Error = "Please enter a barcode.";
-            return View(model);
+            var emptyModel = await BuildModelAsync("Please enter a barcode.", null, cancellationToken);
+            emptyModel.Barcode = postModel.Barcode;
+            return View(emptyModel);
         }
 
         if (!_barcodeService.IsBoxBarcode(barcode))
         {
-            model.Warning = "This is a package barcode, not a box barcode. Use the preparation screen to scan packages.";
-            return View(model);
+            var warnModel = await BuildModelAsync(null, "This is a package barcode, not a box barcode. Use the preparation screen to scan packages.", cancellationToken);
+            warnModel.Barcode = postModel.Barcode;
+            return View(warnModel);
         }
 
         var box = await _boxService.GetBoxByBarcodeAsync(barcode, cancellationToken);
         if (box is null)
         {
-            model.Error = "No box was found with this barcode. This code does not match a valid box.";
-            return View(model);
+            var notFoundModel = await BuildModelAsync("No box was found with this barcode. This code does not match a valid box.", null, cancellationToken);
+            notFoundModel.Barcode = postModel.Barcode;
+            return View(notFoundModel);
         }
 
-        if (box.Status == BoxStatus.Open)
-            {
-                return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-            }
-            else if (box.Status == BoxStatus.Created)
-            {
-                return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-            }
-            else if (box.Status == BoxStatus.Blocked)
-            {
-                model.Warning = "This box is quarantined (Blocked). A supervisor must unblock it before operations can resume.";
-                model.ScannedBox = box;
-                return View(model);
-            }
-            else
-            {
-                return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
-            }
+        if (box.Status == BoxStatus.Blocked)
+        {
+            var blockedModel = await BuildModelAsync(null, "This box is quarantined (Blocked). A supervisor must unblock it before operations can resume.", cancellationToken);
+            blockedModel.Barcode = postModel.Barcode;
+            blockedModel.ScannedBox = box;
+            return View(blockedModel);
+        }
+
+        return RedirectToAction("Details", "Box", new { barcode = box.BarcodeValue });
     }
 
-    private static HomeViewModel BuildHomeViewModel(
-        string? matricule,
-        string? fullName,
-        string? role,
-        IReadOnlyList<BoxListItemDto> openBoxes,
-        IReadOnlyList<BoxListItemDto> createdBoxes,
-        int requestedPage)
+    private async Task<HomeViewModel> BuildModelAsync(string? error, string? warning, CancellationToken cancellationToken)
     {
-        var totalOpenBoxesCount = openBoxes.Count;
-        var totalPages = totalOpenBoxesCount == 0
-            ? 1
-            : (int)Math.Ceiling(totalOpenBoxesCount / (double)OpenBoxesPageSize);
-        var currentPage = Math.Clamp(requestedPage, 1, totalPages);
-        var pagedOpenBoxes = openBoxes
-            .Skip((currentPage - 1) * OpenBoxesPageSize)
-            .Take(OpenBoxesPageSize)
-            .ToList();
-
+        var fullName = User.FindFirst("FullName")?.Value;
+        if (string.IsNullOrWhiteSpace(fullName))
+            fullName = User.Identity?.Name;
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        var openPaged = await _boxService.GetOpenBoxesPagedAsync(1, DefaultOpenBoxesPageSize, cancellationToken);
+        var createdBoxes = await _boxService.GetCreatedBoxesPagedAsync(1, 100, cancellationToken);
         return new HomeViewModel
         {
-            Matricule = matricule,
+            Matricule = User.FindFirst("Matricule")?.Value,
             FullName = fullName,
             Role = role,
-            OpenBoxes = pagedOpenBoxes,
-            CreatedBoxes = createdBoxes,
-            CurrentOpenBoxesPage = currentPage,
-            OpenBoxesPageSize = OpenBoxesPageSize,
-            TotalOpenBoxesCount = totalOpenBoxesCount,
-            OpenBoxesTotalPages = totalPages
+            OpenBoxes = openPaged.Items,
+            CreatedBoxes = createdBoxes.Items,
+            CurrentOpenBoxesPage = openPaged.Page,
+            OpenBoxesPageSize = openPaged.PageSize,
+            TotalOpenBoxesCount = openPaged.TotalCount,
+            OpenBoxesTotalPages = openPaged.TotalPages,
+            Error = error,
+            Warning = warning
         };
     }
 

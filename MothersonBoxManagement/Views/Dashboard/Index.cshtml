@@ -1,4 +1,5 @@
 @model MothersonBoxManagement.Models.HomeViewModel
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
 @{
     ViewData["Title"] = "Dashboard";
     var canOpenNewBox = Model.Role == "Operator"
@@ -132,7 +133,7 @@
 
         <div class="card mb-4" style="border: 1px solid var(--border); overflow: hidden;">
             <div class="table-responsive">
-                <table class="table table-hover align-middle">
+                <table class="table table-hover align-middle" data-adaptive-pagination>
                     <thead>
                         <tr>
                             <th>Box Number</th>
@@ -289,7 +290,7 @@
                     <div class="d-flex align-items-center gap-2 flex-wrap justify-content-md-end">
                         @if (Model.HasPreviousOpenBoxesPage)
                         {
-                            <a asp-action="Index" asp-route-page="@(Model.CurrentOpenBoxesPage - 1)"
+                            <a asp-action="Index" asp-route-page="@(Model.CurrentOpenBoxesPage - 1)" asp-route-pageSize="@Model.OpenBoxesPageSize"
                                class="btn btn-outline-custom btn-sm"
                                style="min-height: 36px; padding: 0 14px; font-size: 13px;">
                                 Previous
@@ -310,7 +311,7 @@
 
                         @if (Model.HasNextOpenBoxesPage)
                         {
-                            <a asp-action="Index" asp-route-page="@(Model.CurrentOpenBoxesPage + 1)"
+                            <a asp-action="Index" asp-route-page="@(Model.CurrentOpenBoxesPage + 1)" asp-route-pageSize="@Model.OpenBoxesPageSize"
                                class="btn btn-outline-custom btn-sm"
                                style="min-height: 36px; padding: 0 14px; font-size: 13px;">
                                 Next
@@ -331,6 +332,8 @@
     }
 </div>
 
+@if (Env.IsDevelopment())
+{
 <!-- Scan Simulator (no hardware) -->
 <div id="simToggleBtn" onclick="toggleSimulator()" style="position:fixed;bottom:16px;right:16px;z-index:9998;background:var(--primary);color:#fff;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;font-weight:700;box-shadow:0 2px 12px rgba(0,0,0,0.3);user-select:none;" title="Scan Simulator">
     &#9992;
@@ -372,3 +375,4 @@
         }
     });
 </script>
+}

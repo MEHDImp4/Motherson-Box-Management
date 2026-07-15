@@ -16,6 +16,11 @@
 | Only administrators configure/pair; downloads require authentication; UI and manual queue remain role-correct | admin routes returned 404 | `PrintAgentAdminTests`: 5/5 passed |
 | Template creation queues a label for a configured workstation | `CS1729`: `BoxTemplateService` had no print service constructor | targeted test: 1/1 passed |
 | ZPL is fixed at 800 × 800, escapes `^`, `~`, `\\`, and backoff is capped | core namespace/types missing | `PrintAgentRenderingTests`: 7/7 passed |
+| The pairing action remains visible and can be triggered with Enter | `ConfigurationDialogLayout` missing (compile-time RED) | `PrintAgentRenderingTests`: 8/8 passed; agent build succeeded |
+| A long build version cannot make the server reject pairing | `AgentVersionFormatter` missing (compile-time RED) | `PrintAgentRenderingTests`: 9/9 passed; agent build succeeded |
+| An offline workstation exposes its pending labels in the Settings queue | `queue` property missing from `/PrintAgent/Status` | `PrintAgentAdminTests`: 6/6 passed |
+| A missing selected printer leaves labels in `Pending` instead of claiming and failing them | Agent claimed the job despite the printer not being reported | `PrintAgentWorkflowTests`: 6/6 passed |
+| Fleet supervision is a separate administrator-only page and includes agent, printer, queue, IP and last activity | `/PrintAgent/Workstations` missing and Settings mixed local/global configuration | `PrintAgentAdminTests`: 9/9 passed |
 
 ## Validation results
 
@@ -25,6 +30,12 @@
 - Stable full rerun: 172 passed, 0 failed, 2 SQL tests skipped. After adding two final UI/manual-queue cases, their targeted class passed 5/5 and the final solution build remained clean; a further combined rerun was blocked by the local tool-usage quota rather than a test failure.
 - New cross-platform agent core coverage: 81.25% lines. `PrintAgentService` class coverage: 92.85% lines in the generated Cobertura report.
 - Self-contained `win-x64` EXE publish succeeded and the web publish contains the same artifact hash.
+- Pairing dialog regression: the dialog now uses content-sized rows, has a 340 px minimum window height, and assigns the pairing action as its `AcceptButton`. The targeted test passed 8/8 and `dotnet build MothersonBoxManagement.PrintAgent/MothersonBoxManagement.PrintAgent.csproj --no-restore` completed with 0 warnings and 0 errors.
+- Pairing version regression: the agent limits the product version it sends to the database/API limit of 40 characters. The targeted test passed 9/9 and the agent build completed with 0 warnings and 0 errors.
+- Queue visibility: `/PrintAgent/Status` returns pending, claimed, failed and cancelled counts plus the last ten labels. `PrintAgentAdminTests` passed 6/6 and the web project built with 0 warnings and 0 errors.
+- Unavailable printer queueing: the claim service returns no job while the selected printer is absent from the latest agent heartbeat, preserving labels as `Pending`. Combined print-agent workflow and admin tests passed 12/12; the web project built with 0 warnings and 0 errors.
+- Agent branding: the generated Motherson Box logo is embedded as the Windows application icon and is extracted successfully from the published setup EXE for the notification-area icon. The web application retains its existing logo.
+- Fleet supervision: administrators have a separate live workstation page with each agent's connection, assigned printer, queue counts, latest IP, activity and acting user. From this page they can remotely set the administrative station label, printer and Windows/ZPL mode. The table refreshes every five seconds; operators and supervisors do not receive the endpoint or page.
 
 ## Known gaps and acceptance gates
 

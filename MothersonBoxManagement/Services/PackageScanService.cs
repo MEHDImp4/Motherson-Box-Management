@@ -216,8 +216,7 @@ public class PackageScanService : IPackageScanService
                 {
                     await transaction.RollbackAsync(cancellationToken);
                 }
-                foreach (var entry in _context.ChangeTracker.Entries().ToList())
-                    await entry.ReloadAsync(cancellationToken);
+                _context.ChangeTracker.Clear();
             }
             catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
             {

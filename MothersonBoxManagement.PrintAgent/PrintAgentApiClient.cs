@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text.Json;
 using MothersonBoxManagement.PrintAgent.Core;
 
@@ -18,7 +20,7 @@ internal sealed class PrintAgentApiClient : IDisposable
         {
             code,
             machineName = Environment.MachineName,
-            agentVersion = Application.ProductVersion
+            agentVersion = AgentVersionFormatter.ForApi(Application.ProductVersion)
         }, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<AgentPairResult>(JsonOptions, cancellationToken)
@@ -36,8 +38,9 @@ internal sealed class PrintAgentApiClient : IDisposable
         using var response = await _client.PostAsJsonAsync("api/print-agent/heartbeat", new
         {
             machineName = Environment.MachineName,
-            agentVersion = Application.ProductVersion,
-            printers
+            agentVersion = AgentVersionFormatter.ForApi(Application.ProductVersion),
+            printers,
+            ipAddress = ResolveLanIpv4Address()
         }, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
@@ -68,6 +71,26 @@ internal sealed class PrintAgentApiClient : IDisposable
             (uri.Scheme != Uri.UriSchemeHttps && !(uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback)))
             throw new InvalidOperationException("Use an HTTPS server URL (HTTP is accepted only for localhost development).");
         return uri;
+    }
+
+    private static string? ResolveLanIpv4Address()
+    {
+        var addresses = NetworkInterface.GetAllNetworkInterfaces()
+            .Where(network => network.OperationalStatus == OperationalStatus.Up &&
+                              network.NetworkInterfaceType is not NetworkInterfaceType.Loopback and not NetworkInterfaceType.Tunnel)
+            .SelectMany(network => network.GetIPProperties().UnicastAddresses)
+            .Select(address => address.Address)
+            .Where(address => address.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(address))
+            .OrderByDescending(IsPrivateAddress)
+            .ThenBy(address => address.ToString(), StringComparer.Ordinal)
+            .ToList();
+        return addresses.FirstOrDefault()?.ToString();
+    }
+
+    private static bool IsPrivateAddress(IPAddress address)
+    {
+        var bytes = address.GetAddressBytes();
+        return bytes[0] == 10 || bytes[0] == 192 && bytes[1] == 168 || bytes[0] == 172 && bytes[1] is >= 16 and <= 31;
     }
 
     public void Dispose() => _client.Dispose();

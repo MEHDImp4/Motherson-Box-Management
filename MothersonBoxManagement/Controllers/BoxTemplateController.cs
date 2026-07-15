@@ -12,25 +12,28 @@ namespace MothersonBoxManagement.Controllers;
 public class BoxTemplateController : Controller
 {
     private readonly IBoxTemplateService _boxTemplateService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public BoxTemplateController(IBoxTemplateService boxTemplateService)
+    public BoxTemplateController(IBoxTemplateService boxTemplateService, ICurrentUserService currentUserService)
     {
         _boxTemplateService = boxTemplateService;
-    }
-
-    private int GetUserId()
-    {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier)
-            ?? throw new InvalidOperationException("User identity is not authenticated.");
-        return int.Parse(claim.Value);
+        _currentUserService = currentUserService;
     }
 
     [HttpGet]
     [Route("BoxTemplate")]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(int page = 1, int pageSize = 12, CancellationToken cancellationToken = default)
     {
         var templates = await _boxTemplateService.GetActiveTemplatesAsync(cancellationToken);
-        return View(templates);
+        pageSize = Math.Clamp(pageSize, 5, 100);
+        var total = templates.Count;
+        var totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+        page = Math.Clamp(page, 1, totalPages);
+        ViewBag.CurrentPage = page;
+        ViewBag.PageSize = pageSize;
+        ViewBag.TotalItems = total;
+        ViewBag.TotalPages = totalPages;
+        return View(templates.Skip((page - 1) * pageSize).Take(pageSize).ToList());
     }
 
     [HttpGet]
@@ -48,7 +51,7 @@ public class BoxTemplateController : Controller
         if (!ModelState.IsValid)
             return View(model);
 
-        var userId = GetUserId();
+        var userId = _currentUserService.GetUserId();
 
         var dto = new CreateBoxTemplateDto
         {

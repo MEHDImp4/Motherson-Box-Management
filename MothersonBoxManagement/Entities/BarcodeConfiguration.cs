@@ -2,6 +2,8 @@ namespace MothersonBoxManagement.Entities;
 
 public class BarcodeConfiguration
 {
+    public const int DefaultId = 1;
+
     public int Id { get; set; }
     public string BoxPrefix { get; set; } = "BOX-";
     public string BoxDatePattern { get; set; } = "yyyyMMdd";

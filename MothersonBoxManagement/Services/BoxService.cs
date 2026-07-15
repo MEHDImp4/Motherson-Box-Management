@@ -84,6 +84,36 @@ public class BoxService : IBoxService, IBoxQueryService, IBoxLifecycleService, I
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<PagedResult<BoxListItemDto>> GetOpenBoxesPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var query = _context.Boxes.Where(b => b.Status == BoxStatus.Open);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(b => b.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(ToListItemDtoExpr)
+            .ToListAsync(cancellationToken);
+        return new PagedResult<BoxListItemDto> { Items = items, TotalCount = totalCount, Page = page, PageSize = pageSize };
+    }
+
+    public async Task<PagedResult<BoxListItemDto>> GetCreatedBoxesPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var query = _context.Boxes.Where(b => b.Status == BoxStatus.Created);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(b => b.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(ToListItemDtoExpr)
+            .ToListAsync(cancellationToken);
+        return new PagedResult<BoxListItemDto> { Items = items, TotalCount = totalCount, Page = page, PageSize = pageSize };
+    }
+
     public async Task<List<BoxListItemDto>> SearchBoxesAsync(BoxSearchFilterDto filter, CancellationToken cancellationToken = default)
     {
         var query = _context.Boxes
@@ -130,6 +160,7 @@ public class BoxService : IBoxService, IBoxQueryService, IBoxLifecycleService, I
     public async Task<BoxDetailsDto?> GetBoxByBarcodeAsync(string barcode, CancellationToken cancellationToken = default)
     {
         return await _context.Boxes
+            .AsNoTracking()
             .Include(b => b.CreatedBy)
             .Include(b => b.Packages)
                 .ThenInclude(p => p.ScannedBy)
@@ -141,6 +172,7 @@ public class BoxService : IBoxService, IBoxQueryService, IBoxLifecycleService, I
     public async Task<BoxDetailsDto?> GetBoxByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _context.Boxes
+            .AsNoTracking()
             .Include(b => b.CreatedBy)
             .Include(b => b.Packages)
                 .ThenInclude(p => p.ScannedBy)
@@ -503,16 +535,15 @@ public class BoxService : IBoxService, IBoxQueryService, IBoxLifecycleService, I
             if (sourceBoxId == destinationBoxId)
                 throw new InvalidOperationException("The source and destination boxes are the same.");
 
-            var sourceBox = await _context.Boxes
-                .FirstOrDefaultAsync(b => b.Id == sourceBoxId, ct);
+            var boxIds = new[] { sourceBoxId, destinationBoxId };
+            var boxes = await _context.Boxes
+                .Where(b => boxIds.Contains(b.Id))
+                .ToDictionaryAsync(b => b.Id, ct);
 
-            var destinationBox = await _context.Boxes
-                .FirstOrDefaultAsync(b => b.Id == destinationBoxId, ct);
-
-            if (sourceBox == null)
+            if (!boxes.TryGetValue(sourceBoxId, out var sourceBox))
                 throw new KeyNotFoundException($"Source box with ID {sourceBoxId} was not found.");
 
-            if (destinationBox == null)
+            if (!boxes.TryGetValue(destinationBoxId, out var destinationBox))
                 throw new KeyNotFoundException($"Destination box with ID {destinationBoxId} was not found.");
 
             if (sourceBox.Status != BoxStatus.Open)

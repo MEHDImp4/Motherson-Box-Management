@@ -38,4 +38,5 @@ public sealed record ClaimedPrintJob(
 public sealed record AgentHeartbeat(
     string MachineName,
     string AgentVersion,
-    IReadOnlyCollection<string> Printers);
+    IReadOnlyCollection<string> Printers,
+    string? RemoteIpAddress = null);

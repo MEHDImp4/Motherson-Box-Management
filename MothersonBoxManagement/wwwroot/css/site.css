@@ -93,7 +93,7 @@
    --space-md: 16px;
    --space-lg: 24px;
    --space-xl: 32px;
-   --container-max: 1440px;
+  --container-max: 1680px;
 
   /* Rounded */
   --radius-sm: 0.25rem;
@@ -808,7 +808,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   bottom: 0;
   left: 0;
   z-index: 100;
-  transition: width 0.2s ease-in-out, transform 0.2s ease-in-out;
+  transition: width 180ms cubic-bezier(.2,.8,.2,1), transform 180ms cubic-bezier(.2,.8,.2,1);
+  will-change: width, transform;
 }
 
 .sidebar-header {
@@ -873,7 +874,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   padding: 10px 12px;
   border-radius: var(--radius-md);
   text-decoration: none;
-  transition: all 0.15s ease-in-out;
+  transition: background-color 150ms ease, color 150ms ease, padding 180ms ease;
   min-height: 44px;
 }
 
@@ -888,9 +889,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .sidebar-footer {
-  padding: var(--space-md);
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
   border-top: 1px solid var(--border);
-  background-color: var(--surface-container-low);
+  background-color: var(--surface-container-lowest);
 }
 
 .sidebar-scanner-status {
@@ -898,8 +901,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   align-items: center;
   gap: 8px;
   min-height: 34px;
-  margin-bottom: var(--space-md);
-  padding: 7px 10px;
+  margin: 0;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -930,7 +933,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-bottom: var(--space-md);
+  min-width: 0;
 }
 
 .sidebar-user-name {
@@ -938,6 +941,37 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   font-size: 14px;
   color: var(--on-surface);
 }
+
+.sidebar-session {
+  display: grid;
+  align-items: center;
+  min-height: 52px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-container-low);
+}
+
+.sidebar-signout-form { width: 100%; }
+.sidebar-signout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 40px;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.sidebar-signout:hover { border-color: var(--outline-variant); background: var(--surface-container-low); color: var(--primary); }
 
 .sidebar-user-role {
   font-size: 12px;
@@ -952,7 +986,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   min-height: 100vh;
   background-color: var(--surface);
   overflow-x: hidden;
-  transition: margin-left 0.2s ease-in-out;
+  transition: margin-left 180ms cubic-bezier(.2,.8,.2,1);
 }
 
 .content-body {
@@ -1042,7 +1076,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   body.sidebar-collapsed .sidebar-user,
   body.sidebar-collapsed .sidebar-scanner-label,
   body.sidebar-collapsed .logout-text {
-    display: none !important;
+    opacity: 0;
+    width: 0;
+    max-width: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
   
   body.sidebar-collapsed .sidebar-header {
@@ -1088,6 +1126,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
     padding: 10px;
   }
 
+  body.sidebar-collapsed .sidebar-signout {
+    padding-inline: 0;
+  }
+
   body.sidebar-collapsed .sidebar-scanner-status {
     justify-content: center;
     padding: 7px;
@@ -1105,7 +1147,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease-in-out;
+  transition: background-color 150ms ease, color 150ms ease, transform 180ms ease;
 }
 
 .sidebar-collapse-btn:hover {
@@ -1115,6 +1157,101 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 
 .sidebar-link-icon {
   flex-shrink: 0;
+}
+
+/* ── Wide workstation layouts ── */
+.content-body > .container { width: 100%; }
+.workspace-card { min-width: 0; }
+.workspace-card .card-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
+.table-responsive { scrollbar-color: var(--outline-variant) transparent; }
+.table-responsive .table { min-width: 720px; }
+.table-actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+.data-summary { color: var(--secondary); font-size: var(--label-lg-size); font-weight: 600; }
+.adaptive-pager { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); border-top: 1px solid var(--border); background: var(--surface-container-lowest); }
+.adaptive-pager__controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-xs); }
+.adaptive-pager__controls .btn { min-height: 36px; }
+.settings-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--space-lg); }
+.settings-grid > * { min-width: 0; }
+.settings-grid .settings-primary { grid-column: span 8; }
+.settings-grid .settings-aside { grid-column: span 4; }
+.metric-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); }
+.metric-strip > div { padding: var(--space-md); background: var(--surface-container-low); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.metric-strip strong { display: block; font-size: 1.25rem; color: var(--on-surface); }
+.audit-description { max-width: 34rem; line-height: 1.45; }
+.workstation-state { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.workstation-state::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--status-archived); }
+.workstation-state.is-online::before { background: var(--status-open); box-shadow: 0 0 0 3px var(--status-open-bg); }
+
+/* Settings: dense but deliberate control-room layout */
+.settings-page { padding-bottom: clamp(2rem, 5vw, 5rem); }
+.settings-page-header { margin-bottom: var(--space-lg); }
+.settings-eyebrow { margin: 0; color: var(--primary); font-size: .69rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.settings-agent-card { border-top: 4px solid var(--primary); }
+.settings-agent-card__header { min-height: 82px; background: linear-gradient(90deg, var(--surface-container-lowest), var(--surface-container-low)) !important; }
+.settings-agent-card__header > div > span { display: block; font-size: 1.125rem; font-weight: 750; }
+.settings-agent-card__body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(19rem, .65fr); column-gap: var(--space-xl); align-items: start; }
+.settings-agent-card__body > #printAgentMessage, .settings-agent-card__body > #printAgentDetails, .settings-agent-card__body > #printQueue, .settings-agent-card__body > .settings-control-surface, .settings-agent-card__body > .settings-agent-actions { grid-column: 1; }
+.settings-agent-card__body > .settings-activity, .settings-agent-card__body > .settings-history { grid-column: 2; }
+.settings-agent-card__body > #adminPrintHistory { grid-column: 2; grid-row: 2 / span 5; }
+.settings-agent-details { margin: 0; padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-container-low); }
+.settings-agent-details dt { color: var(--secondary); font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.settings-agent-details dd { font-weight: 650; }
+.settings-activity, .settings-history { padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-container-lowest); }
+.settings-activity strong, .settings-history strong { display: block; padding-bottom: var(--space-sm); border-bottom: 1px solid var(--border); }
+.settings-activity .list-group-item { background: transparent; font-size: .82rem; }
+.settings-queue { padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-container-low); }
+.settings-queue__metrics { display: flex; flex-wrap: wrap; gap: 6px; }
+.settings-control-surface { padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-container-lowest); }
+.settings-control-surface .btn { min-height: 42px; }
+.settings-agent-actions { padding-top: var(--space-sm); }
+.settings-page > .row:not(:first-of-type) .card { height: 100%; }
+.settings-page .card-header { background: var(--surface-container-low) !important; }
+@media (max-width: 1199.98px) {
+  .settings-agent-card__body { grid-template-columns: 1fr; }
+  .settings-agent-card__body > .settings-activity, .settings-agent-card__body > .settings-history, .settings-agent-card__body > #adminPrintHistory { grid-column: 1; grid-row: auto; }
+}
+
+/* Keep the print queue directly below the status summary; it must never be
+   displaced by the optional history panel on wide workstations. */
+@media (min-width: 1200px) {
+  .settings-agent-card__body > #printedHistory { display: none !important; }
+  .settings-agent-card__body > #adminPrintHistory { grid-column: 2; grid-row: 2; align-self: start; }
+  .settings-agent-card__body > #printQueue { grid-column: 1 / -1; grid-row: 3; margin-top: 0; }
+  .settings-agent-card__body > .settings-agent-actions { grid-column: 1 / -1; grid-row: 4; }
+  .settings-agent-card__body > #pairingForm { grid-column: 1 / -1; grid-row: 5; }
+  .settings-agent-card__body > #printerConfigForm { grid-column: 1 / -1; grid-row: 6; }
+  .settings-agent-card__body > form[action="/PrintAgent/Revoke"] { grid-column: 1 / -1; grid-row: 7; }
+}
+
+/* Compact layout override for the live agent panel.  The queue follows the
+   information cards immediately instead of inheriting the height of history. */
+.settings-agent-card__header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); min-height: 76px; }
+@media (min-width: 1200px) {
+  .settings-agent-card__body { grid-template-columns: minmax(0, 1.65fr) minmax(20rem, .75fr); row-gap: var(--space-md); }
+  .settings-agent-card__body > #printAgentMessage { grid-column: 1 / -1; grid-row: 1; margin: 0; }
+  .settings-agent-card__body > #printAgentDetails { grid-column: 1; grid-row: 2; margin: 0; }
+  .settings-agent-card__body > #adminPrintHistory { grid-column: 2; grid-row: 2; margin: 0; }
+  .settings-agent-card__body > #printQueue { grid-column: 1 / -1; grid-row: 3; }
+  .settings-agent-card__body > .settings-agent-actions { grid-row: 4; }
+  .settings-agent-card__body > #pairingForm { grid-row: 5; }
+  .settings-agent-card__body > #printerConfigForm { grid-row: 6; }
+  .settings-agent-card__body > form[action="/PrintAgent/Revoke"] { grid-row: 7; }
+}
+.settings-history { min-height: 0; }
+.settings-history #adminPrintHistoryRows > div { font-size: .84rem; line-height: 1.35; }
+.settings-history-pagination[hidden] { display: none !important; }
+
+@media (max-width: 991.98px) {
+  .settings-grid .settings-primary, .settings-grid .settings-aside { grid-column: span 12; }
+}
+@media (max-width: 767.98px) {
+  .adaptive-pager { align-items: stretch; flex-direction: column; padding: var(--space-md); }
+  .adaptive-pager__controls { justify-content: stretch; }
+  .adaptive-pager__controls .btn { flex: 1 1 auto; }
+  .metric-strip { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 1ms !important; animation-duration: 1ms !important; }
 }
 
 /* Scanner feedback overlay */

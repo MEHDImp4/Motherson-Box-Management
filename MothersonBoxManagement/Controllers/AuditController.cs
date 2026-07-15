@@ -33,7 +33,7 @@ public class AuditController : Controller
             FromDate = fromDate,
             ToDate = toDate,
             Page = page,
-            PageSize = pageSize
+            PageSize = Math.Clamp(pageSize, 5, 100)
         };
 
         var model = await _auditService.GetAuditLogsAsync(filter, cancellationToken);
