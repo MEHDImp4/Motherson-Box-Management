@@ -309,7 +309,14 @@ Every significant architecture decision must be recorded here.
 3. Review `TODO.md` and make sure the task is marked `In progress` (or create it for a quick/corrective task).
 4. Make sure the workspace is clean (`git status` with no unexpected changes).
 
-## 22. Required Checklist After Any Change
+## 22. Rapport de stage (Stage Report)
+* **Emplacement :** `C:\Users\mehdi\Documents\PFA MotherSon\Motherson_Box_Management_Rapport_Stage`
+* **Type :** Projet LaTeX autonome (copie séparée du workspace)
+* **Structure :** `main.tex` + `chapters/` (00-08) + `figures/` + `bibliography.bib`
+* **Captures disponibles :** 5 images ChatGPT dans `figures/` + diagrammes UML (`uc_operateur.png`, `uc_superviseur.png`, `uc_administrateur.png`, `diagramme_classes.png`, `machine_etats_cartons.png`)
+* **Compilation :** `latexmk -pdf main.tex` depuis le dossier du rapport
+
+## 23. Required Checklist After Any Change
 1. Run the local build (`dotnet build`) and fix all warnings/errors.
 2. Run unit tests (`dotnet test`) and ensure no tests regress.
 3. If the database schema changed: generate the matching EF Core migration and apply it locally for testing.
@@ -317,7 +324,7 @@ Every significant architecture decision must be recorded here.
 5. Update `TODO.md`, moving the task to `Completed` or `In review`.
 6. Write a Conventional Commits message.
 
-## 23. Security Audit Status
+## 24. Security Audit Status
 A comprehensive security audit was performed on 2026-07-05. The following vulnerabilities were identified and fixed:
 
 ### Fixed Vulnerabilities
@@ -383,7 +390,7 @@ A comprehensive security audit was performed on 2026-07-05. The following vulner
 * `UseHttpsRedirection()` is conditionally applied only when an HTTPS port is configured (avoids breaking `WebApplicationFactory` tests that run over HTTP-only).
 * `CookieSecurePolicy` is `SameAsRequest` in Development to allow test clients to receive and send cookies over HTTP.
 
-## 24. Latest Validation State
+## 25. Latest Validation State
 * **2026-07-05:** Final V1 release pass completed. Added release metadata (`v1`), a subtle in-app version marker, Docker startup support (`Dockerfile`, `docker-compose.yml`, `.env.example`), and refreshed onboarding/configuration/testing documentation. Validation is green with `dotnet build` passing and **129 passing tests out of 129**.
 * **2026-07-06:** Local startup issue fixed by moving the direct `dotnet run` SQL connection string into .NET User Secrets and making the Docker SQL host port configurable (`MOTHERSON_SQL_PORT=11433` in the local template). Verified with `dotnet restore`, `dotnet build`, `dotnet test` (**129/129**), and an HTTP `200 OK` from `/Account/Login`.
 * **2026-07-06:** Browser-local station identity implemented for shared-server deployments. Dashboard prompts each terminal to save its station name locally; scan, simulator, supervisor, and interceptor audit paths prefer the submitted terminal name over server/container machine names. Verified with `dotnet build` and `dotnet test` (**134/134**).

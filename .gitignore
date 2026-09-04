@@ -52,3 +52,6 @@ logs/
 appsettings.*.json
 !appsettings.json
 !appsettings.Development.json
+OpOperatorPass1!
+SpSupervisorPass2@
+AD001-Dev-Admin-Pass-2026!!

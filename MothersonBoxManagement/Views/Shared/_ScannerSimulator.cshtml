@@ -1,0 +1,281 @@
+@* 
+    Motherson Box Management - Scanner Simulator
+    Virtual USB keyboard wedge scanner for presentation and testing without hardware.
+*@
+
+<!-- Floating Scan Simulator Toggle Button -->
+<div id="simToggleBtn" 
+     class="scanner-sim-toggle"
+     title="Simulateur Scanner USB (Présentation)"
+     aria-label="Ouvrir le simulateur de scanner">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+        <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+        <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+        <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+        <line x1="7" y1="8" x2="7" y2="16" />
+        <line x1="10" y1="8" x2="10" y2="16" />
+        <line x1="14" y1="8" x2="14" y2="16" />
+        <line x1="17" y1="8" x2="17" y2="16" />
+        <line x1="3" y1="12" x2="21" y2="12" stroke="#ffeb3b" stroke-width="1.8" />
+    </svg>
+    <span class="scanner-sim-badge">SIM</span>
+</div>
+
+<!-- Floating Simulation Panel -->
+<div id="simPanel" class="scanner-sim-panel" style="display:none;" role="dialog" aria-labelledby="simPanelTitle">
+    <div class="scanner-sim-header">
+        <div class="d-flex align-items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                <line x1="7" y1="8" x2="7" y2="16" />
+                <line x1="12" y1="8" x2="12" y2="16" />
+                <line x1="17" y1="8" x2="17" y2="16" />
+            </svg>
+            <span id="simPanelTitle" class="fw-bold" style="font-size: 14px;">Simulateur Scanner USB</span>
+        </div>
+        <button type="button" id="simCloseBtn" class="scanner-sim-close" aria-label="Fermer le simulateur">&times;</button>
+    </div>
+
+    <div class="scanner-sim-body">
+        <label for="simPreset" class="form-label text-muted mb-1" style="font-size: 11px; font-weight: 600;">Scénarios de test recommandés :</label>
+        <select id="simPreset" class="form-select form-select-sm mb-2" style="font-size: 12px;">
+            <option value="">-- Choisir un scénario rapide --</option>
+            <option value="PKG-DEMO-001">[Manuel 30s] Colis PKG-DEMO-001</option>
+            <option value="PKG-DEMO-002">[Mode Continu] Colis PKG-DEMO-002</option>
+            <option value="BOX-20260801-482913">[Carton] BOX-20260801-482913</option>
+        </select>
+
+        <label for="simBarcodeInput" class="form-label text-muted mb-1" style="font-size: 11px; font-weight: 600;">Code-barres à injecter :</label>
+        <div class="input-group input-group-sm mb-2">
+            <input type="text" 
+                   id="simBarcodeInput" 
+                   class="form-control" 
+                   placeholder="Ex: PKG-DEMO-001 ou BOX-..." 
+                   autocomplete="off"
+                   style="font-family: monospace; font-size: 13px; font-weight: 600;" />
+            <button type="button" id="simScanBtn" class="btn btn-primary-custom px-3" style="font-size: 12px;">
+                Scanner
+            </button>
+        </div>
+
+        <div class="d-flex flex-wrap gap-1 mb-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 sim-quick-chip" data-barcode="PKG-DEMO-001" style="font-size: 11px;">
+                + Colis PKG-001
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 sim-quick-chip" data-barcode="BOX-20260801-482913" style="font-size: 11px;">
+                + Carton Démo
+            </button>
+        </div>
+
+        <div class="scanner-sim-hint">
+            <small class="text-muted d-block" style="font-size: 11px; line-height: 1.35;">
+                <strong>Astuce :</strong> Simule une douchette Zebra DS8178. Scannez un colis, puis scannez le carton dans les 30s pour valider l'association.
+            </small>
+        </div>
+    </div>
+</div>
+
+<style>
+    .scanner-sim-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9998;
+        background: var(--primary, #d32f2f);
+        color: #ffffff;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        user-select: none;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .scanner-sim-toggle:hover {
+        transform: scale(1.08);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    }
+    .scanner-sim-toggle:active {
+        transform: scale(0.96);
+    }
+    .scanner-sim-badge {
+        position: absolute;
+        top: -3px;
+        right: -3px;
+        background: #111827;
+        color: #ffffff;
+        font-size: 9px;
+        font-weight: 800;
+        padding: 1px 5px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        letter-spacing: 0.5px;
+    }
+    .scanner-sim-panel {
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        z-index: 9999;
+        width: 350px;
+        max-width: calc(100vw - 40px);
+        background: var(--surface-container-lowest, #ffffff);
+        color: var(--on-surface, #1f2937);
+        border: 1px solid var(--border, #e5e7eb);
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+        animation: simSlideUp 0.2s ease-out;
+    }
+    @@keyframes simSlideUp {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .scanner-sim-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: var(--surface-container-low, #f9fafb);
+        border-bottom: 1px solid var(--border, #e5e7eb);
+    }
+    .scanner-sim-close {
+        background: none;
+        border: none;
+        color: var(--text-muted, #6b7280);
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0 4px;
+        border-radius: 4px;
+    }
+    .scanner-sim-close:hover {
+        color: var(--primary, #d32f2f);
+    }
+    .scanner-sim-body {
+        padding: 14px;
+    }
+    .scanner-sim-hint {
+        background: var(--surface-container-low, #f3f4f6);
+        border-radius: 6px;
+        padding: 8px 10px;
+        border-left: 3px solid var(--primary, #d32f2f);
+    }
+</style>
+
+<script csp-nonce>
+    (function () {
+        'use strict';
+
+        function initScannerSimulator() {
+            var toggleBtn = document.getElementById('simToggleBtn');
+            var panel = document.getElementById('simPanel');
+            var closeBtn = document.getElementById('simCloseBtn');
+            var scanBtn = document.getElementById('simScanBtn');
+            var barcodeInput = document.getElementById('simBarcodeInput');
+            var presetSelect = document.getElementById('simPreset');
+            var quickChips = document.querySelectorAll('.sim-quick-chip');
+
+            if (!toggleBtn || !panel || !scanBtn || !barcodeInput) return;
+
+            function openPanel() {
+                panel.style.display = 'block';
+                setTimeout(function () {
+                    barcodeInput.focus();
+                }, 50);
+            }
+
+            function closePanel() {
+                panel.style.display = 'none';
+            }
+
+            function togglePanel() {
+                if (panel.style.display === 'none' || panel.style.display === '') {
+                    openPanel();
+                } else {
+                    closePanel();
+                }
+            }
+
+            function triggerScan(barcode) {
+                var code = (barcode || barcodeInput.value || '').trim();
+                if (!code) {
+                    barcodeInput.focus();
+                    return;
+                }
+
+                if (typeof window.simulateScan === 'function') {
+                    window.simulateScan(code);
+                } else {
+                    console.warn('[Scanner Simulator] window.simulateScan is not available yet.');
+                }
+
+                barcodeInput.value = '';
+                if (presetSelect) presetSelect.value = '';
+            }
+
+            toggleBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                togglePanel();
+            });
+
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    closePanel();
+                });
+            }
+
+            scanBtn.addEventListener('click', function () {
+                triggerScan();
+            });
+
+            barcodeInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    triggerScan();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closePanel();
+                }
+            });
+
+            if (presetSelect) {
+                presetSelect.addEventListener('change', function () {
+                    if (presetSelect.value) {
+                        barcodeInput.value = presetSelect.value;
+                        barcodeInput.focus();
+                    }
+                });
+            }
+
+            quickChips.forEach(function (chip) {
+                chip.addEventListener('click', function () {
+                    var code = chip.getAttribute('data-barcode');
+                    if (code) {
+                        barcodeInput.value = code;
+                        triggerScan(code);
+                    }
+                });
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && panel.style.display === 'block') {
+                    closePanel();
+                }
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initScannerSimulator);
+        } else {
+            initScannerSimulator();
+        }
+    })();
+</script>

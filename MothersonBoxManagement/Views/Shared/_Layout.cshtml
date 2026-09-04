@@ -170,6 +170,8 @@
     @if (User.Identity?.IsAuthenticated == true)
     {
     <script src="~/js/scanner.js" asp-append-version="true"></script>
+    <script src="~/js/page-nav.js" asp-append-version="true"></script>
+    @await Html.PartialAsync("_ScannerSimulator")
     }
     <script csp-nonce>
         document.addEventListener('DOMContentLoaded', () => {
@@ -195,6 +197,16 @@
                 collapseBtn.addEventListener('click', () => {
                     const collapsed = document.body.classList.toggle('sidebar-collapsed');
                     localStorage.setItem('sidebar-collapsed', collapsed);
+                });
+            }
+
+            // Persist sidebar scroll position across navigations
+            const sidebarMenu = document.querySelector('.sidebar-menu');
+            if (sidebarMenu) {
+                const saved = localStorage.getItem('sidebar-scroll');
+                if (saved) sidebarMenu.scrollTop = parseInt(saved, 10);
+                sidebarMenu.addEventListener('scroll', () => {
+                    localStorage.setItem('sidebar-scroll', sidebarMenu.scrollTop);
                 });
             }
         });

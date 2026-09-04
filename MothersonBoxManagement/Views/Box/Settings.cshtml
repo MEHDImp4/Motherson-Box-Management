@@ -342,10 +342,20 @@
         if (pairingForm) {
             pairingForm.addEventListener('submit', async function (event) {
                 event.preventDefault();
-                updateStationFields();
+                var station = updateStationFields();
+                var codeEl = document.getElementById('pairingCode');
+                if (!station) {
+                    codeEl.textContent = 'No workstation name configured. Set one in Workstation Settings above, then try again.';
+                    codeEl.className = 'ms-3 text-warning';
+                    return;
+                }
+                codeEl.className = 'ms-3';
                 var response = await fetch(pairingForm.action, { method: 'POST', body: new FormData(pairingForm) });
                 var body = await response.json();
-                document.getElementById('pairingCode').textContent = response.ok ? body.code : 'Unable to generate code';
+                codeEl.textContent = response.ok ? body.code : 'Unable to generate code';
+                if (!response.ok) {
+                    codeEl.className = 'ms-3 text-danger';
+                }
             });
         }
 

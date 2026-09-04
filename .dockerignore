@@ -13,7 +13,6 @@ assets/
 .env
 .env.*
 !.env.example
-MothersonBoxManagement.Tests/
 .agents/
 .commandcode/
 .config/
